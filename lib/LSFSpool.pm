@@ -187,7 +187,7 @@ sub bsub {
   my $command = ($wait) ? "$self->{bsub} -K " : $self->{bsub};
 
   # FIXME: use MAX_USER_PRIO or a configurable
-  $command .= ($prio) ? '-sp 300 ' : '';
+  $command .= ($prio) ? '-sp 300 ' : ' ';
 
   # Set -u option for bsub, but be careful, if you're submitting
   # thousands of jobs, your INBOX will become quite full.
@@ -202,8 +202,8 @@ sub bsub {
   # LSF post-exec moves output file to destination directory.
   $command .= "-Ep \"mv -f /tmp/$inputfile-output $spooldir/$inputfile-output;\" ";
 
-  # FIXME: Generalize. This fits blastx only right now, eg -query -db -out
-  $command .= $self->{suite}->action($self->{config}->{suite}->{parameters},$spooldir,$inputfile);
+  # This is the command, as per the Suite called.
+  $command .= $self->{suite}->action($self->{config}->{suite}->{parameters},$spooldir,$inputfile) . " ";
 
   # Dry run mode shows you what *would* be submitted.
   $self->logger($command . "\n");
@@ -517,7 +517,7 @@ sub process_dir {
   }
 
   # Check a stop flag that would halt submission...
-  if ( -f $self->{config}->{stopflag} ) {
+  if ( exists $self->{config}->{stopflag} and -f $self->{config}->{stopflag} ) {
     $self->{cache}->add($dir,'time',time());
     $self->logger("Stop flag is set, skipping bsub\n");
     return 0;

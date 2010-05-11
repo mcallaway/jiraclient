@@ -34,14 +34,14 @@ sub action {
   my $self = shift;
   my $parameters = shift;
   my $spooldir = shift;
+  # Note this input file may have LSB_JOBINDEX in it,
+  # making it not a real filename, so don't test it with -f.
   my $inputfile = shift;
 
   throw Error::Simple("'parameters' unspecified")
     if (! defined $parameters);
   throw Error::Simple("given spool is not a directory: $spooldir")
     if (! -d $spooldir);
-  throw Error::Simple("given input file is not a file: $inputfile")
-    if (! -f $inputfile);
 
   $self->debug("action($parameters,$spooldir,$inputfile)\n");
   my $outputfile = "/tmp/" . $inputfile . "-output";
