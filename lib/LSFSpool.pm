@@ -42,7 +42,7 @@ use Getopt::Std;
 # For basename and dirname
 use File::Basename;
 # For find like functionality
-use File::Find::Rule;
+require File::Find::Rule;
 
 # For the Suite of valid commands
 use LSFSpool::Suite;
@@ -485,7 +485,7 @@ sub process_dir {
 
   # Check running before queue full and bsub...
   # Ignore currently running spools.
-  if (check_running($dir) > 0) {
+  if ($self->check_running($dir) > 0) {
     $self->logger("skipping active spool " . basename $dir . "\n");
     $self->{cache}->add($dir,'time',time());
     return 0;
@@ -693,9 +693,6 @@ sub check_args {
   }
   throw Error::Simple("arguments must be all files or all directories, not a mix") if ($files and $dirs);
 
-  # FIXME: do we care about sort here?
-  # Sort assuming a numbered file naming scheme.
-  #my @list = sort { ($a =~ /^.*-(\d+)$/)[0] <=> ($b =~ /^.*-(\d+)/)[0] } @ARGV;
   my @list = @ARGV;
 
   # Canonicalize paths.
@@ -704,7 +701,7 @@ sub check_args {
   # Sanity check spool dirs.
   if ($dirs) {
     foreach my $arg (@list) {
-      check_cwd($arg);
+      $self->check_cwd($arg);
     }
   }
 
@@ -842,7 +839,6 @@ sub main {
   $self->{configfile} = $opts{'C'} if ($opts{'C'});
   delete $opts{'C'};
 
-  print Dumper %opts;
   $self->usage() if (keys(%opts) > 1);
 
   # Read configuration file.
@@ -869,23 +865,23 @@ sub main {
       $rc = $self->build_cache($job);
       $self->logger("added $job to cache\n");
     } elsif ($opts{'c'}) {
-      $rc = check_running($job);
+      $rc = $self->check_running($job);
     } elsif ($opts{'r'}) {
-      $rc = bsub($job,0,1);
+      $rc = $self->bsub($job,0,1);
     } elsif ($opts{'s'}) {
-      $rc = bsub($job);
+      $rc = $self->bsub($job);
     } elsif ($opts{'w'}) {
-      $rc = waitforjobs($job);
+      $rc = $self->waitforjobs($job);
     } elsif ($opts{'p'}) {
       if (! -d $job) {
         throw Error::Simple("consider -s option with files, not -p");
       }
       $self->logger("begin processing $job\n");
       $rc = $self->build_cache($job);
-      $rc = process_cache();
+      $rc = $self->process_cache();
       $self->logger("processing complete $job\n");
     } elsif ($opts{'v'}) {
-      $rc = is_valid($job);
+      $rc = $self->is_valid($job);
     } else {
       $self->usage();
       return 1;
