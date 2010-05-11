@@ -1,0 +1,16 @@
+LSFSpool version 0.01
+=====================
+
+This is a module for managing a spool files to be processed via LSF.
+
+See the perl POD for more extensive documentation.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
