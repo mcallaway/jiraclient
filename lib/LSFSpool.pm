@@ -493,12 +493,12 @@ sub process_dir {
 
   # Check queue full before retry limit and bsub...
   # When queue is full, sleep until we hit queuefloor.
-  my $full = check_queue();
+  my $full = $self->check_queue();
   if ($full == 1) {
     while ($full != 0) {
       $self->logger("sleeping $self->{config}->{sleepval} until queue empties\n");
       sleep $self->{config}->{sleepval};
-      $full = check_queue();
+      $full = $self->check_queue();
     }
     # Return so as to recheck completeness (at the top of this subroutine).
     return 0;
@@ -527,11 +527,11 @@ sub process_dir {
   if (scalar @files) {
     # Resubmit just the failures from the last run.
     foreach my $incomplete (@files) {
-      bsub("$dir/$incomplete");
+      $self->bsub("$dir/$incomplete");
     }
   } else {
     # If specific files weren't present, do the whole dir.
-    bsub($dir);
+    $self->bsub($dir);
   }
   $self->{cache}->add($dir,'time',time());
   $self->{cache}->counter($dir);
@@ -559,7 +559,7 @@ sub process_cache {
 
     for my $dir ( @dirlist ) {
       $self->debug("check cached dir $dir\n");
-      process_dir($dir);
+      $self->process_dir($dir);
     }
   }
 }
