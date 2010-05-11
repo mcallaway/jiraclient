@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 45;
+use Test::More tests => 47;
 use Test::Output;
 use Test::Exception;
 
@@ -116,7 +116,7 @@ sub test_parsedir {
 
   my $dir = $obj->{homedir} . "/spool/sample-fasta-1";
   my @res = $obj->parsedir($dir);
-  ok($res[0] eq '/gscuser/mcallawa/src/LSFSpool/t/data/spool/sample-fasta-1',"dir ok");
+  ok($res[0] eq $cwd . '/data/spool/sample-fasta-1',"dir ok");
   ok($res[1] eq 'sample-fasta-1-\\$LSB_JOBINDEX',"query ok");
   ok($res[2] eq 'sample-fasta-1[1-2]',"job array ok");
 }
@@ -159,6 +159,18 @@ sub test_find_progs {
   like($obj->{bqueues},qr/^.*\/bqueues/,"bqueues is found");
 }
 
+sub test_finddirs {
+  my $obj = shift;
+  my $dir = $obj->{homedir};
+  my @res = $obj->finddirs($dir);
+  lives_ok { $obj->finddirs($dir); } "finddirs lives ok";
+}
+
+sub test_findfiles {
+  my $obj = shift;
+  my $dir = $obj->{homedir};
+  lives_ok { $obj->findfiles($dir); } "findfiles lives ok";
+}
 
 sub test_build_cache {
   # Test cache building.
@@ -212,6 +224,8 @@ test_prepare_logger($obj);
 test_parsefile($obj);
 test_parsedir($obj);
 test_bsub($obj);
+test_finddirs($obj);
+test_findfiles($obj);
 test_check_cwd($obj);
 test_find_progs($obj);
 test_read_good_config_1($obj);

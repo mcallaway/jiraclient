@@ -281,6 +281,7 @@ sub finddirs {
   my @result = File::Find::Rule->directory()
                   ->mindepth(1)
                   ->maxdepth(1)
+                  ->not_name('.*')
                   ->in($dir);
   $self->debug(scalar @result . " directories found\n");
   return @result;
@@ -295,6 +296,7 @@ sub findfiles {
   my @result = File::Find::Rule->file()
                   ->mindepth(1)
                   ->maxdepth(1)
+                  ->not_name('.*')
                   ->in($dir);
   $self->debug(scalar @result . " files found\n");
   return @result;
@@ -608,6 +610,7 @@ sub build_cache {
 }
 
 sub is_valid {
+  # This subroutine handles the CLI invocation of validate().
 
   my $self = shift;
   my $spooldir = shift;
@@ -839,6 +842,7 @@ sub main {
   $self->{configfile} = $opts{'C'} if ($opts{'C'});
   delete $opts{'C'};
 
+  print Dumper %opts;
   $self->usage() if (keys(%opts) > 1);
 
   # Read configuration file.
