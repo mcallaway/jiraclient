@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 16;
+use Test::More tests => 12;
 use Test::Output;
 use Test::Exception;
 
@@ -49,36 +49,29 @@ sub test_logger {
   stdout_unlike { $obj->{suite}->debug("Test\n"); } qr/Test/, "debug off ok";
 }
 
-sub test_run {
-  my $obj = shift;
-  $obj->{configfile} = "lsf_spool_trivial.cfg";
-  $obj->read_config();
-  $obj->activate_suite();
-  is($obj->{config}->{suite}->{name},"Trivial");
-  throws_ok { $obj->{suite}->run("BOGUS") } qr/^failed to exec/, "bad command caught ok";
-  ok($obj->{suite}->run("/bin/ls") == 0,"'/bin/ls' command exits 0 ok");
-  throws_ok { $obj->{suite}->run("/bin/false") } qr/command exits non-zero/, "'/bin/false' command exits 1 ok";
-}
-
 sub test_activate_suite {
   # test activate suite, the trivial one.
   my $obj = shift;
+  my $params = "-f";
   my $dir = $obj->{homedir} . "/" . "spool/sample-fasta-1";
   my $file = "sample-fasta-1-1";
   $obj->{configfile} = "lsf_spool_trivial.cfg";
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"Trivial");
-  $obj->{suite}->action($dir,$file);
+  my $command = $obj->{suite}->action($params,$dir,$file);
+  like($command,qr|^cp $params $dir/$file $dir/$file-output|,"comamnd returned ok");
   ok(-f "$dir/$file-output" == 1,"file is present");
-  throws_ok { $obj->{suite}->action("bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
-  throws_ok { $obj->{suite}->action($dir,"bogusfile") } qr/^given input file is not a file/, "bad spool file caught correctly";
+  throws_ok { $obj->{suite}->action($params,"bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
   stdout_like { $obj->{suite}->logger("test\n") } qr/test/, "stdout logs 'test' ok";
+
+  # simulate the action...
+  open(OF,"$dir/$file-output") or die "cannot create simulated output file";
+  close(OF);
   ok($obj->{suite}->is_complete("$dir/$file") == 1,"is_complete returns true");
   ok($obj->{suite}->is_complete("$dir/bogus") == 0,"is_complete returns false");
 }
 
 my $obj = test_start();
 test_logger($obj);
-test_run($obj);
 test_activate_suite($obj);

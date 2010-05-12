@@ -11,7 +11,6 @@ use Test::Output;
 use Test::Exception;
 
 use Data::Dumper;
-use Class::MOP;
 use Cwd;
 use File::Basename;
 
@@ -34,7 +33,6 @@ sub test_start {
   $spooler->{debug} = 1;
   $spooler->read_config();
   $spooler->prepare_logger();
-  #ok($spooler->{cache}->{parent}->{debug} == $spooler->{debug},"spooler has same debug as parent ok");
   unlink($spooler->{cachefile});
   $spooler->{cache}->prep();
   return $spooler->{cache};
