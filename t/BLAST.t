@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 14;
 use Test::Output;
 use Test::Exception;
 
@@ -30,7 +30,7 @@ sub test_start {
   # Instantiate an LSFSpool object to test.
   my $obj = new LSFSpool;
   $obj->{homedir} = $cwd . "/" . "data";
-  $obj->{debug} = 1;
+  $obj->{debug} = 0;
   $obj->prepare_logger();
   return $obj;
 }
@@ -57,9 +57,9 @@ sub test_count_query {
   $obj->{configfile} = "lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
-  ok($obj->{suite}->count_query(">",$file) == 10);
+  ok($obj->{suite}->count_query(">",$file) == 10,"count > query ok");
   $file = $dir . "/blast-spool-1-1-output";
-  ok($obj->{suite}->count_query("Query=",$file) == 10);
+  ok($obj->{suite}->count_query("Query=",$file) == 10,"count Query= query ok");
 
   chmod 0000,$file or die "Failed to set mode to 0000\n";;
   throws_ok { $obj->{suite}->count_query("Query=",$file); } qr/can't open/, "exception ok";
@@ -81,7 +81,6 @@ sub test_activate_suite {
 
   like($res,qr/blastx/,"program is blastx");
   throws_ok { $obj->{suite}->action($params,"bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
-  throws_ok { $obj->{suite}->action($params,$dir,"bogusfile") } qr/^given input file is not a file/, "bad spool file caught correctly";
   ok($obj->{suite}->is_complete("$dir/$file") == 1,"is_complete returns true ok");
   ok($obj->{suite}->is_complete("$dir/bogus") == 0,"is_complete returns false ok");
   $file = "blast-spool-1-2";
