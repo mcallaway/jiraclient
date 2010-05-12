@@ -8,6 +8,9 @@
 
 package LSFSpool::Suite;
 
+use LSFSpool::BLAST;
+use LSFSpool::Trivial;
+
 sub instantiate() {
   my $self     = shift;
   my $type     = shift;

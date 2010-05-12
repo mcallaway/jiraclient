@@ -2,6 +2,6 @@
 
 use LSFSpool;
 my $app = LSFSpool->new();
-my $rc = $app->main();
+my $rc = $app->main(@ARGV);
 exit $rc;
 

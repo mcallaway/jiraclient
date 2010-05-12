@@ -674,16 +674,18 @@ Usage:
 sub check_args {
   # Sanity check command line arguments.
   my $self = shift;
+  my @args = @_;
+
   $self->debug("check_args()\n");
 
   my $files = 0;
   my $dirs = 0;
 
   throw Error::Simple("no spool argument given")
-    if ($#ARGV == -1);
+    if ($#args == -1);
 
   # Arguments must be either all dirs or all files.
-  foreach my $arg (@ARGV) {
+  foreach my $arg (@args) {
     throw Error::Simple("no such file or directory $arg") if (! -e $arg);
     $files = 1 if (-f $arg);
     $dirs = 1 if (-d $arg);
@@ -691,7 +693,7 @@ sub check_args {
 
   throw Error::Simple("arguments must be all files or all directories, not a mix") if ($files and $dirs);
 
-  my @list = @ARGV;
+  my @list = @args;
 
   # Canonicalize paths.
   @list = map { abs_path($_) } @list;
@@ -870,7 +872,7 @@ sub main {
   $self->find_progs();
 
   # Ensure args are proper.
-  my @joblist = $self->check_args();
+  my @joblist = $self->check_args(@ARGV);
 
   my $rc = 0;
   foreach my $job (@joblist) {
