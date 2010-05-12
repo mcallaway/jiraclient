@@ -24,7 +24,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-our $VERSION = '0.3';
+our $VERSION = '0.4';
 # -- END header created by h2xs
 # Begin original code
 
