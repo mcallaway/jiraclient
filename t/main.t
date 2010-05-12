@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 12;
 use Test::Output;
 use Test::Exception;
 
@@ -76,6 +76,7 @@ sub test_set_cache {
   my $opts = "-i $cwd/data/test.cache -v -d $cwd/data/spool/sample-fasta-1";
   ok($obj->main(ostr($opts)) == 0,"test run went ok");
   ok(-f $obj->{cachefile} == 1,"cache file present ok");
+  chmod(0644, $obj->{cachefile});
   $obj->DESTROY();
 }
 
@@ -91,6 +92,6 @@ sub test_set_logfile {
 # Main
 test_bad_opt();
 test_help();
-#test_debug_dryrun_opts();
+test_debug_dryrun_opts();
 test_set_cache();
 test_set_logfile();
