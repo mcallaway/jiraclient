@@ -1,5 +1,4 @@
 
-# -- BEGIN header created by h2xs
 package LSFSpool;
 
 use strict;
@@ -19,14 +18,9 @@ our @ISA = qw(Exporter);
 # will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
-
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
 our @EXPORT = qw();
-
-our $VERSION = '0.4';
-# -- END header created by h2xs
-# Begin original code
+our $VERSION = '0.4.1';
 
 use English;
 use Data::Dumper;
@@ -646,9 +640,14 @@ sub is_valid {
   return $retval;
 }
 
+sub version {
+  my $self = shift;
+  print "lsf_spool $VERSION\n";
+}
+
 sub usage {
   my $self = shift;
-  print "lsf_spool [-hbcprsvw] [-i cachefile] [-S subdir] [-C configfile] [-H homedir] [-l logfile] <batch_file|spool_directory>
+  print "lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-H homedir] [-l logfile] <batch_file|spool_directory>
 
 Usage:
 
@@ -830,11 +829,15 @@ sub main {
   # Set auto flush, useful with "tee".
   $| = 1;
 
-  getopts("C:H:bcdhi:l:nprsS:vw",\%opts) or
+  getopts("C:H:bcdhi:l:nprsS:vVw",\%opts) or
     throw Error::Simple("Error parsing options");
 
   if ($opts{'h'}) {
     $self->usage();
+    return 0;
+  }
+  if ($opts{'V'}) {
+    $self->version();
     return 0;
   }
 

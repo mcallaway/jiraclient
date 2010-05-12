@@ -28,7 +28,7 @@ my $cwd = dirname $thisfile;
 sub new {
   my $class = shift;
   my $self = {
-    live => 0,
+    live => 1,
   };
   return bless $self, $class;
 }
@@ -265,13 +265,13 @@ sub test_check_queue {
   $obj->{config}->{queueceiling} = 1;
   $obj->{config}->{queuefloor} = 0;
   $obj->{config}->{queue} = "long";
-  my $full = $obj->check_queue();
+  $full = $obj->check_queue();
   ok($full == -1 or $full == 0 or $full == 1);
 
   $obj->{config}->{queueceiling} = 10000;
   $obj->{config}->{queuefloor} = 1000;
   $obj->{config}->{queue} = "backfill";
-  my $full = $obj->check_queue();
+  $full = $obj->check_queue();
   ok($full == -1 or $full == 0 or $full == 1);
 
   $obj->DESTROY();
@@ -448,7 +448,7 @@ my $Test = $CLASS->new();
 
 # Run "live tests" that actually bsub.
 if ($opts->{'L'}) {
-  $Test->{live} = 1;
+  $Test->{live} = 0;
 }
 
 if ($opts->{'l'}) {
