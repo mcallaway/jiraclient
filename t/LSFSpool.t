@@ -12,7 +12,7 @@ use Getopt::Std;
 use Error;
 use Class::MOP;
 
-use Test::More tests => 67;
+use Test::More tests => 70;
 use Test::Output;
 use Test::Exception;
 
@@ -201,6 +201,7 @@ sub test_live_bsub {
   }
 
   $obj->{debug} = 1;
+  $obj->{config}->{queue} = "short";
   my $path = $obj->{homedir} . "/spool/sample-fasta-1/sample-fasta-1-1";
   my $id = $obj->bsub($path);
   ok($id > 0,"bsub submits job id $id");
@@ -228,6 +229,7 @@ sub test_process {
     return;
   }
 
+  $obj->{config}->{queue} = "short";
   $obj->{cachefile} = $obj->{homedir} . "/sample-fasta-7.cache";
   unlink($obj->{cachefile});
 
@@ -254,10 +256,24 @@ sub test_check_queue {
     return;
   }
 
+  $obj->{config}->{queue} = "short";
   $obj->{debug} = 1;
   my $path = $obj->{homedir} . "/spool/sample-fasta-1/sample-fasta-1-1";
   my $full = $obj->check_queue();
   ok($full == -1 or $full == 0 or $full == 1);
+
+  $obj->{config}->{queueceiling} = 1;
+  $obj->{config}->{queuefloor} = 0;
+  $obj->{config}->{queue} = "long";
+  my $full = $obj->check_queue();
+  ok($full == -1 or $full == 0 or $full == 1);
+
+  $obj->{config}->{queueceiling} = 10000;
+  $obj->{config}->{queuefloor} = 1000;
+  $obj->{config}->{queue} = "backfill";
+  my $full = $obj->check_queue();
+  ok($full == -1 or $full == 0 or $full == 1);
+
   $obj->DESTROY();
 }
 
