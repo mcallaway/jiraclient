@@ -22,7 +22,7 @@ sub logger {
   # Simple logging where logfile is set during startup
   # to either a file handle or STDOUT.
   my $self = shift;
-  my $fh = $self->{parent}->{logfile};
+  my $fh = $self->{parent}->{logfh};
   print $fh localtime() . ": @_";
 }
 
@@ -33,38 +33,21 @@ sub debug($) {
     if ($self->{parent}->{debug});
 }
 
-sub run {
-  my $self = shift;
-  my $command = shift;
-  # Add trailing pipe for reading output
-  $self->debug("run($command)\n");
-  open(COM,"$command |") or
-    throw Error::Simple("failed to exec certified command: $command: $!");
-  my $output;
-  while (<COM>) {
-    $output .= $_;
-  }
-  close(COM);
-  my $rc = $? >> 8;
-  $self->debug("exit $rc\n");
-  throw Error::Simple("command exits non-zero: $command: $!") if ($rc);
-  return $rc;
-}
-
 sub action {
   my $self = shift;
+  my $parameters = shift;
   my $spooldir = shift;
   my $inputfile = shift;
+
   $inputfile = $spooldir . "/" . $inputfile;
 
+  throw Error::Simple("'parameters' unspecified")
+    if (! defined $parameters);
   throw Error::Simple("given spool is not a directory: $spooldir")
     if (! -d $spooldir);
-  throw Error::Simple("given input file is not a file: $inputfile")
-    if (! -f $inputfile);
 
   # This is the action certified for this suite.
-  my $command = "cp $inputfile $inputfile-output";
-  $self->run($command);
+  return "cp $parameters $inputfile $inputfile-output";
 }
 
 sub is_complete {
@@ -119,10 +102,6 @@ Trivial class' logger().
 =item debug()
 
 Trivial class' debugging.
-
-=item run()
-
-Run an external command.
 
 =item action()
 

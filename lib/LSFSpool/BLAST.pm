@@ -19,7 +19,7 @@ sub logger {
   # Simple logging where logfile is set during startup
   # to either a file handle or STDOUT.
   my $self = shift;
-  my $fh = $self->{parent}->{logfile};
+  my $fh = $self->{parent}->{logfh};
   print $fh localtime() . ": @_";
 }
 

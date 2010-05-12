@@ -52,10 +52,6 @@ use LSFSpool::Cache;
 # For LSF interaction.
 use LSF::Job;
 
-# FIXME: make class attributes
-use vars qw( %opts );
-
-
 # -- Subroutines
 #
 sub new {
@@ -71,6 +67,7 @@ sub new {
     bsub => undef,
     bqueues => undef,
     logfile => undef,
+    logfh => undef,
     suite => undef,
     dbh => undef,
     cache => new LSFSpool::Cache,
@@ -88,7 +85,7 @@ sub logger {
   # Simple logging where logfile is set during startup
   # to either a file handle or STDOUT.
   my $self = shift;
-  my $fh = $self->{logfile};
+  my $fh = $self->{logfh};
   throw Error::Simple("no logfile defined, run prepare_logger\n")
     if (! defined $fh);
   print $fh localtime() . ": @_";
@@ -184,10 +181,10 @@ sub bsub {
   # Note here the use of -E for a "pre-exec" job, where we have bsub re-execute
   # our self to check to see if there's already full output for a particular
   # job index.  This allows for easy re-submission on previous failure.
-  my $command = ($wait) ? "$self->{bsub} -K " : $self->{bsub};
+  my $command = ($wait) ? "$self->{bsub} -K " : "$self->{bsub} ";
 
   # FIXME: use MAX_USER_PRIO or a configurable
-  $command .= ($prio) ? '-sp 300 ' : ' ';
+  $command .= ($prio) ? '-sp 300 ' : '';
 
   # Set -u option for bsub, but be careful, if you're submitting
   # thousands of jobs, your INBOX will become quite full.
@@ -262,7 +259,6 @@ sub check_running {
     my $number = $2;
     $jobname = basename $jobname . "\[$number\]";
   } else {
-    #$jobname = basename abs_path($jobname);
     $jobname = basename $jobname;
   }
   $self->debug("check_running($jobname)\n");
@@ -672,7 +668,7 @@ Usage:
   -w    wait for the given query to finish
 
 ";
-  exit;
+ return 1;
 }
 
 sub check_args {
@@ -682,15 +678,17 @@ sub check_args {
 
   my $files = 0;
   my $dirs = 0;
-  if ($#ARGV == -1) {
-    $self->usage();
-  }
+
+  throw Error::Simple("no spool argument given")
+    if ($#ARGV == -1);
+
   # Arguments must be either all dirs or all files.
   foreach my $arg (@ARGV) {
     throw Error::Simple("no such file or directory $arg") if (! -e $arg);
     $files = 1 if (-f $arg);
     $dirs = 1 if (-d $arg);
   }
+
   throw Error::Simple("arguments must be all files or all directories, not a mix") if ($files and $dirs);
 
   my @list = @ARGV;
@@ -707,10 +705,12 @@ sub check_args {
 
   # If a starting position (subdir) is given, validate it.
   if (defined $self->{startpos}) {
-    throw Error::Simple("starting position only valid with a single spool dir") if (scalar @list != 1);
-    throw Error::Simple("starting position only valid with spool dir, not a batch file: $list[0]") if (-f $list[0]);
-
-    throw Error::Simple("starting directory not found in spool: $list[0]/$self->{startpos}") if (! -d "$list[0]/$self->{startpos}");
+    throw Error::Simple("starting position only valid with a single spool dir") 
+      if (scalar @list != 1);
+    throw Error::Simple("starting position only valid with spool dir, not a batch file: $list[0]") 
+      if (-f $list[0]);
+    throw Error::Simple("starting directory not found in spool: $list[0]/$self->{startpos}") 
+      if (! -d "$list[0]/$self->{startpos}");
 
     $self->{startpos} = Cwd::abs_path($list[0] . "/" . $self->{startpos});
     $self->{startpos} = basename $self->{startpos};
@@ -735,7 +735,7 @@ sub read_config {
   my $configfile = $self->{configfile};
 
   if (! -d $homedir) {
-    mkdir($homedir) or throw Error::Simple("cannot create directory $homedir\n");
+    mkdir($homedir) or throw Error::Simple("cannot create directory $homedir");
   }
 
   my $config_path = abs_path( $homedir . "/" . $configfile);
@@ -744,9 +744,8 @@ sub read_config {
     $self->{config} = Load scalar read_file($config_path);
   } catch Error with {
     my $ex = shift;
-    #throw Error::Simple("error loading configuration file $config_path: $ex->{-text}");
-    throw Error::Simple("error loading configuration file $config_path:");
-  };
+    throw Error::Simple("error loading config file '$config_path': $ex->{-text}");
+  }
 
   # Validate configuration.
   my @required = ('queue', 'sleepval', 'queueceiling',
@@ -779,21 +778,29 @@ sub prepare_logger {
   # Set the file handle for the log.
   # Use logfile in .cfg if not given on CLI.
   my $self = shift;
-  if (! defined $self->{logfile} and defined $self->{config}->{logfile}) {
+  # Config may have logfile
+  if (defined $self->{config}->{logfile}) {
     $self->{logfile} = $self->{config}->{logfile};
+  }
+  # Command line overrides config file
+  if (defined $self->{logfile}) {
+    $self->{logfile} = $self->{logfile};
   }
   # Open logfile or STDOUT.
   if (defined $self->{logfile}) {
-    open(LOGFILE,">>$self->{logfile}") or throw Error::Simple("failed to open log file $self->{logfile}: $!");
-    $self->{logfile} = \*LOGFILE;
+    open(LOGFILE,">>$self->{logfile}") or
+      throw Error::Simple("failed to open log file $self->{logfile}: $!");
+    $self->{logfh} = \*LOGFILE;
   } else {
-    $self->{logfile} = \*STDOUT;
+    $self->{logfh} = \*STDOUT;
   }
 }
 
 sub find_progs {
   # Find ancillary software.
   my $self = shift;
+
+  $self->debug("find_progs()\n");
 
   # We shell out to bsub because LSF::Jobs is insufficient.
   my $bsub = `which bsub 2>/dev/null`;
@@ -815,19 +822,23 @@ sub find_progs {
 sub main {
 
   my $self = shift;
+  @ARGV = @_;
+  my %opts;
 
   # Set auto flush, useful with "tee".
   $| = 1;
 
-  getopts("C:H:bcdhi:l:nprsS:vw",\%opts);
+  getopts("C:H:bcdhi:l:nprsS:vw",\%opts) or
+    throw Error::Simple("Error parsing options");
 
-  $self->usage() if ($opts{'h'});
+  if ($opts{'h'}) {
+    $self->usage();
+    return 0;
+  }
 
-  $self->{debug} = ($opts{'d'}) ? 1 : 0;
-  delete $opts{'d'};
-  $self->{dryrun} = ($opts{'n'}) ? 1 : 0;
-  delete $opts{'n'};
-  $self->{cachefile} = ($opts{'i'});
+  $self->{debug} = (delete $opts{'d'}) ? 1 : 0;
+  $self->{dryrun} = (delete $opts{'n'}) ? 1 : 0;
+  $self->{cachefile} = (delete $opts{'i'});
   delete $opts{'i'};
   $self->{logfile} = ($opts{'l'});
   delete $opts{'l'};
@@ -839,13 +850,17 @@ sub main {
   $self->{configfile} = $opts{'C'} if ($opts{'C'});
   delete $opts{'C'};
 
-  $self->usage() if (keys(%opts) > 1);
-
-  # Read configuration file.
+  # Read configuration file, may have logfile setting in it.
   $self->read_config();
 
-  # Open log file.
+  # Open log file as soon as we have options parsed.
   $self->prepare_logger();
+
+  if (scalar keys(%opts) > 1) {
+    $self->logger("select only one action: " . join(" ", keys %opts) . "\n\n");
+    $self->usage();
+    return 1;
+  }
 
   # Activate the specified Suite, which defines what actions we're
   # going to submit to LSF and how we identify them as "complete".
@@ -883,11 +898,18 @@ sub main {
     } elsif ($opts{'v'}) {
       $rc = $self->is_valid($job);
     } else {
-      $self->usage();
-      return 1;
+      if (scalar keys %opts) {
+        $self->usage();
+        throw Error::Simple("unknown option: " . join(" ", keys %opts));
+      } else {
+        $self->usage();
+        throw Error::Simple("no action specified\n\n");
+      }
     }
   }
-  close($self->{logfile});
+  close($self->{logfh})
+    if ($self->{logfh} != \*STDOUT);
+
   $self->{dbh}->disconnect() if (defined $self->{dbh});
 
   # Note this only returns the *last* return code...
