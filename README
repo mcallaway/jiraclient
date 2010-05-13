@@ -33,3 +33,16 @@ The following submits jobs 1-N with jobnames for the directory, processing them 
  unset LAST ;
  } | tee submit_jobs.log
 
+PACKAGING
+
+Use perl packager (pp) to produce an archive file for easy distribution to end users.  As a developer, I use local::lib for a local perl module installation.  So, when I run:
+
+ make
+ make test
+ make install
+
+I get things installed into ~/perl5/.  I then use pp to make a generic package for others to use:
+
+ pp -o ~/bin/lsf_spool-0.4.3 ~/perl5/bin/lsf_spool.pl
+
+Now someone could grab ~/bin/lsf_spool-0.4.3 and use it.
