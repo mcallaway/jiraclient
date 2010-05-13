@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.1';
+our $VERSION = '0.4.2';
 
 use English;
 use Data::Dumper;
@@ -50,8 +50,7 @@ use LSF::Job;
 #
 sub new {
   my $self = {
-    homedir => "$ENV{HOME}/.lsf_spool",
-    configfile => "lsf_spool.cfg",
+    configfile => undef,
     stopflag => "LSFSTOP-$$",
     dryrun => 0,
     debug => 0,
@@ -564,7 +563,7 @@ sub build_cache {
   $self->debug("build($spoolname)\n");
 
   if (! defined $self->{cachefile}) {
-    $self->{cachefile} = $self->{homedir} . "/" . basename $spoolname . ".cache";
+    $self->{cachefile} = $spoolname . ".cache";
   }
 
   $self->{cache}->prep();
@@ -647,12 +646,11 @@ sub version {
 
 sub usage {
   my $self = shift;
-  print "lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-H homedir] [-l logfile] <batch_file|spool_directory>
+  print "lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
 
 Usage:
 
-  -C    specify Config file name (lsf_spool.cfg)
-  -H    specify home directory (\$HOME/.lsf_spool)
+  -C    specify Config file name (eg: ./lsf_spool.cfg)
   -b    build a cache of spools (bsub along the way unless dryrun mode)
   -c    check the status of current query (file or dir)
   -h    this helpful message
@@ -732,20 +730,16 @@ sub read_config {
   # Slurp has read_file
   use File::Slurp;
 
-  my $homedir = $self->{homedir};
-  my $configfile = $self->{configfile};
+  throw Error::Simple("please specify a config file with the -C option")
+    if (! defined $self->{configfile});
 
-  if (! -d $homedir) {
-    mkdir($homedir) or throw Error::Simple("cannot create directory $homedir");
-  }
-
-  my $config_path = abs_path( $homedir . "/" . $configfile);
+  my $configfile = abs_path($self->{configfile});
 
   try {
-    $self->{config} = Load scalar read_file($config_path);
+    $self->{config} = Load scalar read_file($configfile);
   } catch Error with {
     my $ex = shift;
-    throw Error::Simple("error loading config file '$config_path': $ex->{-text}");
+    throw Error::Simple("error loading config file '$configfile': $ex->{-text}");
   }
 
   # Validate configuration.
@@ -829,7 +823,7 @@ sub main {
   # Set auto flush, useful with "tee".
   $| = 1;
 
-  getopts("C:H:bcdhi:l:nprsS:vVw",\%opts) or
+  getopts("C:bcdhi:l:nprsS:vVw",\%opts) or
     throw Error::Simple("Error parsing options");
 
   if ($opts{'h'}) {
@@ -849,9 +843,6 @@ sub main {
   delete $opts{'l'};
   $self->{startpos} = ($opts{'S'});
   delete $opts{'S'};
-
-  $self->{homedir} = $opts{'H'} if ($opts{'H'});
-  delete $opts{'H'};
   $self->{configfile} = $opts{'C'} if ($opts{'C'});
   delete $opts{'C'};
 
@@ -933,12 +924,11 @@ LSFSpool - Manage a lsf job spool
 
 =head1 SYNOPSIS
 
-  lsf_spool [-hbcprsvw] [-i cachefile] [-S subdir] [-C configfile] [-H homedir] [-l logfile] <batch_file|spool_directory>
+  lsf_spool [-hbcprsvw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
 
 =head1 OPTIONS
 
-  -C    specify Config file (\$HOME/.lsf_spool/lsf_spool.cfg)
-  -H    specify home directory (\$HOME/.lsf_spool)
+  -C    specify Config file name (eg: ./lsf_spool.cfg)
   -b    build a cache of spools (don't bsub along the way)
   -c    check the status of current query (file or dir)
   -h    this helpful message
