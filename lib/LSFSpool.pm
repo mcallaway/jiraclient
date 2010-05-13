@@ -662,6 +662,7 @@ Usage:
   -S    for a spool dir, start processing at this subdir
   -r    re-submit the given query (file or dir) (MAX_USER_PRIO)
   -v    validate the given query (file or dir)
+  -V    display version information
   -w    wait for the given query to finish
 
 ";
@@ -924,7 +925,7 @@ LSFSpool - Manage a lsf job spool
 
 =head1 SYNOPSIS
 
-  lsf_spool [-hbcprsvw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
+  lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
 
 =head1 OPTIONS
 
@@ -940,6 +941,7 @@ LSFSpool - Manage a lsf job spool
   -S    for a spool dir, start processing at this subdir
   -r    re-bsub the given query (file or dir) (MAX_USER_PRIO)
   -v    validate the given query (file or dir)
+  -V    display version information
   -w    wait for the given query to finish
 
 =head1 DESCRIPTION
