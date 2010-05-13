@@ -14,3 +14,22 @@ To install this module type the following:
    make test
    make install
 
+USAGE
+
+Assume a directory containing a set of sub-directories, spools, each containing batches of work to be processed:
+
+The following submits jobs 1-N with jobnames for the directory, processing them serially, with one not starting until the previous completes.  Note the presence of lsf_spool.cfg as well.
+
+ {
+ VERSION=0.4.3
+ for DIR in `find . -maxdepth 1 -mindepth 1 -type d -printf "%f\n"| sort -t- -k3 -n`; do
+   COMMAND="bsub -q testing -J $DIR"
+   [ -n "$USER" ] && COMMAND="$COMMAND -u ${USER}@genome.wustl.edu"
+   [ -n "$LAST" ] && COMMAND="$COMMAND -w \"ended($LAST)\""
+   ARG="~/bin/lsf_spool-${VERSION} -C lsf_spool.cfg -l ${DIR}.log -p $DIR"
+   $COMMAND $ARG;
+   LAST=$DIR;
+ done
+ unset LAST ;
+ } | tee submit_jobs.log
+
