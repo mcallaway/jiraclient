@@ -10,7 +10,7 @@ sub new() {
   my $class = shift;
   my $self = {
     parent => shift,
-    blastx => '/gsc/pkg/bio/blast+/ncbi-blast-2.2.23+_64bit/blastx',
+    blastx => '/gsc/bin/blastxplus-2.2.23',
   };
   return bless $self, $class;
 }
