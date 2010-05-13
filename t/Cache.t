@@ -27,9 +27,8 @@ my $cwd = dirname $thisfile;
 sub test_start {
   # We need an LSFSpool object for logger, debug, and config.
   my $spooler = new LSFSpool;
-  $spooler->{configfile} = "lsf_spool_good_1.cfg";
-  $spooler->{homedir} = $cwd . "/" . "data";
-  $spooler->{cachefile} = $spooler->{homedir} . "/test.cache";
+  $spooler->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
+  $spooler->{cachefile} = $cwd . "/data/test.cache";
   $spooler->{debug} = 1;
   $spooler->read_config();
   $spooler->prepare_logger();
@@ -83,7 +82,7 @@ sub test_prep_bad_db_path {
   my $cachefile;
 
   # First ensure failure is caught
-  $cache->{parent}->{cachefile} = $cache->{parent}->{homedir} . "/bogus/path/foo";
+  $cache->{parent}->{cachefile} = $cwd . "/bogus/path/foo";
   $cachefile = $cache->{parent}->{cachefile};
   throws_ok { $cache->prep() } qr/failed to create/, "failure to connect caught";
 }
@@ -105,7 +104,7 @@ sub test_prep_good {
   my $cachefile;
 
   # Now do it right
-  $cache->{parent}->{cachefile} = $cache->{parent}->{homedir} . "/test.cache";
+  $cache->{parent}->{cachefile} = $cwd . "/data/test.cache";
   $cachefile = $cache->{parent}->{cachefile};
   unlink($cachefile) if (-f $cachefile);
 
@@ -134,7 +133,7 @@ sub test_methods {
   my ($res,@res);
   my $spoolname = "sample-spool-1";
 
-  $cache->{parent}->{cachefile} = $cache->{parent}->{homedir} . "/test.cache";
+  $cache->{parent}->{cachefile} = $cwd . "/data/test.cache";
   my $cachefile = $cache->{parent}->{cachefile};
   $cache->prep();
 
@@ -173,9 +172,8 @@ sub test_retry {
   # of times.  This is why we use done_testing() at the end.
   # We need an LSFSpool object for logger, debug, and config.
   my $spooler = new LSFSpool;
-  $spooler->{configfile} = "lsf_spool_good_1.cfg";
-  $spooler->{homedir} = $cwd . "/" . "data";
-  $spooler->{cachefile} = $spooler->{homedir} . "/test.cache";
+  $spooler->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
+  $spooler->{cachefile} = $cwd . "/data/test.cache";
   $spooler->{debug} = 0;
   $spooler->read_config();
   $spooler->prepare_logger();
@@ -218,9 +216,8 @@ sub test_retry_fail {
   # use POSIX qw(:sys_wait_h);
   # We need an LSFSpool object for logger, debug, and config.
   my $spooler = new LSFSpool;
-  $spooler->{configfile} = "lsf_spool_good_3.cfg";
-  $spooler->{homedir} = $cwd . "/" . "data";
-  $spooler->{cachefile} = $spooler->{homedir} . "/test.cache";
+  $spooler->{configfile} = $cwd . "/data/lsf_spool_good_3.cfg";
+  $spooler->{cachefile} = $cwd . "/data/test.cache";
   $spooler->{debug} = 0;
   $spooler->read_config();
   $spooler->prepare_logger();

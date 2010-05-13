@@ -29,7 +29,6 @@ my $cwd = dirname $thisfile;
 sub test_start {
   # Instantiate an LSFSpool object to test.
   my $obj = new LSFSpool;
-  $obj->{homedir} = $cwd . "/" . "data";
   $obj->{debug} = 1;
   $obj->prepare_logger();
   return $obj;
@@ -37,7 +36,7 @@ sub test_start {
 
 sub test_logger {
   my $obj = shift;
-  $obj->{configfile} = "lsf_spool_trivial.cfg";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_trivial.cfg";
   $obj->read_config();
   $obj->activate_suite();
   $obj->{debug} = 1;
@@ -53,9 +52,9 @@ sub test_activate_suite {
   # test activate suite, the trivial one.
   my $obj = shift;
   my $params = "-f";
-  my $dir = $obj->{homedir} . "/" . "spool/sample-fasta-1";
+  my $dir = $cwd . "/data/spool/sample-fasta-1";
   my $file = "sample-fasta-1-1";
-  $obj->{configfile} = "lsf_spool_trivial.cfg";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_trivial.cfg";
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"Trivial");

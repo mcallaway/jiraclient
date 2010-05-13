@@ -29,7 +29,6 @@ my $cwd = dirname $thisfile;
 sub test_start {
   # Instantiate an LSFSpool object to test.
   my $obj = new LSFSpool;
-  $obj->{homedir} = $cwd . "/" . "data";
   $obj->{debug} = 0;
   $obj->prepare_logger();
   return $obj;
@@ -37,7 +36,7 @@ sub test_start {
 
 sub test_logger {
   my $obj = shift;
-  $obj->{configfile} = "lsf_spool_good_1.cfg";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
   $obj->{debug} = 1;
@@ -52,9 +51,9 @@ sub test_logger {
 sub test_count_query {
   # test activate suite, the BLAST one.
   my $obj = shift;
-  my $dir = $obj->{homedir};
-  my $file = $dir . "/blast-spool-1-1";
-  $obj->{configfile} = "lsf_spool_good_1.cfg";
+  my $dir = $cwd . "/data";
+  my $file = $cwd . "/data/blast-spool-1-1";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
   ok($obj->{suite}->count_query(">",$file) == 10,"count > query ok");
@@ -69,10 +68,10 @@ sub test_count_query {
 sub test_activate_suite {
   # test activate suite, the BLAST one.
   my $obj = shift;
-  my $dir = $obj->{homedir};
+  my $dir = $cwd . "/data";
   my $file = "blast-spool-1-1";
   my $path = $dir . "/" . $file;
-  $obj->{configfile} = "lsf_spool_good_1.cfg";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"BLAST","blast selected ok");

@@ -27,8 +27,7 @@ my $cwd = dirname $thisfile;
 sub test_start {
   # Instantiate an LSFSpool object to test.
   my $obj = new LSFSpool;
-  $obj->{homedir} = $cwd . "/" . "data";
-  $obj->{configfile} = "lsf_spool_good_1.cfg";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
   $obj->{dryrun} = 1;
   $obj->prepare_logger();
   $obj->read_config();
