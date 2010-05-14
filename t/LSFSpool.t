@@ -371,9 +371,9 @@ sub test_activate_suite {
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"Trivial");
-  $obj->{suite}->action('',$dir,$file);
+  $obj->{suite}->action($dir,$file);
   ok(-f "$dir/$file-output" == 1);
-  throws_ok { $obj->{suite}->action('',"bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
+  throws_ok { $obj->{suite}->action("bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
 
   open(OF,"$dir/$file-output") or die "cannot create simulated output file";
   close(OF);

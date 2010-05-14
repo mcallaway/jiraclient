@@ -8,7 +8,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 16;
 use Test::Output;
 use Test::Exception;
 
@@ -61,7 +61,8 @@ sub test_count_query {
   ok($obj->{suite}->count_query("Query=",$file) == 10,"count Query= query ok");
 
   chmod 0000,$file or die "Failed to set mode to 0000\n";;
-  throws_ok { $obj->{suite}->count_query("Query=",$file); } qr/can't open/, "exception ok";
+  # return 0, not an exception.
+  ok( $obj->{suite}->count_query("Query=",$file) == 0);
   chmod 0644,$file or die "Failed to reset mode to 0644\n";
 }
 
@@ -75,18 +76,29 @@ sub test_activate_suite {
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"BLAST","blast selected ok");
-  my $params = $obj->{config}->{suite}->{parameters};
-  my $res = $obj->{suite}->action($params,$dir,$path);
+  my $res = $obj->{suite}->action($dir,$path);
 
   like($res,qr/blastx/,"program is blastx");
-  throws_ok { $obj->{suite}->action($params,"bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
+  throws_ok { $obj->{suite}->action("bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
   ok($obj->{suite}->is_complete("$dir/$file") == 1,"is_complete returns true ok");
   ok($obj->{suite}->is_complete("$dir/bogus") == 0,"is_complete returns false ok");
   $file = "blast-spool-1-2";
   ok($obj->{suite}->is_complete("$dir/$file") == 0,"is_complete returns false ok");
 }
 
+sub test_output_format_2 {
+  my $obj = shift;
+  my $file = $cwd . "/data/blast-spool-1-1-output-format-2";
+  $obj->{configfile} = $cwd . "/data/lsf_spool_good_4.cfg";
+  $obj->{debug} = 1;
+  $obj->read_config();
+  $obj->activate_suite();
+  is($obj->{config}->{suite}->{name},"BLAST","blast selected ok");
+  ok($obj->{suite}->read_output($file) == 10);
+}
+
 my $obj = test_start();
 test_logger($obj);
 test_count_query($obj);
 test_activate_suite($obj);
+test_output_format_2($obj);

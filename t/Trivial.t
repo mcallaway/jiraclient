@@ -58,10 +58,10 @@ sub test_activate_suite {
   $obj->read_config();
   $obj->activate_suite();
   is($obj->{config}->{suite}->{name},"Trivial");
-  my $command = $obj->{suite}->action($params,$dir,$file);
+  my $command = $obj->{suite}->action($dir,$file);
   like($command,qr|^cp $params $dir/$file $dir/$file-output|,"comamnd returned ok");
   ok(-f "$dir/$file-output" == 1,"file is present");
-  throws_ok { $obj->{suite}->action($params,"bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
+  throws_ok { $obj->{suite}->action("bogusdir",$file) } qr/^given spool is not a directory/, "bad spool dir caught correctly";
   stdout_like { $obj->{suite}->logger("test\n") } qr/test/, "stdout logs 'test' ok";
 
   # simulate the action...
