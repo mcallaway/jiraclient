@@ -126,14 +126,15 @@ sub outfmt_7 {
   local *FH ;
   local $/;
 
+  # Return 0 so caller gets 'incomplete'.
   sysopen FH, $filename, $mode or
-    throw Error::Simple("can't open $filename: $!");
+    return 0;
 
   # Seek to end of file minus some and read it.
   # Assumes that one line will fit into "blocksize".
   my $blocksize = 100;
-  sysseek FH, -$blocksize, 2;
-  sysread FH, ${$buf_ref}, $blocksize;
+  sysseek FH, -$blocksize, 2 or return 0;
+  sysread FH, ${$buf_ref}, $blocksize or return 0;
   close FH ;
 
   my $res;
