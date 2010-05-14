@@ -14,6 +14,7 @@ sub new() {
   my $self = {
     parent => shift,
   };
+  $self->{parameters} = $self->{parent}->{config}->{suite}->{parameters};
   bless $self, $class;
   return $self;
 }
@@ -35,9 +36,10 @@ sub debug($) {
 
 sub action {
   my $self = shift;
-  my $parameters = shift;
   my $spooldir = shift;
   my $inputfile = shift;
+
+  my $parameters = $self->{parameters};
 
   $inputfile = $spooldir . "/" . $inputfile;
 

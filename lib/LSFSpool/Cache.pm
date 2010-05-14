@@ -147,8 +147,7 @@ sub prep {
 
   $self->debug("Connected to: $cachefile\n");
 
-  # FIXME: review the DB table format, what might be better?
-  # FIXME: Add insertion time, modification time.
+  # NOTE: review the DB table format, what might be better?
   my $sql = "CREATE TABLE IF NOT EXISTS spools (spoolname VARCHAR PRIMARY KEY, time VARCHAR(255), count INT UNSIGNED NOT NULL DEFAULT 0, complete SMALL NOT NULL DEFAULT 0, files VARCHAR)";
   return $self->sql_exec($sql);
 }

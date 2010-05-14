@@ -193,7 +193,7 @@ sub bsub {
   $command .= "-Ep \"mv -f /tmp/$inputfile-output $spooldir/$inputfile-output;\" ";
 
   # This is the command, as per the Suite called.
-  $command .= $self->{suite}->action($self->{config}->{suite}->{parameters},$spooldir,$inputfile) . " ";
+  $command .= $self->{suite}->action($spooldir,$inputfile) . " ";
 
   # Dry run mode shows you what *would* be submitted.
   $self->logger($command . "\n");
@@ -513,14 +513,15 @@ sub process_dir {
   }
 
   # Bsub...
+  my $jobid;
   if (scalar @files) {
     # Resubmit just the failures from the last run.
     foreach my $incomplete (@files) {
-      $self->bsub("$dir/$incomplete");
+      $jobid = $self->bsub("$dir/$incomplete");
     }
   } else {
     # If specific files weren't present, do the whole dir.
-    $self->bsub($dir);
+    $jobid = $self->bsub($dir);
   }
   $self->{cache}->add($dir,'time',time());
   $self->{cache}->counter($dir);

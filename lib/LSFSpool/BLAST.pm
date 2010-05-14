@@ -12,6 +12,7 @@ sub new() {
     parent => shift,
     blastx => '/gsc/bin/blastxplus-2.2.23',
   };
+  $self->{parameters} = $self->{parent}->{config}->{suite}->{parameters};
   return bless $self, $class;
 }
 
@@ -32,18 +33,19 @@ sub debug($) {
 
 sub action {
   my $self = shift;
-  my $parameters = shift;
   my $spooldir = shift;
   # Note this input file may have LSB_JOBINDEX in it,
   # making it not a real filename, so don't test it with -f.
   my $inputfile = shift;
+
+  my $parameters = $self->{parameters};
 
   throw Error::Simple("'parameters' unspecified")
     if (! defined $parameters);
   throw Error::Simple("given spool is not a directory: $spooldir")
     if (! -d $spooldir);
 
-  $self->debug("action($parameters,$spooldir,$inputfile)\n");
+  $self->debug("action($spooldir,$inputfile)\n");
   my $outputfile = "/tmp/" . $inputfile . "-output";
   $inputfile = $spooldir . "/" . $inputfile;
 
@@ -60,19 +62,85 @@ sub is_complete ($) {
   my $self = shift;
   my $infile = shift;
 
+  # blastx creates output files with some number of reads in them but it may
+  # include a given read more than once, or not at all.  So, we just ensure
+  # non-empty output and trust that if blastx exits zero, then we're ok.
+  my $inquery = $self->count_query(">", $infile);
+  my $outquery = $self->read_output("$infile-output");
+
+  if (! defined $outquery ) {
+    return 0;
+  }
+  if ( $inquery != $outquery ) {
+    return 0;
+  }
   if ( ! -f "$infile-output" or -s "$infile-output" == 0 ) {
     return 0;
   }
 
-  my $inquery = $self->count_query(">", $infile);
-  my $outquery = $self->count_query("Query=", "$infile-output");
-
-  $self->debug("$inquery != $outquery\n");
-
-  if ( $inquery != $outquery ) {
-    return 0;
-  }
   return 1;
+}
+
+sub read_output {
+  my $self = shift;
+  my $filename = shift;
+
+  my $parameters = $self->{parameters};
+
+  $self->debug("read_output($filename)\n");
+  my $format = 0;
+
+  if ($parameters =~ m/.*outfmt\s\"(.*)\"/) {
+    my @toks = split(/ /,$1);
+    $format = $toks[0];
+  } else {
+    # no format specified, use the default
+    $format = 0;
+  }
+
+  $self->debug("output format: $format\n");
+  if ($format == 7) {
+    return $self->outfmt_7($filename);
+  } elsif ($format == 0) {
+    return $self->outfmt_0($filename);
+  } else {
+    throw Error::Simple("Unsupported blastx output format: $format");
+  }
+}
+
+sub outfmt_0 {
+  my $self = shift;
+  my $filename = shift;
+  return $self->count_query("Query=",$filename);
+}
+
+sub outfmt_7 {
+
+  my $self = shift;
+  my $filename = shift;
+
+  my $buf = '';
+  my $buf_ref = \$buf;
+  my $mode = Fcntl::O_RDONLY;
+
+  local *FH ;
+  local $/;
+
+  sysopen FH, $filename, $mode or
+    throw Error::Simple("can't open $filename: $!");
+
+  # Seek to end of file minus some and read it.
+  # Assumes that one line will fit into "blocksize".
+  my $blocksize = 100;
+  sysseek FH, -$blocksize, 2;
+  sysread FH, ${$buf_ref}, $blocksize;
+  close FH ;
+
+  my $res;
+  if ($buf =~ m/processed (\d+) queries/) {
+    $res = $1;
+  }
+  return $res;
 }
 
 sub count_query {
@@ -89,8 +157,10 @@ sub count_query {
   my $mode = Fcntl::O_RDONLY;
 
   local *FH ;
+
+  # Return 0 so caller gets 'incomplete'.
   sysopen FH, $filename, $mode or
-    throw Error::Simple("can't open $filename: $!");
+    return 0;
 
   local $/;
 
@@ -102,8 +172,7 @@ sub count_query {
 
     my $read_cnt = sysread( FH, ${$buf_ref}, $size_left, length ${$buf_ref} );
 
-    throw Error::Simple("read error in file $filename: $!")
-      unless( $read_cnt );
+    return 0 unless( $read_cnt );
 
     my $last = 0;
     my $idx = 0;
@@ -116,6 +185,7 @@ sub count_query {
     $size_left -= $read_cnt;
   }
   $self->debug("count_query($query,$filename) = $count\n");
+  close(FH);
   return $count;
 }
 
