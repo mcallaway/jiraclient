@@ -203,9 +203,11 @@ sub test_live_bsub {
 
   $obj->{debug} = 1;
   $obj->{config}->{queue} = "short";
-  my $path = $cwd . "/data/spool/sample-fasta-1/sample-fasta-1-1";
-  my $id = $obj->bsub($path);
+  my $path = $cwd . "/data/spool/sample-fasta-1";
+  my $file = "sample-fasta-1-1";
+  my $id = $obj->bsub("$path/$file");
   ok($id > 0,"bsub submits job id $id");
+  #rmtree("$path.logs");
 
   $obj->DESTROY();
 }
@@ -362,6 +364,7 @@ sub test_build_cache {
   @res = $obj->{cache}->fetch($dir,'spoolname');
   ok($res[0] eq $dir,"'spoolname' is correct");
   unlink($obj->{cachefile});
+  rmtree("$dir.logs");
   $obj->DESTROY();
 }
 
