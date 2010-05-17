@@ -19,6 +19,7 @@ use Test::Exception;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
+use File::Path;
 
 use LSFSpool;
 
@@ -183,6 +184,8 @@ sub test_bsub {
   delete $obj->{config}->{email};
   ok($obj->bsub($path) == 0,"no email set ok");
 
+  rmtree("$path.logs");
+
   $obj->DESTROY();
 }
 
@@ -238,6 +241,7 @@ sub test_process {
   unlink("$dir/sample-fasta-7-1-output");
   unlink("$dir/sample-fasta-7-2-output");
   unlink("$dir/sample-fasta-7-3-output");
+  rmtree("$dir.logs");
   $obj->DESTROY();
 }
 
