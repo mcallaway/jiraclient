@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.4';
+our $VERSION = '0.4.5';
 
 use English;
 use Data::Dumper;
@@ -56,8 +56,10 @@ sub new {
     debug => 0,
     buildonly => 0,
     cachefile => undef,
+    logdir => undef,
     startpos => undef,
     bsub => undef,
+    bjobs => undef,
     bqueues => undef,
     logfile => undef,
     logfh => undef,
@@ -191,6 +193,12 @@ sub bsub {
 
   # LSF post-exec moves output file to destination directory.
   $command .= "-Ep \"mv -f /tmp/$inputfile-output $spooldir/$inputfile-output;\" ";
+
+  # Append logging.
+  if ( defined $self->{logdir} ) {
+    $command .= '-e ' . $self->{logdir} . '/\$LSB_JOBNAME.err ';
+    $command .= '-o ' . $self->{logdir} . '/\$LSB_JOBNAME.out ';
+  }
 
   # This is the command, as per the Suite called.
   $command .= $self->{suite}->action($spooldir,$inputfile) . " ";
@@ -372,16 +380,14 @@ sub check_churn {
   return 0;
 }
 
-sub check_queue {
-  # Run bqueues and check how many jobs are running.
-  # Return values are:
-  # 1   Queue above queueceiling
-  # 0   Queue below queuefloor
-  # -1  Queue between floor and ceiling
+sub run_bqueues {
+  # Use bqueues to determine queue fullness.
   my $self = shift;
   my $command = "$self->{bqueues} $self->{config}->{queue}";
   my $line = "?";
-  $self->debug("check_queue($command)\n");
+
+  $self->debug("run_bqueues($command)\n");
+
   open(COMMAND,"$command 2>&1 |") or throw Error::Simple("failed to run bqueues: $!");
   while (<COMMAND>) {
     $line = $_ if (/^$self->{config}->{queue}/);
@@ -390,6 +396,8 @@ sub check_queue {
   my $rc = $? >> 8;
 
   # If bqueues can't be run for some reason, return uncertain.
+  # Do this line check because we have anecdotes of bqueues running
+  # and exiting 0 but not returning the output here.
   if ($line eq "?") {
     $self->debug("bqueues error: $line\n");
     return -1;
@@ -397,6 +405,45 @@ sub check_queue {
 
   my @toks = split(/\s+/,$line);
   my $njobs = $toks[7];
+  return $njobs;
+}
+
+sub run_bjobs {
+  my $self = shift;
+  my $command = "$self->{bjobs} -u $self->{config}-{user} -q $self->{config}->{queue}";
+  my $njobs = 0;
+
+  $self->debug("run_bjobs($command)\n");
+  open(COMMAND,"$command 2>&1 |") or throw Error::Simple("failed to run bqueues: $!");
+  while (<COMMAND>) {
+    # skip the header
+    next if (/^JOBID/);
+    $njobs++;
+  }
+  close(COMMAND);
+  my $rc = $? >> 8;
+
+  if ($rc) {
+    return -1;
+  }
+
+  return $njobs;
+}
+
+sub check_queue {
+  # Check how many jobs are running.
+  # Return values are:
+  # 1   Queue above queueceiling
+  # 0   Queue below queuefloor
+  # -1  Queue between floor and ceiling
+  my $self = shift;
+  my $njobs;
+
+  if ( exists $self->{config}->{user} ) {
+    $njobs = $self->run_bjobs();
+  } else {
+    $njobs = $self->run_bqueues();
+  }
 
   $self->debug("queue: $self->{config}->{queue} $njobs\n");
   return 1 if ( defined $njobs and $njobs > $self->{config}->{queueceiling} );
@@ -565,6 +612,13 @@ sub build_cache {
 
   if (! defined $self->{cachefile}) {
     $self->{cachefile} = $spoolname . ".cache";
+  }
+
+  # Make a log dir as a sibling to the cache file.
+  $self->{logdir} = $spoolname . ".logs";
+  if (! -d $self->{logdir}) {
+    mkdir $self->{logdir} or
+      throw Error::Simple("cannot create log directory $self->{logdir}: $!");
   }
 
   $self->{cache}->prep();
@@ -813,6 +867,14 @@ sub find_progs {
     if (length "$bqueues" == 0);
   $self->{bqueues} = $bqueues;
 
+  # We may shell out to bjobs.
+  my $bjobs = `which bjobs 2>/dev/null`;
+  chomp $bjobs;
+  throw Error::Simple("cannot find bjobs in PATH")
+    if (length "$bjobs" == 0);
+  $self->{bjobs} = $bjobs;
+
+
   return 0;
 }
 
@@ -974,11 +1036,14 @@ The configuration file is YAML formatted file containing the table of options.
   churnrate: 30
   lsf_tries: 2
   db_tries: 1
+  email: user@genome.wustl.edu
+  user:  user
 
   - suite
     + name       : The certified program to run (eg. BLAST)
     + parameters : Parameters for the program
   - queue        : The LSF queue to submit to.
+  - user         : The LSF user, only count this user's jobs.
   - sleepval     : Seconds to sleep between status checks.
   - churnrate    : Seconds before which a job should not be resubmitted.
   - queueceiling : Number of jobs representing a "full" queue.
