@@ -101,7 +101,7 @@ sub parsefile {
   $self->debug("parsefile($jobname)\n");
 
   # Set the job array number based on the digits in the file name.
-  # We do this for convenient accounting for the user.
+  # We do this for convenient accounting.
   my $number;
   # FIXME: this sets number = 1 wrongly
   if ( $jobname =~ m/^.*-(\d+)$/ ) {
@@ -181,9 +181,9 @@ sub bsub {
 
   # Set -u option for bsub, but be careful, if you're submitting
   # thousands of jobs, your INBOX will become quite full.
-  if (exists $self->{config}->{user} and 
-      length($self->{config}->{user}) > 0) {
-    $command .= "-u $self->{config}->{user} ";
+  if (exists $self->{config}->{email} and
+      length($self->{config}->{email}) > 0) {
+    $command .= "-u $self->{config}->{email} ";
   }
 
   # Append the queue and the jobarray we've constructed.
@@ -983,11 +983,11 @@ The configuration file is YAML formatted file containing the table of options.
   - churnrate    : Seconds before which a job should not be resubmitted.
   - queueceiling : Number of jobs representing a "full" queue.
   - queuefloor   : Number of jobs representing an "empty" queue.
-  - user         : Email address for LSF to email notifications to (NOISY!).
+  - email         : Email address for LSF to email notifications to (NOISY!).
   - lsf_tries    : Number of repeat attempts at a job, 0 means infinite.
   - db_tries     : Number of times to retry DB connection.
 
-Be careful with the B<user> option.  B<Millions of jobs make millions of emails.>
+Be careful with the B<email> option.  B<Millions of jobs make millions of emails.>
 
 =head1 EXAMPLES
 

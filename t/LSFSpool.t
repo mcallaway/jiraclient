@@ -176,12 +176,12 @@ sub test_bsub {
   ok($obj->bsub($path,0,1) == 0,"prio set ok");
   ok($obj->bsub($path,1,1) == 0,"wait and prio set ok");
 
-  $obj->{config}->{user} = 'user@genome.wustl.edu';
-  stdout_like { $obj->bsub($path); } qr/user\@genome.wustl.edu/, "user set ok";
-  $obj->{config}->{user} = '';
-  ok($obj->bsub($path) == 0,"empty user set ok");
-  delete $obj->{config}->{user};
-  ok($obj->bsub($path) == 0,"no user set ok");
+  $obj->{config}->{email} = 'user@genome.wustl.edu';
+  stdout_like { $obj->bsub($path); } qr/user\@genome.wustl.edu/, "email set ok";
+  $obj->{config}->{email} = '';
+  ok($obj->bsub($path) == 0,"empty email set ok");
+  delete $obj->{config}->{email};
+  ok($obj->bsub($path) == 0,"no email set ok");
 
   $obj->DESTROY();
 }
