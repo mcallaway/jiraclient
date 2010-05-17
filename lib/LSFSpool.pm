@@ -196,8 +196,8 @@ sub bsub {
 
   # Append logging.
   if ( defined $self->{logdir} ) {
-    $command .= '-e ' . $self->{logdir} . '/\$LSB_JOBNAME.err ';
-    $command .= '-o ' . $self->{logdir} . '/\$LSB_JOBNAME.out ';
+    $command .= '-e ' . $self->{logdir} . '/\$LSB_JOBNAME.%I.%J.err ';
+    $command .= '-o ' . $self->{logdir} . '/\$LSB_JOBNAME.%I.%J.out ';
   }
 
   # This is the command, as per the Suite called.
