@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.5';
+our $VERSION = '0.4.6';
 
 use English;
 use Data::Dumper;
@@ -58,6 +58,7 @@ sub new {
     cachefile => undef,
     logdir => undef,
     startpos => undef,
+    endpos => undef,
     bsub => undef,
     bjobs => undef,
     bqueues => undef,
@@ -236,15 +237,15 @@ sub check_cwd {
   $self->logger("examine spool directory: $jobname\n");
   my @list = map { basename($_) } $self->findfiles($jobname);
   my $dir = basename $jobname;
-  my @oddfiles = grep(!/$dir*/,@list);
+  my @oddfiles = grep(!/^(|\w+-)$dir.*(-\d+)+(|-output)$/,@list);
   if (scalar @oddfiles != 0) {
-    throw Error::Simple("spool directory has unexpected files: @oddfiles");
+    throw Error::Simple("spool directory '$dir' has unexpected files: @oddfiles");
   }
 
   @list = map { basename($_) } $self->finddirs($jobname);
-  my @odddirs = grep(!/$dir*/,@list);
+  my @odddirs = grep(!/^(|\w+-)$dir.*(-\d+)+$/,@list);
   if (scalar @odddirs != 0) {
-    throw Error::Simple("spool directory has unexpected directories: @odddirs");
+    throw Error::Simple("spool directory '$dir' has unexpected directories: @odddirs");
   }
   return 1;
 }
@@ -254,6 +255,8 @@ sub check_running {
   # Both single file or directory are possible.
   my $self = shift;
   my $jobname = shift;
+  $self->debug("check_running($jobname)\n");
+
   if (-f $jobname) {
     $jobname =~ /^(.*)-(\d+)$/;
     $jobname = $1;
@@ -262,7 +265,6 @@ sub check_running {
   } else {
     $jobname = basename $jobname;
   }
-  $self->debug("check_running($jobname)\n");
   LSF::Job->PrintOutput(0);
   LSF::Job->PrintError(0);
   my @jobs = LSF::Job->jobs( -J => $jobname );
@@ -410,7 +412,7 @@ sub run_bqueues {
 
 sub run_bjobs {
   my $self = shift;
-  my $command = "$self->{bjobs} -u $self->{config}-{user} -q $self->{config}->{queue}";
+  my $command = "$self->{bjobs} -u $self->{config}->{user} -q $self->{config}->{queue}";
   my $njobs = 0;
 
   $self->debug("run_bjobs($command)\n");
@@ -464,6 +466,36 @@ sub process_dir {
   my $complete = $result[0];
   return 0 if (defined $complete and $complete == 1);
 
+  # --- Check running before checking completeness to avoid exiting
+  # complete with jobs running.
+  # --- Check churn before check running...
+  # If check_churn is after validation, then we end up validating
+  # immediately after bsub, which is awkward...
+  #
+  # Note we might "churn" here, if the queue is below
+  # the ceiling, but has jobs running for incomplete spools.
+  # This would happen if we kill this process, but leave jobs
+  # running then restart.
+  my $churning = $self->check_churn($dir);
+  if ($churning) {
+    $self->logger("sleeping $self->{config}->{sleepval} until next check\n");
+    sleep $self->{config}->{sleepval};
+    # Return so as to recheck completeness (at the top of this subroutine).
+    return 0;
+  }
+
+  # Update the time of this check, do so after churn check and before check_running.
+  $self->{cache}->add($dir,'time',time());
+
+  # Check running before queue full and bsub, after check_churn...
+  # Ignore currently running spools.
+  if ($self->check_running($dir) > 0) {
+    $self->logger("skipping active spool " . basename $dir . "\n");
+    return 0;
+  }
+  # --- Keep check_running near check_churn
+
+  # Check filesystem completeness before bsubbing, after check_running...
   my %infiles;
   my @files = $self->{cache}->fetch($dir,'files');
   if (defined $files[0] and scalar @files > 0 and $files[0] =~ /^\w+/ ) {
@@ -471,11 +503,11 @@ sub process_dir {
     $complete = 0;
     my @infiles = split(",",$files[0]);
     foreach my $file (@infiles) {
-      $self->debug("validate $file\n");
       $infiles{$file} = 1 if ($self->{suite}->is_complete($file));
     }
     $complete = 1 if (scalar keys %infiles == 0);
     @files = keys %infiles;
+    $self->debug("incomplete @files\n");
   } else {
     # Check whole dir completeness from filesystem...
     ($complete,@files) = $self->validate($dir);
@@ -500,32 +532,7 @@ sub process_dir {
   # if we only want the cache built.
   return 0 if ($self->{buildonly});
 
-  # Check churn before check running...
-  # If check_churn is after validation, then we end up validating
-  # immediately after bsub, which is awkward...
-
-  # Note we might "churn" here, if the queue is below
-  # the ceiling, but has jobs running for incomplete spools.
-  # This would happen if we kill this process, but leave jobs
-  # running then restart.
-  my $churning = $self->check_churn($dir);
-  if ($churning) {
-    $self->logger("sleeping $self->{config}->{sleepval} until next check\n");
-    sleep $self->{config}->{sleepval};
-    # Return so as to recheck completeness (at the top of this subroutine).
-    return 0;
-  }
-
-  # Update the time of this check, do so after churn check.
-  $self->{cache}->add($dir,'time',time());
-
-  # Check running before queue full and bsub...
-  # Ignore currently running spools.
-  if ($self->check_running($dir) > 0) {
-    $self->logger("skipping active spool " . basename $dir . "\n");
-    $self->{cache}->add($dir,'time',time());
-    return 0;
-  }
+  # check_running was here... but led to marking complete before jobs finished.
 
   # Check queue full before retry limit and bsub...
   # When queue is full, sleep until we hit queuefloor.
@@ -589,14 +596,19 @@ sub process_cache {
     my @dirlist = sort { ($a =~ /^.*-(\d+)$/)[0] <=> ($b =~ /^.*-(\d+)/)[0] } $self->{cache}->fetch_complete(0);
 
     # We're done when there's nothing left to do.
-    if (scalar @dirlist == 0) {
-      $self->logger("processing complete\n");
-      return 0;
-    }
+    return 0 if (scalar @dirlist == 0);
 
-    for my $dir ( @dirlist ) {
+    my $startflag = 0;
+
+    foreach my $dir ( @dirlist ) {
+
+      # If we set starting position, check it.
+      my $base;
+      $base = basename $dir;
+
       $self->debug("check cached dir $dir\n");
       $self->process_dir($dir);
+      $self->debug("done with dir $dir\n");
     }
   }
 }
@@ -608,7 +620,7 @@ sub build_cache {
   my $self = shift;
   my $spoolname = shift;
 
-  $self->debug("build($spoolname)\n");
+  $self->debug("build_cache($spoolname)\n");
 
   if (! defined $self->{cachefile}) {
     $self->{cachefile} = $spoolname . ".cache";
@@ -630,7 +642,7 @@ sub build_cache {
   # If this is a spool dir of files, process self.
   push @dirlist,$spoolname if (scalar @dirlist == 0);
 
-  # Sentinel used to watch for startpos, if defined.
+  # Sentinels used to watch for startpos and endpos, if defined.
   my $startflag = 0;
 
   # For each dir in the spool prep a cache entry.
@@ -639,15 +651,20 @@ sub build_cache {
     my $dir = $dirlist[$idx];
     next if (!$dir);
 
+    # If the cache has this dir, move on.
+    next if ($self->{cache}->fetch($dir,'spoolname'));
+
     # If we set starting position, check it.
+    my $base;
     if (defined $self->{startpos} and !$startflag) {
-       my $d = basename $dir;
-       $startflag = 1 if ($d eq $self->{startpos});
+       $base = basename $dir;
+       $startflag = 1 if ($base eq $self->{startpos});
        next if ($startflag != 1);
     }
 
     $self->process_dir($dir);
     delete $dirlist[$idx];
+    last if ($base eq $self->{endpos});
   }
   $self->debug("build($spoolname) complete\n");
   return 0;
@@ -657,38 +674,48 @@ sub is_valid {
   # This subroutine handles the CLI invocation of validate().
 
   my $self = shift;
-  my $spooldir = shift;
+  my $spoolname = shift;
   my $retval;
-  $self->debug("is_valid($spooldir)\n");
+  $self->debug("is_valid($spoolname)\n");
 
-  my ($complete,@files) = $self->validate($spooldir);
+  # If this is a spool dir of dirs, process the dirs.
+  my @dirlist = $self->finddirs($spoolname);
+  @dirlist = sort { ($a =~ /^.*-(\d+)$/)[0] <=> ($b =~ /^.*-(\d+)/)[0] } @dirlist;
 
-  if ($complete == -1) {
-    # @files is undef
-    $self->logger("spool $spooldir is a spool of spools, validate sub-spools instead\n");
-    $retval = undef;
-  } elsif ($complete) {
-    # 99 means all files validated
-    $self->logger("spool $spooldir is complete\n");
-    $retval = 99;
-  } else {
-    $self->logger("spool $spooldir is incomplete\n");
-    foreach my $file (@files) {
-      $self->debug("\t$file\n");
-    }
-    $retval = 0;
-  }
+  # If this is a spool dir of files, process self.
+  push @dirlist,$spoolname if (scalar @dirlist == 0);
 
-  return 0 if (!defined $retval);
+  foreach my $spooldir (@dirlist) {
 
-  # Update cache if specifically given on CLI.
-  if (defined $self->{cachefile}) {
-    $self->{cache}->prep($self->{cachefile});
-    $self->{cache}->add($spooldir,'files',join(",",@files));
-    if ($retval == 99) {
-      $self->{cache}->add($spooldir,'complete',1);
+    my ($complete,@files) = $self->validate($spooldir);
+
+    if ($complete == -1) {
+      # @files is undef
+      $self->logger("spool $spooldir has no files\n");
+      $retval = undef;
+    } elsif ($complete) {
+      # 99 means all files validated
+      $self->logger("spool $spooldir is complete\n");
+      $retval = 99;
     } else {
-      $self->{cache}->add($spooldir,'complete',0);
+      $self->logger("spool $spooldir is incomplete\n");
+      foreach my $file (@files) {
+        $self->debug("\t$file\n");
+      }
+      $retval = 0;
+    }
+
+    next if (!defined $retval);
+
+    # Update cache if specifically given on CLI.
+    if (defined $self->{cachefile}) {
+      $self->{cache}->prep($self->{cachefile});
+      $self->{cache}->add($spooldir,'files',join(",",@files));
+      if ($retval == 99) {
+        $self->{cache}->add($spooldir,'complete',1);
+      } else {
+        $self->{cache}->add($spooldir,'complete',0);
+      }
     }
   }
   return $retval;
@@ -701,13 +728,16 @@ sub version {
 
 sub usage {
   my $self = shift;
-  print "lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
+  print "
+  lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-E subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
 
 Usage:
 
   -C    specify Config file name (eg: ./lsf_spool.cfg)
   -b    build a cache of spools (bsub along the way unless dryrun mode)
   -c    check the status of current query (file or dir)
+  -d    enable debugging
+  -E    for a spool dir, end processing at this subdir
   -h    this helpful message
   -i    for a spool dir, use this named cache file
   -l    specify log file (STDOUT by default)
@@ -770,6 +800,20 @@ sub check_args {
     $self->{startpos} = Cwd::abs_path($list[0] . "/" . $self->{startpos});
     $self->{startpos} = basename $self->{startpos};
     $self->debug("Start spool $list[0] with sub-directory $self->{startpos}\n");
+  }
+
+  # If a stopping position (subdir) is given, validate it.
+  if (defined $self->{endpos}) {
+    throw Error::Simple("ending position only valid with a single spool dir") 
+      if (scalar @list != 1);
+    throw Error::Simple("ending position only valid with spool dir, not a batch file: $list[0]") 
+      if (-f $list[0]);
+    throw Error::Simple("ending directory not found in spool: $list[0]/$self->{endpos}") 
+      if (! -d "$list[0]/$self->{endpos}");
+
+    $self->{endpos} = Cwd::abs_path($list[0] . "/" . $self->{endpos});
+    $self->{endpos} = basename $self->{endpos};
+    $self->debug("End spool $list[0] with sub-directory $self->{endpos}\n");
   }
 
   throw Error::Simple("empty argument list") if (scalar @list == 0);
@@ -887,7 +931,7 @@ sub main {
   # Set auto flush, useful with "tee".
   $| = 1;
 
-  getopts("C:bcdhi:l:nprsS:vVw",\%opts) or
+  getopts("C:bcdE:hi:l:nprsS:vVw",\%opts) or
     throw Error::Simple("Error parsing options");
 
   if ($opts{'h'}) {
@@ -907,6 +951,8 @@ sub main {
   delete $opts{'l'};
   $self->{startpos} = ($opts{'S'});
   delete $opts{'S'};
+  $self->{endpos} = ($opts{'E'});
+  delete $opts{'E'};
   $self->{configfile} = $opts{'C'} if ($opts{'C'});
   delete $opts{'C'};
 
@@ -988,13 +1034,15 @@ LSFSpool - Manage a lsf job spool
 
 =head1 SYNOPSIS
 
-  lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
+  lsf_spool [-hbcprsvVw] [-i cachefile] [-S subdir] [-E subdir] [-C configfile] [-l logfile] <batch_file|spool_directory>
 
 =head1 OPTIONS
 
   -C    specify Config file name (eg: ./lsf_spool.cfg)
   -b    build a cache of spools (don't bsub along the way)
+  -d    enable debugging
   -c    check the status of current query (file or dir)
+  -E    for a spool dir, end processing at this subdir
   -h    this helpful message
   -i    for a spool dir, use this named cache file
   -l    specify log file (STDOUT by default)
