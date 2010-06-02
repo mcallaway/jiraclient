@@ -73,12 +73,14 @@ sub sql_exec {
     # The following is funky because for some reason return() does not
     # retrun from within a try {} block.  The code would execute N times
     # even if return $sth->fetchrow_array() was called.
-    my @row;
+    my @rows;
+    my @data;
     try {
       $sth->execute(@args);
-      @row = $sth->fetchrow_array();
+      while (@data = $sth->fetchrow_array()) {
+      push @rows, @data;
+      }
     } catch Error with { };
-    # Note: we expect only one row
     if ($sth->err()) {
       $attempts += 1;
       if ($attempts >= $max_attempts) {
@@ -87,7 +89,8 @@ sub sql_exec {
       }
       usleep(10000);
     } else {
-      return @row;
+      $self->debug("returning " . scalar @rows . " items\n");
+      return @rows;
     }
   }
 }
@@ -110,7 +113,7 @@ sub prep {
   my $cachefile = $self->{parent}->{cachefile};
 
   if (-f $cachefile) {
-    $self->logger("using existing cache $cachefile\n");
+    $self->logger("connecting to existing cache $cachefile\n");
   } else {
     open(DB,">$cachefile") or
       throw Error::Simple("failed to create new cache $cachefile: $!\n");
@@ -123,7 +126,7 @@ sub prep {
   my $max_retries = $self->{parent}->{config}->{db_tries};
   my $dsn = "DBI:SQLite:dbname=$cachefile";
   while (!$connected and $retries < $max_retries) {
-    $self->logger("SQLite trying to connect: $retries: $cachefile\n");
+    $self->debug("SQLite trying to connect: $retries: $cachefile\n");
     try {
       $self->{dbh} = DBI->connect( $dsn,"","",
           {
