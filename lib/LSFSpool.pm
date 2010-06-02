@@ -663,8 +663,7 @@ sub build_cache {
     }
 
     $self->process_dir($dir);
-    delete $dirlist[$idx];
-    last if ($base eq $self->{endpos});
+    last if (defined $self->{endpos} and $base eq $self->{endpos});
   }
   $self->debug("build($spoolname) complete\n");
   return 0;

@@ -109,7 +109,7 @@ sub test_prep_good {
   unlink($cachefile) if (-f $cachefile);
 
   stdout_like { $cache->prep() } qr/creating new cache/, "new cache file correct";
-  stdout_like { $cache->prep() } qr/using existing cache/, "existing cache file correct";
+  stdout_like { $cache->prep() } qr/connecting to existing cache/, "existing cache file correct";
   ok(-f $cache->{parent}->{cachefile} == 1,"cache file present ok");
 }
 
