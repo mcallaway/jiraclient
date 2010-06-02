@@ -305,9 +305,9 @@ sub test_check_cwd {
   my $res = $obj->check_cwd($dir);
   ok($res  == 1);
   $dir = $cwd . "/data/spool";
-  throws_ok { $obj->check_cwd($dir); } qr/spool directory has unexpected/, "spotted bad spool ok";
+  throws_ok { $obj->check_cwd($dir); } qr/spool directory \S+ has unexpected/, "spotted bad spool ok";
   $dir = $cwd . "/data/spool/sample-fasta-3";
-  throws_ok { $obj->check_cwd($dir); } qr/spool directory has unexpected/, "spotted bad spool ok";
+  throws_ok { $obj->check_cwd($dir); } qr/spool directory \S+ has unexpected/, "spotted bad spool ok";
   $obj->DESTROY();
 }
 
