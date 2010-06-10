@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.6';
+our $VERSION = '0.4.7';
 
 use English;
 use Data::Dumper;
@@ -503,7 +503,7 @@ sub process_dir {
     $complete = 0;
     my @infiles = split(",",$files[0]);
     foreach my $file (@infiles) {
-      $infiles{$file} = 1 if ($self->{suite}->is_complete($file));
+      $infiles{$file} = 1 if (! $self->{suite}->is_complete($file));
     }
     $complete = 1 if (scalar keys %infiles == 0);
     @files = keys %infiles;
