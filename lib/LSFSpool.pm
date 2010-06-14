@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.7';
+our $VERSION = '0.4.8';
 
 use English;
 use Data::Dumper;
@@ -993,13 +993,26 @@ sub main {
     } elsif ($opts{'w'}) {
       $rc = $self->waitforjobs($job);
     } elsif ($opts{'p'}) {
+
       if (! -d $job) {
         throw Error::Simple("consider -s option with files, not -p");
       }
+
       $self->logger("begin processing $job\n");
       $rc = $self->build_cache($job);
       $rc = $self->process_cache();
-      $self->logger("processing complete $job\n");
+
+      # did we give up on any sub dirs?
+      my @dirlist = sort { ($a =~ /^.*-(\d+)$/)[0] <=> ($b =~ /^.*-(\d+)/)[0] } $self->{cache}->fetch_complete(-1);
+      if (scalar @dirlist > 0) {
+        $self->logger("there were errors processing $job\n");
+        foreach my $dir (@dirlist) {
+          $self->logger("$dir\n");
+        }
+      } else {
+        $self->logger("processing complete $job\n");
+      }
+
     } elsif ($opts{'v'}) {
       $rc = $self->is_valid($job);
     } else {
