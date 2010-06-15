@@ -684,6 +684,11 @@ sub is_valid {
   # If this is a spool dir of files, process self.
   push @dirlist,$spoolname if (scalar @dirlist == 0);
 
+  # Connect to cache if given on CLI.
+  if (defined $self->{cachefile}) {
+    $self->{cache}->prep($self->{cachefile});
+  }
+
   foreach my $spooldir (@dirlist) {
 
     my ($complete,@files) = $self->validate($spooldir);
@@ -708,7 +713,6 @@ sub is_valid {
 
     # Update cache if specifically given on CLI.
     if (defined $self->{cachefile}) {
-      $self->{cache}->prep($self->{cachefile});
       $self->{cache}->add($spooldir,'files',join(",",@files));
       if ($retval == 99) {
         $self->{cache}->add($spooldir,'complete',1);
