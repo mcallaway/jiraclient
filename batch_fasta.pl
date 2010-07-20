@@ -8,6 +8,7 @@ use Getopt::Long qw(:config auto_help);
 use File::Basename;
 use File::Path   qw(rmtree);
 use Archive::Zip qw(:ERROR_CODES);
+use Cwd 'abs_path';
 
 use Bio::SeqIO;
 use Pod::Usage;
@@ -119,8 +120,21 @@ sub batch_input($$) {
 
     # Track output file.
     if (!defined($ofasta)) {
-      # Job name is a directory or zip archive.
-      $jobname = sprintf "seq-%s-%d",$filename,$jobcount;
+
+      # output path is
+      # spooldir/spooldir-jobcount/spooldir-jobcount-batch
+      if ($options{'output'}) {
+        my $output = abs_path($options{'output'});
+        $filename = basename $output;
+        if (! -d $output and $filename ne $output) {
+          printf "Create spooldir %s\n",$output;
+          mkdir($output);
+          chdir($output);
+        }
+        delete $options{'output'};
+      }
+
+      $jobname = sprintf "%s-%d",$filename,$jobcount;
       # Batch file name is a file containing reads.
       $bfilename = sprintf "%s-%d",$jobname,$batch;
       $bfilename = "$jobname/$bfilename";
@@ -166,6 +180,7 @@ sub main() {
     'end' => 0,
     'start' => undef,
     'compress' => undef,
+    'output' => undef,
   );
 
   GetOptions(
@@ -175,6 +190,7 @@ sub main() {
       'end=i' => \$options{'end'},
       'start=i' => \$options{'start'},
       'compress' => \$options{'compress'},
+      'output=s' => \$options{'output'},
       );
 
   if ($#ARGV != 0) {
@@ -188,6 +204,7 @@ sub main() {
   # This is a convenience.  We want to be able to continue
   # batching after interruption.
   my $wait = 0;
+
   if ($options{'start'} and $options{'end'} and
       $options{'end'} <= $options{'start'}) {
     die "The 'end' must be greater than the 'start' job";
@@ -199,6 +216,7 @@ sub main() {
   }
 
   batch_input($fasta,$wait);
+  print "Done\n";
 }
 
 main();
@@ -212,7 +230,7 @@ __END__
 
 =head1 SYNOPSIS
 
-  batch_fasta [--force] [--reads N] [--batches N] [--start N] [--end N] [--compress] <fasta>
+  batch_fasta [--force] [--reads N] [--batches N] [--start N] [--end N] [--compress] [--output DIR] <fasta>
 
 =head1 OPTIONS
 
@@ -222,6 +240,7 @@ __END__
   --start   <N> Skip to the first read of job N.
   --end     <N> Stop after job N.
   --compress    Put output batch jobs to zip archives.
+  --output <DIR> Specify an output path.
 
 =head1 DESCRIPTION
 
