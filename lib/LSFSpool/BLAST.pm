@@ -66,15 +66,26 @@ sub is_complete ($) {
   # include a given read more than once, or not at all.  So, we just ensure
   # non-empty output and trust that if blastx exits zero, then we're ok.
   my $inquery = $self->count_query(">", $infile);
+  if (! defined $inquery ) {
+    $self->debug("inquery is undefined\n");
+    return 0;
+  }
+
+  if ( ! -f "$infile-output" or -s "$infile-output" == 0 ) {
+    $self->debug("output file $infile-output is missing or empty\n");
+    return 0;
+  }
+
   my $outquery = $self->read_output("$infile-output");
 
   if (! defined $outquery ) {
+    $self->debug("outquery is undefined\n");
     return 0;
   }
+
+  $self->debug("is_complete: $inquery ?= $outquery\n");
+
   if ( $inquery != $outquery ) {
-    return 0;
-  }
-  if ( ! -f "$infile-output" or -s "$infile-output" == 0 ) {
     return 0;
   }
 
