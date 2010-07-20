@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.8';
+our $VERSION = '0.4.9';
 
 use English;
 use Data::Dumper;
@@ -464,6 +464,7 @@ sub process_dir {
   # Check completeness from cache...
   my @result = $self->{cache}->fetch($dir,'complete');
   my $complete = $result[0];
+  my @files;
   return 0 if (defined $complete and $complete == 1);
 
   # --- Check running before checking completeness to avoid exiting
@@ -496,29 +497,12 @@ sub process_dir {
   # --- Keep check_running near check_churn
 
   # Check filesystem completeness before bsubbing, after check_running...
-  my %infiles;
-  my @files = $self->{cache}->fetch($dir,'files');
-  if (defined $files[0] and scalar @files > 0 and $files[0] =~ /^\w+/ ) {
-    # If we cached incomplete 'files', recheck them.
-    $complete = 0;
-    my @infiles = split(",",$files[0]);
-    foreach my $file (@infiles) {
-      $infiles{$file} = 1 if (! $self->{suite}->is_complete($file));
-    }
-    $complete = 1 if (scalar keys %infiles == 0);
-    @files = keys %infiles;
-    $self->debug("incomplete @files\n");
-  } else {
-    # Check whole dir completeness from filesystem...
-    ($complete,@files) = $self->validate($dir);
-  }
-  $self->debug("incomplete files: " . join(",",@files) . "\n");
-  $self->{cache}->add($dir,'files',join(",",@files));
+  ($complete,@files) = $self->validate($dir);
 
   if ($complete == -1) {
-    $self->logger("over retry limit $dir\n");
+    # -1 is set by validate() when there are no files in spool
     return 0;
-  } elsif ($complete == 1) {
+  } elsif ($complete) {
     # Filesystem says this $dir is complete, mark it so.
     $self->logger("$dir complete\n");
     $self->{cache}->add($dir,'complete',1);
@@ -526,6 +510,8 @@ sub process_dir {
   } else {
     $self->logger("$dir incomplete\n");
     $self->{cache}->add($dir,'complete',0);
+    $self->debug("incomplete files: " . join(",",@files) . "\n");
+    $self->{cache}->add($dir,'files',join(",",@files));
   }
 
   # Conditionally return right after completeness check
@@ -684,11 +670,6 @@ sub is_valid {
   # If this is a spool dir of files, process self.
   push @dirlist,$spoolname if (scalar @dirlist == 0);
 
-  # Connect to cache if given on CLI.
-  if (defined $self->{cachefile}) {
-    $self->{cache}->prep($self->{cachefile});
-  }
-
   foreach my $spooldir (@dirlist) {
 
     my ($complete,@files) = $self->validate($spooldir);
@@ -698,7 +679,7 @@ sub is_valid {
       $self->logger("spool $spooldir has no files\n");
       $retval = undef;
     } elsif ($complete) {
-      # 99 means all files validated
+      # retval 99 means all files validated
       $self->logger("spool $spooldir is complete\n");
       $retval = 99;
     } else {
@@ -1008,6 +989,7 @@ sub main {
 
       # did we give up on any sub dirs?
       my @dirlist = sort { ($a =~ /^.*-(\d+)$/)[0] <=> ($b =~ /^.*-(\d+)/)[0] } $self->{cache}->fetch_complete(-1);
+
       if (scalar @dirlist > 0) {
         $self->logger("there were errors processing $job\n");
         foreach my $dir (@dirlist) {
@@ -1018,6 +1000,10 @@ sub main {
       }
 
     } elsif ($opts{'v'}) {
+      # Connect to cache if given on CLI.
+      if (defined $self->{cachefile}) {
+        $self->{cache}->prep($self->{cachefile});
+      }
       $rc = $self->is_valid($job);
     } else {
       if (scalar keys %opts) {
