@@ -20,7 +20,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 ) ] );
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $VERSION = '0.4.9';
+our $VERSION = '0.4.10';
 
 use English;
 use Data::Dumper;
@@ -187,6 +187,11 @@ sub bsub {
   if (exists $self->{config}->{email} and
       length($self->{config}->{email}) > 0) {
     $command .= "-u $self->{config}->{email} ";
+  }
+
+  # Append optional bsubargs string
+  if (exists $self->{config}->{bsubargs}) {
+    $command .= "$self->{config}->{bsubargs} ";
   }
 
   # Append the queue and the jobarray we've constructed.
