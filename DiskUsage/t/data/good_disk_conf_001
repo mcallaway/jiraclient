@@ -1,0 +1,67 @@
+# disk configuration
+# possible formats
+#  san server min max
+#  nas server base min max
+#              |
+#              -> keyword 'null' equals no base
+#
+#san nfs1  100 116
+#san nfs2  120 136
+san nfs8  200 223
+#san nfs8b 224 247
+san nfs8b 224 238
+san nfs9  250 273
+#san nfs9b 274 297
+san nfs9b 274 297
+san nfs6  800 819
+san nfs7  820 839
+san nfs4  840 859
+san nfs3  910 919
+san nfs3b 920 939
+san nfs5  950 969
+san nfs5b 970 989
+nas ntap1 temp 100 116
+nas nfs10a null 400 425
+nas nfs10b temp 400 411
+nas nfs10c null 442 445
+#nas nfs10d null 900 911
+nas nfs1 sata 600 606
+nas nfs2 sata 700 704
+nas nfs11 sata 808 815
+nas nfs11-1 sata 819 821
+nas nfs11-2 sata 823 824
+nas nfs11-3 sata 828 838
+nas nfs11-4 sata 840 893
+nas nfs12 sata 902 926
+nas nfs14 sata 400 414
+nas nfs14a sata 416 434
+#nas nfs15 null 500 535
+#nas nfs15a xp 100 104
+#nas nfs16 null 600 635
+nas nfs17 xp 100 139
+nas nfs17a xp 180 199
+nas nfs17b xp 1100 1103
+nas nfs18 xp 140 179
+nas nfs18a xp 1104 1127
+nas nfs19 xp 200 239
+nas nfs19a xp 280 281
+nas nfs20 xp 240 279
+nas nfs22 xp 3100 3119
+nas nfs23 xp 3200 3219
+nas gpfs xp 4100 4101
+nas gpfs-dev gpfsdev 1 1
+#nas ntap8 sata 203 203
+#nas ntap9-2 sata 363 363
+nas ntap9-0 temp 200 217
+nas ntap9-1 temp 220 231
+nas ntap8-0 sata 100 114
+nas ntap8-1 sata 130 136
+nas ntap8-2 sata 140 142
+nas ntap8-3 sata 145 149
+nas ntap8-7 sata 155 157
+nas ntap8-4 sata 160 162
+nas ntap9-5 sata 180 183
+nas ntap9-8 sata 185 186
+nas ntap9-6 sata 194 195
+nas thumper1 temp 500 507
+nas gpfs1 gpfstest 1 2

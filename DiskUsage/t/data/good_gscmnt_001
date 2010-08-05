@@ -1,0 +1,155 @@
+#!/bin/bash
+
+mountkey=$1
+
+case "$mountkey" in
+        sata434)
+                echo "nfsbroke:/vol/$mountkey"
+                ;;
+        sata901)
+                echo "nfsbroke:/vol/$mountkey"
+                ;;
+	2[01]*)
+		echo "nfs8:/home$mountkey"
+		;;
+	2[2][0-3])
+		echo "nfs8:/home$mountkey"
+                ;;
+	2[234]*)
+		echo "nfs8b:/home$mountkey"
+                ;;
+	2[56]*)
+		echo "nfs9:/home$mountkey"
+                ;;
+	2[7][1-3])
+		echo "nfs9:/home$mountkey"
+                ;;
+	2[789]*)
+		echo "nfs9b:/home$mountkey"
+                ;;
+	4*)
+		echo "nfs10:/vol/$mountkey"
+		;;
+        5*)
+                echo "nfs15:/vol/$mountkey"
+                ;;
+	8[01]*)
+		echo "nfs16:/vol/home$mountkey"
+		;;
+	8[23]*)
+		echo "nfs21:/vol/home$mountkey"
+		;;
+	8[45]*)
+		echo "nfs15:/vol/home$mountkey"
+		;;
+        90*)
+                echo "nfs10:/vol/409/home$mountkey"
+                ;;
+	9[10]*)
+		echo "nfs24:/vol/home$mountkey"
+		;;
+	9[23]*)
+		echo "nfs24:/vol/home$mountkey"
+		;;
+	9[56]*)
+		echo "nfs25:/vol/home$mountkey"
+		;;
+	9[78]*)
+		echo "nfs25:/vol/home$mountkey"
+		;;
+	hadoop)
+                echo "blue1:/$mountkey/installed"
+                ;;
+	temp1*)
+		echo "ntap1-15:/vol/$mountkey"
+		;;
+	temp2[0-3][0-9])
+                echo "ntap9:/vol/$mountkey"
+                ;;
+	temp4*)
+                echo "nfs10:/vol/$mountkey"
+                ;;
+	temp5*)
+		echo "thumper1:/data/$mountkey"
+		;;
+	sata1[0-6][0-9])
+		echo "ntap8:/vol/$mountkey"
+		;;
+        sata18[012356])
+                echo "ntap9:/vol/$mountkey"
+                ;;
+        sata19[456])
+                echo "ntap9:/vol/$mountkey"
+                ;;
+	sata2*)
+		echo "ntap8:/vol/$mountkey"
+		;;
+	sata3*)
+		echo "ntap9:/vol/$mountkey"
+		;;
+        sata4*)
+                echo "nfs14:/vol/$mountkey"
+                ;;
+	sata6*)
+		echo "nfs1:/vol/$mountkey"
+		;;
+        sata7*)
+                echo "nfs2:/vol/$mountkey"
+                ;;
+        sata8*)
+                echo "nfs11:/vol/$mountkey"
+                ;;
+        sata9*)
+                echo "nfs12:/vol/$mountkey"
+                ;;
+        gpfstest*)
+                echo "gpfs1:/$mountkey"
+                ;;
+	gpfsdev*)
+                echo "gpfs-dev:/vol/$mountkey"
+                ;;
+	hexdata3)
+                echo "ceph1-vm:/vol/$mountkey"
+                ;;
+        hexdata*)
+                echo "linuscs98-vm:/vol/$mountkey"
+                ;;
+        ceph*)
+                echo "ceph1:/mnt/$mountkey"
+                ;;
+	xp1[0-3][0-9])
+                echo "nfs17:/vol/$mountkey"
+                ;;
+        xp1[89][0-9])
+                echo "nfs17:/vol/$mountkey"
+                ;;
+        xp110[0-3])
+                echo "nfs17:/vol/$mountkey"
+                ;;
+        xp1[4-7][0-9])
+                echo "nfs18:/vol/$mountkey"
+                ;;
+        xp11[0-2][0-9])
+                echo "nfs18:/vol/$mountkey"
+                ;;
+        xp2[0-3]*)
+                echo "nfs19:/vol/$mountkey"
+                ;;
+        xp2[89][0-9])
+                echo "nfs19:/vol/$mountkey"
+                ;;
+        xp2[4-7]*)
+                echo "nfs20:/vol/$mountkey"
+                ;;
+        xp31*)
+                echo "nfs22:/vol/$mountkey"
+                ;;
+        xp32*)
+                echo "nfs23:/vol/$mountkey"
+                ;;
+        xp41*)
+                echo "gpfs:/vol/$mountkey"
+                ;;
+esac
+exit 0
+
