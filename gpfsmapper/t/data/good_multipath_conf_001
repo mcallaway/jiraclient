@@ -1,0 +1,97 @@
+defaults {
+ udev_dir  /dev
+ polling_interval  10
+ selector  "round-robin 0"
+ path_grouping_policy multibus
+ getuid_callout  "/sbin/scsi_id -g -u -s /block/%n"
+ prio_callout  /bin/true
+ path_checker  readsector0
+ rr_min_io  100
+ rr_weight  priorities
+ failback  immediate
+# no_path_retry  fail
+ user_friendly_name yes
+ default_features        "1 queue_if_no_path"
+}
+
+
+device {
+  vendor   "HITACHI"
+  product   "OPEN-"
+  path_grouping_policy multibus
+  getuid_callout          "/sbin/scsi_id -g -u -s /block/%n"
+  path_checker  readsector0
+  path_selector  "round-robin 0"
+  hardware_handler "0"
+  failback  15
+  rr_weight  priorities
+  no_path_retry  queue
+ }
+
+------------------------------- AMS2000
+device {
+vendor "HITACHI"
+product "DF.*"
+path_grouping_policy multibus
+path_checker tur
+getuid_callout "/sbin/scsi_id -g -u -s /block/%n"
+features "1 queue_if_no_path"
+no_path_retry 1
+failback immediate
+features "1 queue_if_no_path"
+no_path_retry 1
+}
+
+------------------------------- AMS classic, 9500V
+device {
+  vendor   "HITACHI"
+  product   "DF600F"
+  path_grouping_policy group_by_prio
+  prio_callout  "/sbin/mpath_prio_hds_modular %d"
+  path_checker  readsector0
+  getuid_callout  "/sbin/scsi_id -g -u -s /block/%n"
+  failback  immediate
+ }
+
+multipaths {
+    multipath {
+        wwid   360060e8010052c40052faf7400000000 
+        alias ams2k1lun0
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000001
+        alias ams2k1lun1
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000002
+        alias ams2k1lun2
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000003
+        alias ams2k1lun3
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000003
+        alias ams2k1lun3
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000004
+        alias ams2k1lun4
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000005
+        alias ams2k1lun5
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000006
+        alias ams2k1lun6
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000007
+        alias ams2k1lun7
+    }
+    multipath {
+        wwid   360060e8010052c40052faf7400000008
+        alias ams2k1lun8
+    }
+}
