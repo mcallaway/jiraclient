@@ -1,0 +1,20 @@
+
+This comes from:
+
+http://code.google.com/p/shared-space/wiki/JiraExtendedWebservice
+
+Build with maven2 after Atlassian repository has been configured.
+
+http://confluence.atlassian.com/display/DEVNET/How+to+Build+an+Atlassian+Plugin
+
+In short:
+
+- Get the SDK from http://confluence.atlassian.com/display/DEVNET/Setting+up+your+Plugin+Development+Environment
+- Unpack the tar.gz file and cd into the resulting directory.
+- Add the ./bin to your PATH
+- Run "atlas-cli", this will set up the environment
+- cd back to this project
+- mvn install
+- scp the target/webservice*jar to jira instance WEB-INF/lib/
+- restart jira
+

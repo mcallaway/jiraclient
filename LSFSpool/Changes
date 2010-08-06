@@ -1,0 +1,10 @@
+Revision history for Perl extension LSFSpool.
+
+0.01  Thu May  6 10:07:45 2010
+  - original version; created by h2xs 1.23 with options
+    -X -n LSFSpool
+
+0.3 Tue May 11 16:41:29 CDT 2010
+ - First object oriented version with full CPAN like packaging and unit tests.
+ - Test coverage is about 50% according to Module::Build.
+

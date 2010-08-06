@@ -1,0 +1,18 @@
+<atlassian-plugin key="${project.groupId}.${project.artifactId}" name="${project.name}">
+	<plugin-info>
+		<description>${project.description}</description>
+		<version>${project.version}</version>
+
+		<vendor name="Mario Ivankovits" url="http://code.google.com/p/shared-space"/>
+	</plugin-info>
+
+	<rpc-soap key="SharedSpaceSoap" name="Shared-Space Jira Extension SOAP Services"
+			  class="org.sharedSpace.jira.webservice.SoapExtensionImpl">
+		<description>The Shared-Space Jira Extension SOAP services.</description>
+		<service-path>sharedspace-s1v1</service-path>
+		<published-interface>
+            org.sharedSpace.jira.webservice.SoapExtension
+        </published-interface>
+	</rpc-soap>
+
+</atlassian-plugin>
