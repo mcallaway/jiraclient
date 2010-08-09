@@ -1,11 +1,11 @@
-Source: batch_fasta-perl
+Source: batch-fasta-perl
 Section: perl
 Priority: optional
 Build-Depends: perl (>= 5.7)
 Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
 Standards-Version: 3.8.3
 
-Package: batch_fasta-perl
+Package: batch-fasta-perl
 Architecture: all
 Depends: ${perl:Depends}, ${misc:Depends}
 Description: Convert a large fasta file to directories of batch files.

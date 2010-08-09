@@ -1,8 +1,8 @@
 Format-Specification:
     http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=196
 Upstream-Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
-Upstream-Source: http://search.cpan.org/dist/batch_fasta/
-Upstream-Name: batch_fasta
+Upstream-Source: http://search.cpan.org/dist/batch-fasta/
+Upstream-Name: batch-fasta
 Disclaimer: This copyright info was automatically extracted 
     from the perl module. It may not be accurate, so you better 
     check the module sources in order to ensure the module for its 
