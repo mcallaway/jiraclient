@@ -22,7 +22,7 @@ use Pod::Usage;
 # for debugging
 use Data::Dumper;
 
-our $VERSION = "0.1.0";
+our $VERSION = "0.1";
 
 sub new {
   my $class = shift;
