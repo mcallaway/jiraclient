@@ -1,0 +1,65 @@
+---
+abstract: 'Tools to gather GC disk consumption data.'
+author:
+  - 'Matthew Callaway <mcallawa@genome.wustl.edu>'
+requires:
+  CGI::Application: 0
+  CGI::Application::Plugin::ConfigAuto: 0
+  CGI::Application::Plugin::DBH: 0
+  CGI::Application::Plugin::JSON: 0
+  Cwd: 0
+  Data::Dumper: 0
+  Date::Manip: 0
+  DBI: 0
+  English: 0
+  Exception::Class: 0
+  Exception::Class::TryCatch: 0
+  File::Basename: 0
+  File::Find::Rule: 0
+  FindBin: 0
+  Getopt::Std: 0
+  Net::SNMP: 0
+  Pod::Find: 0
+  Pod::Usage: 0
+  POSIX: 0
+  SQL::Abstract::Limit: 0
+  Time::HiRes: 0
+build_requires:
+  Class::MOP: 0
+  Cwd: 0
+  Data::Dumper: 0
+  DiskUsage: 0
+  DiskUsage::Cache: 0
+  DiskUsage::SNMP: 0
+  Error: 0
+  File::Basename: 0
+  File::Path: 0
+  Getopt::Std: 0
+  Test::Builder::Module: 0
+  Test::Exception: 0
+  Test::More: 0
+  Test::Output: 0
+configure_requires:
+  Module::Build: 0.36
+dynamic_config: 0
+generated_by: 'Module::Build version 0.3607'
+license: perl
+maintainer:
+  - 'Matthew Callaway <mcallawa@genome.wustl.edu>'
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DiskUsage
+provides:
+  DiskUsage:
+    file: lib/DiskUsage.pm
+    version: v0.1.0
+  DiskUsage::Error:
+    file: lib/DiskUsage/Error.pm
+  DiskUsage::Cache:
+    file: lib/DiskUsage/Cache.pm
+  DiskUsage::SNMP:
+    file: lib/DiskUsage/SNMP.pm
+resources:
+  license: http://dev.perl.org/licenses/
+version: v0.1.0
