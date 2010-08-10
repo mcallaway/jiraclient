@@ -1,0 +1,67 @@
+#!/usr/bin/make -f
+
+DOCROOT = /var/www/domains/gsc.wustl.edu/gscweb
+
+HTML = ./html/diskusage.html
+
+SCRIPT = ./bin/disk_usage.pl
+
+JS = ./media/js/jquery.js \
+./media/js/jquery.dataTables.js \
+./media/js/jquery.dataTables.min.js.gz \
+./media/js/jquery.dataTables.min.js
+
+CSS = ./media/css/diskusage_table.css \
+./media/css/diskusage_page.css
+
+IMAGES = ./media/images/forward_enabled.jpg \
+./media/images/back_enabled.jpg \
+./media/images/back_disabled.jpg \
+./media/images/sort_both.png \
+./media/images/forward_disabled.jpg \
+./media/images/sort_asc.png \
+./media/images/sort_desc.png \
+./media/images/sort_both.png
+
+PERLMODS = ./lib/DiskUsage.pm \
+./lib/DiskUsage/SNMP.pm \
+./lib/DiskUsage/Cache.pm \
+./lib/DiskUsage/Error.pm
+
+CGI = ./cgi-bin/du.config \
+./cgi-bin/du_summarytable.cgi \
+./cgi-bin/du_total.cgi \
+./cgi-bin/du_hosttable.cgi \
+./cgi-bin/du_volumetable.cgi
+
+images: $(IMAGES)
+	for ITEM in $(IMAGES); do \
+		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/media/images/$${ITEM} ; \
+	done
+
+css: $(CSS)
+	for ITEM in $(CSS); do \
+		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/media/css/$${ITEM} ; \
+	done
+
+js: $(JS)
+	for ITEM in $(JS); do \
+		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/media/js/$${ITEM} ; \
+	done
+
+cgi: $(CGI)
+	for ITEM in $(CGI); do \
+		install -D -m 0755 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/cgi-bin/$${ITEM} ; \
+	done
+
+html: $(HTML)
+	install -D -m 0644 $(HTML) $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/diskusage.html
+
+#du_install: html cgi js css images
+
+override_dh_install: html cgi js css images
+	dh_install --
+
+%:
+	dh $@
+

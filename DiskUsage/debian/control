@@ -1,0 +1,28 @@
+Source: libdiskusage-perl
+Section: perl
+Priority: optional
+Build-Depends: debhelper (>= 7), libc6-dev-amd64, sqlite3
+Build-Depends-Indep: perl, libtest-exception-perl, libclass-mop-perl,
+  liberror-perl, libtest-output-perl, libnet-snmp-perl,
+  libexception-class-trycatch-perl, libcgi-application-perl,
+  libdbi-perl, libsql-abstract-limit-perl,
+  libcgi-application-basic-plugin-bundle-perl, libfile-find-rule-perl,
+  libexception-class-perl,
+  libcgi-application-extra-plugin-bundle-perl, libdate-manip-perl,
+  libdbd-sqlite3-perl, libyaml-libyaml-perl, libfile-slurp-perl
+Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
+Standards-Version: 3.8.3
+Homepage: http://search.cpan.org/dist/DiskUsage/
+
+Package: libdiskusage-perl
+Architecture: all
+Depends: ${perl:Depends}, ${misc:Depends}, libnet-snmp-perl,
+  libexception-class-trycatch-perl, libcgi-application-perl,
+  libdbi-perl, libsql-abstract-limit-perl,
+  libcgi-application-basic-plugin-bundle-perl, libfile-find-rule-perl,
+  libexception-class-perl,
+  libcgi-application-extra-plugin-bundle-perl, libdate-manip-perl,
+  libdbd-sqlite3-perl, libyaml-libyaml-perl, libfile-slurp-perl
+Description: Tools to gather GC disk consumption data.
+ DiskUsage gathers disk usage information.
+ .
