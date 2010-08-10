@@ -50,6 +50,7 @@ sub error {
 sub logger {
   my $self = shift;
   my $fh = $self->{parent}->{logfh};
+  $fh = \*STDERR if (! defined $fh);
   print $fh localtime() . ": @_";
 }
 

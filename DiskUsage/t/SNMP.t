@@ -9,7 +9,7 @@ my $CLASS = __PACKAGE__;
 use strict;
 use warnings;
 
-use Test::More tests => 16;
+use Test::More tests => 3;
 use Test::Output;
 use Test::Exception;
 
@@ -38,9 +38,9 @@ sub test_start {
   my $obj = new DiskUsage;
   $obj->{configfile} = $cwd . "/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = $cwd . "/data/test.cache";
-  $obj->{debug} = 1;
-  $obj->read_config();
+  $obj->{debug} = 0;
   $obj->prepare_logger();
+  $obj->read_config();
   unlink($obj->{cachefile});
   $obj->{cache}->prep();
   return $obj;
@@ -58,8 +58,8 @@ sub test_logger {
 sub test_cache_snmp {
   my $obj = test_start();
   # Requires active network access to real host
-  my $result = $obj->{snmp}->query_snmp('nfs8');
-  $result = $obj->cache($result);
+  my $result = $obj->{snmp}->query_snmp('nfs17');
+  lives_ok { $obj->cache($result); } "cache_snmp: doesn't crash";
 }
 
 # -- end test subs

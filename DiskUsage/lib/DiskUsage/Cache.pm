@@ -30,19 +30,18 @@ sub new {
 sub error {
   # Raise an Exception object.
   my $self = shift;
-  $self->logger("Error: @_");
-  DiskUsage::Error->throw( error => @_ );
+  $self->{parent}->error(@_);
 }
 
 sub logger {
+  # Raise an Exception object.
   my $self = shift;
-  my $fh = $self->{parent}->{logfh};
-  print $fh localtime() . ": @_";
+  $self->{parent}->logger(@_);
 }
 
 sub local_debug {
   my $self = shift;
-  $self->logger("DEBUG: @_")
+  $self->{parent}->logger("DEBUG: @_")
     if ($self->{parent}->{debug});
 }
 
@@ -140,7 +139,7 @@ sub prep {
 
     if ( catch my $err ) {
       $retries += 1;
-      $self->logger("SQLite can't connect, retrying: $cachefile: $!\n");
+      $self->logger("SQLite can't connect, retrying: $cachefile: $err->error\n");
       sleep(1);
     };
 
@@ -187,6 +186,7 @@ sub disk_hosts_add {
   my $host = shift;
   my $result = shift;
   my $err = shift;
+
   my $snmp_ok;
   if ($err) {
     $snmp_ok = -1;
@@ -194,7 +194,7 @@ sub disk_hosts_add {
     $snmp_ok = scalar keys %$result ? 1 : 0;
   }
 
-  $self->local_debug("disk_hosts_add($host,$result)\n");
+  $self->local_debug("disk_hosts_add($host,result,$err)\n");
 
   my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
   my $res = $self->sql_exec($sql,($host) );

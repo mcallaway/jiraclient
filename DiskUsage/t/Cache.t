@@ -79,9 +79,9 @@ sub test_sql_exec {
 
   my $select = "SELECT total_kb FROM disk_df WHERE mount_path = ?";
   my $res = $cache->sql_exec($select,('/gscmnt/sata920'));
-  print Dumper($res);
+  #print Dumper($res);
   $res = $res->[0]->[0];
-  print Dumper($res);
+  #print Dumper($res);
   lives_and { is $res, 6438993376 } 'test_sql_exec: select ok';
 }
 
@@ -128,6 +128,7 @@ sub test_add {
     'mount_path' => "/gscmnt/sata800",
     'total_kb' => 1000,
     'used_kb' => 900,
+    'group_name' => 'DISK_TEST',
   };
   # Prepare cache
   $cache->prep();

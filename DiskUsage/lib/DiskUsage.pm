@@ -23,7 +23,7 @@ use DiskUsage::SNMP;
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.0.1";
+our $VERSION = "0.1.0";
 
 # Add commas to big numbers
 my $comma_rx = qr/\d{1,3}(?=(\d{3})+(?!\d))/;
@@ -81,7 +81,7 @@ sub logger {
   my $self = shift;
   my $fh = $self->{logfh};
 
-  $self->error("no logfile defined, run prepare_logger\n")
+  DiskUsage::Error->throw( error => "no logfile defined, run prepare_logger\n")
     if (! defined $fh);
 
   print $fh localtime() . ": @_";
@@ -149,7 +149,7 @@ sub read_config {
     $self->error("error loading config file '$configfile': $!\n");
 
   # Validate configuration, required fields.
-  my @required = ( 'db_tries' );
+  my @required = ( 'db_tries','cachefile' );
   foreach my $req (@required) {
     $self->error("configuration is missing required parameter '$req'\n")
       if (! exists $self->{config}->{$req});
@@ -240,7 +240,7 @@ sub cache {
   return if (! defined $host);
   return if (! defined $result);
 
-  $self->local_debug("cache()\n");
+  $self->local_debug("cache($host,$result,$err)\n");
 
   foreach my $key (keys %$result) {
     $self->{cache}->disk_df_add($result->{$key});
@@ -263,9 +263,19 @@ sub is_current {
   return 0 if (scalar @$result < 1);
 
   my $date0 = $result->[0]->[0];
+  return 0 if ($date0 eq "0000-00-00 00:00:00");
+
+  $date0 = ParseDate($result->[0]->[0]);
   return 0 if (! defined $date0);
 
-  my @res = split(':',DateCalc($date0,gmtime()));
+  my $err;
+  my $date1 = ParseDate(scalar gmtime());
+  my $calc = DateCalc($date0,$date1,\$err);
+  $self->error("Error in DateCalc: $date0, $date1, $err\n")
+    if ($err);
+  $self->error("Error in DateCalc: $date0, $date1, $err\n")
+    if (! defined $calc);
+  my @res = split(':',$calc);
   my $hours = $res[4];
   return 0 if (! defined $hours);
 
@@ -298,7 +308,8 @@ sub parse_args {
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{logfile} = delete $opts{'l'};
-  $self->{cachefile} = delete $opts{'i'};
+  $self->{cachefile} = delete $opts{'i'}
+    if ($opts{'i'});
 }
 
 sub cumulative {
@@ -308,7 +319,7 @@ sub cumulative {
   my $total = $result->[0]->[0];
   $result = $self->{cache}->sql_exec("SELECT SUM(used_kb) from disk_df");
   my $used = $result->[0]->[0];
-  $self->local_debug("cumulative(): $total $used\n");
+  #$self->local_debug("cumulative(): $total $used\n");
   return ($total,$used);
 }
 

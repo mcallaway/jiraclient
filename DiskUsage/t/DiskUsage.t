@@ -19,7 +19,7 @@ use File::Basename;
 use File::Path;
 
 # Unit test modules
-use Test::More tests => 7;
+use Test::More tests => 11;
 use Test::Output;
 use Test::Exception;
 
@@ -44,12 +44,13 @@ sub test_start {
   my $self = shift;
   # Instantiate an object to test.
   my $obj = new DiskUsage;
-  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
-  $obj->{debug} = 1;
-  $obj->{dryrun} = 0;
   $obj->parse_args();
-  $obj->read_config();
+  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
+  $obj->{debug} = 0;
+  $obj->{dryrun} = 0;
   $obj->prepare_logger();
+  $obj->read_config();
+  #print Dumper($obj);
   return $obj;
 }
 
@@ -75,8 +76,7 @@ sub test_read_good_config_001 {
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->read_config();
   $obj->prepare_logger();
-  #is($obj->{config}->{queue},"backfill");
-  #ok($obj->{config}->{sleepval} == 60);
+  is($obj->{config}->{db_tries},5);
 }
 
 sub test_read_bad_config_001 {
@@ -84,7 +84,7 @@ sub test_read_bad_config_001 {
   my $obj = test_start();
   # Test an invalid config.
   $obj->{configfile} = "$cwd/data/disk_usage_bad_001.cfg";
-  #throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
+  throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
 }
 
 sub test_parse_disk_conf {
@@ -92,41 +92,29 @@ sub test_parse_disk_conf {
   my $obj = test_start();
   $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
   my $hosts = $obj->parse_disk_conf();
-  print Dumper(sort keys %$hosts);
   ok(scalar keys %$hosts == 36);
 
   $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
   $hosts = $obj->parse_disk_conf();
-  print Dumper(sort keys %$hosts);
   ok(scalar keys %$hosts == 33);
 }
 
 sub test_query_snmp {
   my $self = shift;
   my $obj = test_start();
-  $obj->{debug} = 1;
   # FIXME: need a real SNMP using NFS server to hit
-  my $host = "nfs11"; # no vols
-  my $host = "thumper1"; # no snmp
+  my $host = "nfs17"; # no vols
   my $result = $obj->{snmp}->query_snmp($host);
   ok(scalar keys %$result > 1);
 }
 
-sub test_define_hosts {
-  my $self = shift;
-  my @argv = ('nfs8');
-  print Dumper(@argv);
-}
-
 sub test_is_current {
   my $obj = test_start();
-  my $host = 'nfs8';
+  my $host = 'nfs17';
   my $result;
   $obj->{cache}->prep();
-  if (! -s $obj->{cachefile}) {
-    $result = $obj->{snmp}->query_snmp($host);
-    $result = $obj->cache($host,$result);
-  }
+  $result = $obj->{snmp}->query_snmp($host);
+  $result = $obj->cache($host,$result,0);
   $result = $obj->is_current($host);
   ok($result == 1);
 }
