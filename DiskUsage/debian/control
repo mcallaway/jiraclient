@@ -6,7 +6,7 @@ Build-Depends-Indep: perl, libtest-exception-perl, libclass-mop-perl,
   liberror-perl, libtest-output-perl, libnet-snmp-perl,
   libexception-class-trycatch-perl, libcgi-application-perl,
   libdbi-perl, libfile-find-rule-perl, libexception-class-perl,
-  libdate-manip-perl, libcgi-application-plugins-perl
+  libdate-manip-perl, libcgi-application-plugins-perl,
   libdbd-sqlite3-perl, libyaml-libyaml-perl, libfile-slurp-perl
 Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
 Standards-Version: 3.8.3
@@ -17,7 +17,7 @@ Architecture: all
 Depends: ${perl:Depends}, ${misc:Depends}, libnet-snmp-perl,
   libexception-class-trycatch-perl, libcgi-application-perl,
   libdbi-perl, libfile-find-rule-perl, libexception-class-perl,
-  libdate-manip-perl, libcgi-application-plugins-perl
+  libdate-manip-perl, libcgi-application-plugins-perl,
   libdbd-sqlite3-perl, libyaml-libyaml-perl, libfile-slurp-perl
 Description: Tools to gather GC disk consumption data.
  DiskUsage gathers disk usage information.
