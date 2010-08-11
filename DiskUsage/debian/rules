@@ -63,5 +63,5 @@ override_dh_install: html cgi js css images
 	dh_install --
 
 %:
-	dh $@
+	dh_$@
 
