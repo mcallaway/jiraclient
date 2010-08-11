@@ -8,14 +8,14 @@ use warnings;
 use Data::Dumper;
 # Parse CLI options
 use Getopt::Std;
-# Use try/catch exceptions
-use Exception::Class::TryCatch;
 # Checking currentness in is_current()
 use Date::Manip;
 # Usage function
 use Pod::Find qw(pod_where);
 use Pod::Usage;
 
+# Use try/catch exceptions
+use DiskUsage::TryCatch;
 use DiskUsage::Error;
 use DiskUsage::Cache;
 use DiskUsage::SNMP;

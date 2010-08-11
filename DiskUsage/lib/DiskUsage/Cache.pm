@@ -13,7 +13,7 @@ use Time::HiRes qw(usleep);
 use File::Basename;
 use File::Find::Rule;
 
-use Exception::Class::TryCatch;
+use DiskUsage::TryCatch;
 use DiskUsage::Error;
 
 # -- Subroutines
