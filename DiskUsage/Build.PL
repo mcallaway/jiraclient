@@ -8,12 +8,20 @@ my $class = Module::Build->subclass
     $self->depends_on('test');
     $self->do_system(qw/debuild/,'--no-tgz-check');
     $self->do_system(qw/mkdir/,'-p','dist');
+    my $name = lc($self->{properties}->{dist_name});
+    my $version = "0". $self->{properties}->{dist_version} . "-1";
+    $name = "lib" . $name . "-perl_" . $version;
     my @targets = (
-        );
+     "${name}_all.deb",
+     "${name}.dsc",
+     "${name}_i386.build",
+     "${name}_i386.changes",
+     "${name}.tar.gz",
+    );
     foreach my $file (@targets) {
       rename "../$file", "./dist/$file";
     }
-}
+  }
 SUBCLASS
 
 my $build = $class->new

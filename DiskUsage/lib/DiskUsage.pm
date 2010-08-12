@@ -8,14 +8,14 @@ use warnings;
 use Data::Dumper;
 # Parse CLI options
 use Getopt::Std;
-# Use try/catch exceptions
-use Exception::Class::TryCatch;
 # Checking currentness in is_current()
 use Date::Manip;
 # Usage function
 use Pod::Find qw(pod_where);
 use Pod::Usage;
 
+# Use try/catch exceptions
+use DiskUsage::TryCatch;
 use DiskUsage::Error;
 use DiskUsage::Cache;
 use DiskUsage::SNMP;
@@ -28,10 +28,8 @@ our $VERSION = "0.1.0";
 # Add commas to big numbers
 my $comma_rx = qr/\d{1,3}(?=(\d{3})+(?!\d))/;
 # Convention for all NFS exports
+# FIXME: move to a config file
 my @prefixes = ("/vol","/home");
-# Input file for all filer hosts
-#my $config = "disk.conf";
-#my $config = "srv";
 
 # A mapping of disk related OIDs
 my $oids = {
@@ -131,9 +129,9 @@ sub read_config {
   #use File::Basename;
   use Cwd qw/abs_path/;
   # YAML has Load
-  use YAML::XS;
+  use YAML::XS qw/Load/;
   # Slurp has read_file
-  use File::Slurp;
+  use File::Slurp qw/read_file/;
 
   $self->local_debug("read_config()\n");
 
@@ -291,7 +289,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("cC:dfhi:l:V",\%opts) or
+  getopts("cC:dD:fhi:l:V",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -305,6 +303,7 @@ sub parse_args {
 
   $self->{cacheonly} = delete $opts{'c'} ? 1 : 0;
   $self->{configfile} = delete $opts{'C'};
+  $self->{diskconf} = delete $opts{'D'};
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{logfile} = delete $opts{'l'};
@@ -375,7 +374,7 @@ sub main {
   $self->prepare_logger();
 
   # Read configuration file, may have logfile setting in it.
-  $self->read_config();
+  #$self->read_config();
 
   # Define list of hosts to query
   my $hosts = $self->define_hosts(@ARGV);
@@ -408,13 +407,14 @@ DiskUsage - Gather disk consumption data
 =head1 OPTIONS
 
  -c         Build the cache only.
- -C [file]  Specify config file.
  -d         Enable debug mode.
  -f         Force refresh.
  -h         This useful documentation.
+ -V         Display version.
+ -C [file]  Specify config file.
+ -D [file]  Specify disk config file.
  -i [file]  Set file path for cache file.
  -l [file]  Set file path for log file.
- -V         Display version.
 
 =head1 DESCRIPTION
 

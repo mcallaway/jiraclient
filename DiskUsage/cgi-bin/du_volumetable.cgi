@@ -1,17 +1,11 @@
 #!/usr/bin/perl
 
-# FIXME: remove for production
-BEGIN {
-  push @INC, '/Users/mcallawa/perl5/lib/perl5';
-}
-
 package DataTableServer;
 
 use strict;
 use warnings;
 use base qw/CGI::Application/;
 
-use CGI::Application::Plugin::ConfigAuto (qw/cfg/);
 use CGI::Application::Plugin::JSON 'to_json';
 use CGI::Application::Plugin::DBH (qw/dbh_config dbh/);
 
@@ -29,6 +23,15 @@ sub setup {
 
 sub cgiapp_init {
   my $self = shift;
+
+  $self->{cfg} = {
+    db => {
+      dsn => 'DBI:SQLite:dbname=du.cache',
+      attributes => {
+        RaiseError => 1,
+      },
+    }
+  };
 
   # Set some defaults for DFV unless they already exist...
   $self->param('dfv_defaults') ||

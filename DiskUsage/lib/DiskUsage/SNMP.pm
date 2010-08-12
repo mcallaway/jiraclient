@@ -9,8 +9,8 @@ use POSIX;
 use Net::SNMP;
 use Data::Dumper;
 
+use DiskUsage::TryCatch;
 use DiskUsage::Error;
-use Exception::Class::TryCatch;
 
 # Autoflush
 local $| = 1;
