@@ -1,26 +1,16 @@
 Source: libdiskusage-perl
 Section: perl
 Priority: optional
-Build-Depends: debhelper (>= 6), libc6-dev-amd64, sqlite3
-Build-Depends-Indep: perl,
-  libtest-exception-perl, libclass-mop-perl,
-  liberror-perl, libtest-output-perl, libnet-snmp-perl,
-  libcgi-application-perl,
-  libdbi-perl, libfile-find-rule-perl, libexception-class-perl,
-  libdate-manip-perl, libcgi-application-plugins-perl,
-  libdbd-sqlite3-perl
+Build-Depends: debhelper (>= 5.0.0), libmodule-build-perl
+Build-Depends-Indep: perl (>= 5.8.8), libtest-exception-perl, libclass-mop-perl, liberror-perl, libtest-output-perl, libnet-snmp-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl
 Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
-Standards-Version: 3.8.3
+Standards-Version: 3.7.2
 Homepage: http://search.cpan.org/dist/DiskUsage/
 
 Package: libdiskusage-perl
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends},
-  libnet-snmp-perl,
-  libcgi-application-perl,
-  libdbi-perl, libfile-find-rule-perl, libexception-class-perl,
-  libdate-manip-perl, libcgi-application-plugins-perl,
-  libdbd-sqlite3-perl
+Depends: ${perl:Depends}, ${misc:Depends}, libfile-find-rule-perl, libnet-snmp-perl, libexception-class-perl, libdate-manip-perl, libdbi-perl, libcgi-application-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl, libcgi-application-plugins-perl,
 Description: Tools to gather GC disk consumption data.
- DiskUsage gathers disk usage information.
+ Tools to gather GC disk consumption data.
  .
+ This description was automagically extracted from the module by dh-make-perl.
