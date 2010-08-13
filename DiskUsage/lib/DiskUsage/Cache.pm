@@ -13,9 +13,6 @@ use Time::HiRes qw(usleep);
 use File::Basename;
 use File::Find::Rule;
 
-use DiskUsage::TryCatch;
-use DiskUsage::Error;
-
 # -- Subroutines
 #
 sub new {
@@ -71,25 +68,24 @@ sub sql_exec {
 
     $self->local_debug("sql_exec($sql) with args " . Dumper(@args) . "\n");
 
-    try eval {
+    eval {
       $sth = $dbh->prepare($sql);
     };
-    if (catch my $err) {
-      $self->error("could not prepare sql: " . $err->{message});
+    if ($@) {
+      $self->error("could not prepare sql: $@");
     }
 
     my $rows;
-    try eval {
+    eval {
       $sth->execute(@args);
       $rows = $sth->fetchall_arrayref();
     };
-    # Note: we expect only one row
-    if ( catch my $err ) {
+    if ($@) {
       $attempts += 1;
       if ($attempts >= $max_attempts) {
-        $self->error("failed during execute $attempts times, giving up: $err->{message}\n");
+        $self->error("failed during execute $attempts times, giving up: $@\n");
       } else {
-        $self->logger("failed during execute $attempts times, retrying: $err->{message}\n");
+        $self->logger("failed during execute $attempts times, retrying: $@\n");
       }
       usleep(10000);
     } else {
@@ -106,7 +102,7 @@ sub prep {
 
   $self->local_debug("prep()\n");
 
-  $self->error("cachefile is undefined\n")
+  $self->error("cachefile is undefined, use -i\n")
     if (! defined $cachefile);
   if (-f $cachefile) {
     $self->logger("using existing cache $cachefile\n");
@@ -119,14 +115,14 @@ sub prep {
 
   my $connected = 0;
   my $retries = 0;
-  my $max_retries = $self->{parent}->{config}->{db_tries};
+  my $max_retries = $self->{parent}->{db_tries};
   my $dsn = "DBI:SQLite:dbname=$cachefile";
 
   while (!$connected and $retries < $max_retries) {
 
     $self->logger("SQLite trying to connect: $retries: $cachefile\n");
 
-    try eval {
+    eval {
       $self->{dbh} = DBI->connect( $dsn,"","",
           {
             PrintError => 0,
@@ -136,10 +132,9 @@ sub prep {
         ) or $self->error("couldn't connect to database: " . $self->{dbh}->errstr);
       $connected = 1;
     };
-
-    if ( catch my $err ) {
+    if ( $@ ) {
       $retries += 1;
-      $self->logger("SQLite can't connect, retrying: $cachefile: $err->error\n");
+      $self->logger("SQLite can't connect, retrying: $cachefile: $@\n");
       sleep(1);
     };
 
