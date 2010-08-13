@@ -1,0 +1,279 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"> 
+<html> 
+  <head> 
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+
+    <title>Disk Usage Information</title>
+    <style type="text/css" title="currentStyle">
+          @import "media/css/diskusage_page.css";
+          @import "media/css/diskusage_table.css";
+    </style>
+    <script type="text/javascript" language="javascript" src="media/js/jquery.js"></script>
+    <script type="text/javascript" language="javascript" src="media/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf-8">
+      $(document).ready(function() {
+        /* volume summary table */
+        $('#volume').dataTable( {
+          "bProcessing": true,
+          "bServerSide": true,
+          "iDisplayLength": 25,
+          "aaSorting": [ [2,'desc'] ],
+          "sAjaxSource": "/cgi-bin/du_volumetable.cgi",
+          "fnServerData": function ( sSource, aoData, fnCallback )
+          {
+                /* Add some extra data to the sender */
+                aoData.push( { "name": "rm", "value": "table_data" } );
+                $.getJSON( sSource, aoData, function (json) {
+                  /**
+                   * Insert an extra argument to the request: rm.
+                   * It's the the name of the CGI form parameter that
+                   * contains the run mode name. Its value is the
+                   * runmode, that produces the json output for
+                   * datatables.
+                   **/
+                  fnCallback(json)
+                } );
+          },
+          "fnRowCallback": function( nRow, aaData, iDisplayIndex )
+          {
+                /* append a css class based on cell content */
+                /* capacity > 95 */
+                var $col = 4;
+                var $cell = $(nRow).children('td').eq($col);
+                if ( aaData[$col] > 95 )
+                {
+                  $cell.addClass('warning');
+                }
+                /* group is 'unknown' */
+                var $col = 5;
+                var $cell = $(nRow).children('td').eq($col);
+                if ( aaData[$col] == 'unknown' )
+                {
+                  $cell.addClass('warning');
+                }
+              return nRow;
+          },
+        } );
+        /* end volume summary table */
+
+        /* summary table */
+        $('#group').dataTable( {
+          "bProcessing": true,
+          "bServerSide": true,
+          "iDisplayLength": 25,
+          "sAjaxSource": "/cgi-bin/du_summarytable.cgi",
+          "aaSorting": [ [1,'desc'] ],
+          "fnServerData": function ( sSource, aoData, fnCallback )
+          {
+            aoData.push( { "name": "rm", "value": "table_data" } );
+            $.getJSON( sSource, aoData, function (json) {
+              fnCallback(json)
+              } );
+          },
+          "fnRowCallback": function( nRow, aaData, iDisplayIndex )
+          {
+            /* append a css class based on cell content */
+            /* capacity > 95 */
+            var $col = 3;
+            var $cell = $(nRow).children('td').eq($col);
+            if ( aaData[$col] > 95 )
+            {
+              $cell.addClass('warning');
+            }
+            /* group is 'unknown' */
+            var $col = 0;
+            var $cell = $(nRow).children('td').eq($col);
+            if ( aaData[$col] == 'unknown' )
+            {
+              $cell.addClass('warning');
+            }
+            return nRow;
+          }
+        } );
+        /* end #summary */
+
+        /* hosts table */
+        $('#hosts_table').dataTable( {
+          "bProcessing": true,
+          "bServerSide": true,
+          "iDisplayLength": 10,
+          "bAutoWidth": false,
+          "sAjaxSource": "/cgi-bin/du_hosttable.cgi",
+          "fnServerData": function ( sSource, aoData, fnCallback ) {
+                aoData.push( { "name": "rm", "value": "table_data" } );
+                $.getJSON( sSource, aoData, function (json) {
+                  fnCallback(json)
+                } );
+              },
+          "aoColumns": [
+            null,
+            /* snmp_ok */  { "bVisible":    false },
+            null,
+            null,
+          ],
+          "aaSorting": [ [1,'asc'] ],
+          "fnRowCallback": function( nRow, aaData, iDisplayIndex ) {
+                var $col = 1;
+                var $cell = $(nRow).children('td').eq(0);
+                if (aaData[1] == -1) {
+                  $cell.addClass('warning');
+                }
+                if (aaData[1] == 0) {
+                  $cell.addClass('notice');
+                }
+              return nRow;
+              },
+        } );
+        /* end #summary */
+
+        /* Top of page total host summary */
+        $.getJSON('/cgi-bin/du_total.cgi', function(result) {
+          $("div#total").html(
+            '<h2>Cumulative Disk Usage</h2>'
+            + '<h3>Disk usage added over all reporting NFS servers</h3>'
+            + 'Total KB: ' + result.total_kb + '<br/>'
+            + 'Used KB: ' + result.used_kb + '<br/>'
+            + 'Percentage Consumed: ' + result.capacity + '<br/>'
+          );
+          $("div#total").addClass('emphasis');
+        });
+        /* end top */
+
+      } );
+    </script>
+  </head>
+  <body id="dt_example">
+    <div id="container">
+      <h1>Disk Usage Report</h1>
+
+      <p>This table shows disk consumption information as reported by SNMP from NFS servers.</p>
+
+      <div id="narrow">
+      <div id="total">
+      </div>
+
+      <h1>Hosts Providing Storage Volumes</h1>
+
+      <div class="emphasis" id="narrow">
+      Hosts that reported SNMP errors red.<br/>
+      Hosts that reported no Volume data are orange.<br/>
+      </div>
+
+      <div id="hosts_table">
+      <table cellpadding="0" cellspacing="0" border="0" class="display" id="hosts_table">
+      <thead>
+      <tr>
+      <th width="20%">Hostname</th>
+      <th >SNMP Status</th>
+      <th>First Checked</th>
+      <th>Last Successful Check</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td colspan="3" class="dataTables_empty">Loading data from server</td>
+      </tr>
+      </tbody>
+      <tfoot>
+      <tr>
+      <th>Hostname</th>
+      <th >SNMP Status</th>
+      <th>First Checked</th>
+      <th>Last Successful Check</th>
+      </tr>
+      </tfoot>
+      </table>
+      </div>
+      </div> <!-- end narrow -->
+
+      <div class="clear"></div>
+
+      <h1>Disk Usage by Disk Group</h1>
+
+      <div class="emphasis" id="narrow">
+      Groups over 95% capacity are colored red, as is the 'unkown' group.
+      </div>
+
+      <div id="group">
+      <table cellpadding="0" cellspacing="0" border="0" class="display" id="group">
+      <thead>
+      <tr>
+      <th>Disk Group Name</th>
+      <th>Total KB (Rounded Units)</th>
+      <th>Used KB (Rounded Units)</th>
+      <th>Percentage Consumed (%)</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td colspan="4" class="dataTables_empty">Loading data from server</td>
+      </tr>
+      </tbody>
+      <tfoot>
+      <tr>
+      <th>Disk Group Name</th>
+      <th>Total KB (Rounded Units)</th>
+      <th>Used KB (Rounded Units)</th>
+      <th>Percentage Consumed (%)</th>
+      </tr>
+      </tfoot>
+      </table>
+      </div>
+
+      <div class="clear"></div>
+
+      <h1>Disk Usage By Volume</h1>
+
+      <div class="emphasis" id="narrow">
+      Volumes over 95% capacity are colored red, as is the 'unkown' group.
+      </div>
+
+      <div id="volume">
+      <table cellpadding="0" cellspacing="0" border="0" class="display" id="volume">
+        <thead>
+        <tr>
+        <th>Mount Path</th>
+        <th>Physical Path</th>
+        <th>Total KB (Rounded Units)</th>
+        <th>Used KB (Rounded Units)</th>
+        <th>Percentage Consumed (%)</th>
+        <th>Disk Group Name</th>
+        <th>Last Checked</th>
+        </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" class="dataTables_empty">Loading data from server</td>
+          </tr>
+        </tbody>
+        <tfoot>
+        <tr>
+        <th>Mount Path</th>
+        <th>Physical Path</th>
+        <th>Total KB (Rounded Units)</th>
+        <th>Used KB (Rounded Units)</th>
+        <th>Percentage Consumed (%)</th>
+        <th>Disk Group Name</th>
+        <th>Last Checked</th>
+        </tr>
+        </tfoot>
+      </table>
+      </div> <!-- end of volume div -->
+
+      <h1>Frequently Asked Questions</h1>
+
+      <div class="emphasis">
+      <p>Q: What's the cumulative disk consumption?<br/>
+      A: See the <a href=#total>Totals section</a>.</p>
+      <p>Q: How much space is a specific group consuming?<br/>
+      A: See the <a href=#group>Disk Usage By Disk Group</a> table below.</p>
+      <p>Q: How much space has not yet been assigned to a group?<br/>
+      A: See the <a href=#volume>Disk Volumes</a> table, sort by group name and find <b>unknown</b>.</p>
+      <p>Q: How much space has not yet been made available?<br/>
+      A: That answer is not available from this page. We would have to query storage arrays directly, rather than the filesystems, and this isn't currently possible.</p>
+      </div>
+
+    </div> <!-- end of container -->
+  </body>
+</html>
+
