@@ -1,30 +1,6 @@
 use Module::Build;
-my $class = Module::Build->subclass
-(
-  class => "Module::Build::Custom",
-  code => <<'SUBCLASS' );
-  sub ACTION_deb {
-    my $self = shift;
-    $self->depends_on('test');
-    $self->do_system(qw/debuild/,'--no-tgz-check');
-    $self->do_system(qw/mkdir/,'-p','dist');
-    my $name = lc($self->{properties}->{dist_name});
-    my $version = "0". $self->{properties}->{dist_version} . "-1";
-    $name = "lib" . $name . "-perl_" . $version;
-    my @targets = (
-     "${name}_all.deb",
-     "${name}.dsc",
-     "${name}_i386.build",
-     "${name}_i386.changes",
-     "${name}.tar.gz",
-    );
-    foreach my $file (@targets) {
-      rename "../$file", "./dist/$file";
-    }
-  }
-SUBCLASS
 
-my $build = $class->new
+my $build = Module::Build->new
 (
     module_name         => 'DiskUsage',
     license             => 'perl',
@@ -42,7 +18,6 @@ my $build = $class->new
     'Date::Manip' => '0',
     'DBI' => '0',
     'Exception::Class' => '0',
-    'Exception::Class::TryCatch' => '0',
     'File::Basename' => '0',
     'File::Find::Rule' => '0',
     'Getopt::Std' => '0',
