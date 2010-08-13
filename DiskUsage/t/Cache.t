@@ -39,7 +39,9 @@ sub test_start {
   $obj->{configfile} = $cwd . "/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = $cwd . "/data/test.cache";
   $obj->{debug} = 0;
-  $obj->read_config();
+  #$obj->read_config();
+  $obj->{diskconf} = "./t/data/good_disk_conf_001";
+  $obj->{cachefile} = "./t/data/test.cache";
   $obj->prepare_logger();
   unlink($obj->{cachefile});
   $obj->{cache}->prep();
@@ -154,14 +156,14 @@ sub test_retry {
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{debug} = 0;
-  $obj->read_config();
+  #$obj->read_config();
   $obj->prepare_logger();
 
   # now, set cachefile so we cannot connect... see retry happen
   open(DB,">$obj->{cachefile}");
   close(DB);
   chmod 0000, $obj->{cachefile};
-  throws_ok { $cache->prep() } qr/SQLite can't connect/, "test_retry: fail to connect properly caught";
+  throws_ok { $cache->prep() } qr/failed during execute/, "test_retry: fail to connect properly caught";
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
 }
@@ -169,10 +171,12 @@ sub test_retry {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      my $test = $method->name;
-      $self->$test();
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      #my $test = $method->name;
+      $self->$method();
     }
   }
 }
@@ -192,9 +196,12 @@ if ($opts->{'L'}) {
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      print $method->name . "\n";
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      #print $method->name . "\n";
+      print "$method\n";
     }
   }
   exit;

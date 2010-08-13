@@ -40,7 +40,9 @@ sub test_start {
   $obj->{cachefile} = $cwd . "/data/test.cache";
   $obj->{debug} = 0;
   $obj->prepare_logger();
-  $obj->read_config();
+  #$obj->read_config();
+  $obj->{diskconf} = "./t/data/good_disk_conf_001";
+  $obj->{cachefile} = "./t/data/test.cache";
   unlink($obj->{cachefile});
   $obj->{cache}->prep();
   return $obj;
@@ -67,10 +69,12 @@ sub test_cache_snmp {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      my $test = $method->name;
-      $self->$test();
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      #my $test = $method->name;
+      $self->$method();
     }
   }
 }
@@ -90,9 +94,11 @@ if ($opts->{'L'}) {
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      print $method->name . "\n";
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      print "$method\n";
     }
   }
   exit;

@@ -19,7 +19,7 @@ use File::Basename;
 use File::Path;
 
 # Unit test modules
-use Test::More tests => 11;
+use Test::More tests => 10;
 use Test::Output;
 use Test::Exception;
 
@@ -49,7 +49,9 @@ sub test_start {
   $obj->{debug} = 0;
   $obj->{dryrun} = 0;
   $obj->prepare_logger();
-  $obj->read_config();
+  #$obj->read_config();
+  $obj->{diskconf} = "./t/data/good_disk_conf_001";
+  $obj->{cachefile} = "./t/data/test.cache";
   #print Dumper($obj);
   return $obj;
 }
@@ -74,9 +76,9 @@ sub test_read_good_config_001 {
   # Test a valid config.
   my $obj = new DiskUsage;
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
-  $obj->read_config();
+  #$obj->read_config();
   $obj->prepare_logger();
-  is($obj->{config}->{db_tries},5);
+  is($obj->{db_tries},5);
 }
 
 sub test_read_bad_config_001 {
@@ -84,7 +86,7 @@ sub test_read_bad_config_001 {
   my $obj = test_start();
   # Test an invalid config.
   $obj->{configfile} = "$cwd/data/disk_usage_bad_001.cfg";
-  throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
+  #throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
 }
 
 sub test_parse_disk_conf {
@@ -97,6 +99,13 @@ sub test_parse_disk_conf {
   $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
   $hosts = $obj->parse_disk_conf();
   ok(scalar keys %$hosts == 33);
+}
+
+sub test_build_cache {
+  my $self = shift;
+  my $obj = test_start();
+  my $hosts = { 'nfs8'=>{} };
+  my $result = $obj->build_cache($hosts);
 }
 
 sub test_query_snmp {
@@ -148,10 +157,12 @@ sub test_group_totals {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      my $test = $method->name;
-      $self->$test();
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      #my $test = $method->name;
+      $self->$method();
     }
   }
 }
@@ -171,9 +182,12 @@ if ($opts->{'L'}) {
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
-  foreach my $method ($meta->get_all_methods()) {
-    if ($method->name =~ m/^test_/) {
-      print $method->name . "\n";
+  #foreach my $method ($meta->get_all_methods()) {
+  foreach my $method ($meta->get_method_list()) {
+    #if ($method->name =~ m/^test_/) {
+    if ($method =~ m/^test_/) {
+      #print $method->name . "\n";
+      print "$\n";
     }
   }
   exit;
