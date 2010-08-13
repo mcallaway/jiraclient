@@ -9,9 +9,6 @@ use POSIX;
 use Net::SNMP;
 use Data::Dumper;
 
-use DiskUsage::TryCatch;
-use DiskUsage::Error;
-
 # Autoflush
 local $| = 1;
 
@@ -22,6 +19,9 @@ my @prefixes = ("/vol","/home");
 
 # A mapping of disk related OIDs
 my $oids = {
+  # use sysDescr to spot Linux vs. NetApp vs. GPFS, other
+  'sysDescr'       => '1.3.6.1.2.1.1.1.0',
+  # linux OIDs for volumes and consumption
   'hrStorageEntry' => '1.3.6.1.2.1.25.2.3.1.0',
   'hrStorageIndex' => '1.3.6.1.2.1.25.2.3.1.1',
   'hrStorageType'  => '1.3.6.1.2.1.25.2.3.1.2',
@@ -30,6 +30,14 @@ my $oids = {
   'hrStorageSize'  => '1.3.6.1.2.1.25.2.3.1.5',
   'hrStorageUsed'  => '1.3.6.1.2.1.25.2.3.1.6',
   'extOutput'      => '1.3.6.1.4.1.2021.8.1.101.1',
+  # ntap oids
+  #'fsvolTable'                    => '.1.3.6.1.4.1.789.1.5.8',
+  #'fsvolTablevolEntryvolName'     => '.1.3.6.1.4.1.789.1.5.8.1.2',
+  #'fsvolTablevolEntryOptions'     => '.1.3.6.1.4.1.789.1.5.8.1.7',
+  #'fsdfTabledfEntry'              => '.1.3.6.1.4.1.789.1.5.4.1',
+  'fsdfTabledfEntrydfFileSys'     => '.1.3.6.1.4.1.789.1.5.4.1.2',
+  'fsdfTabledfEntrydfKBytesTotal' => '.1.3.6.1.4.1.789.1.5.4.1.3',
+  'fsdfTabledfEntrydfKBytesUsed'  => '.1.3.6.1.4.1.789.1.5.4.1.4',
 };
 
 sub new {
@@ -43,8 +51,7 @@ sub new {
 sub error {
   # Raise an Exception object.
   my $self = shift;
-  $self->logger("Error: @_");
-  DiskUsage::Error->throw( error => @_ );
+  die "@_";
 }
 
 sub logger {
@@ -167,6 +174,7 @@ sub get_disk_groups {
 
   $self->local_debug("get_disk_groups()\n");
 
+  # FIXME: return if current unless forced
   return if (scalar(keys %$result) < 1);
 
   foreach my $volume (keys %$result) {
