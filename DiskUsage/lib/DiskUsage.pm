@@ -15,8 +15,6 @@ use Pod::Find qw(pod_where);
 use Pod::Usage;
 
 # Use try/catch exceptions
-use DiskUsage::TryCatch;
-use DiskUsage::Error;
 use DiskUsage::Cache;
 use DiskUsage::SNMP;
 
@@ -46,6 +44,7 @@ my $oids = {
 sub new {
   my $self = {
     debug => 0,
+    db_tries => 5,
     maxage => 1, # hours : FIXME, add to config file
     configfile => undef,
     cachefile => undef,
@@ -69,8 +68,7 @@ sub new {
 
 sub error {  # Raise a generic Exception object.
   my $self = shift;
-  $self->logger("Error: @_");
-  DiskUsage::Error->throw( error => @_ );
+  die "@_";
 }
 
 sub logger {
@@ -79,7 +77,7 @@ sub logger {
   my $self = shift;
   my $fh = $self->{logfh};
 
-  DiskUsage::Error->throw( error => "no logfile defined, run prepare_logger\n")
+  die "no logfile defined, run prepare_logger"
     if (! defined $fh);
 
   print $fh localtime() . ": @_";
@@ -120,43 +118,43 @@ sub prepare_logger {
   }
 }
 
-sub read_config {
-  # Read a simple configuration file that contains a hash object
-  # and subroutines.
-  my $self = shift;
-
-  # abs_path for config file path
-  #use File::Basename;
-  use Cwd qw/abs_path/;
-  # YAML has Load
-  use YAML::XS qw/Load/;
-  # Slurp has read_file
-  use File::Slurp qw/read_file/;
-
-  $self->local_debug("read_config()\n");
-
-  return
-    if (! defined $self->{configfile});
-
-  $self->error("no such file: $self->{configfile}\n")
-    if (! -f $self->{configfile});
-
-  my $configfile = abs_path($self->{configfile});
-
-  $self->{config} = Load scalar read_file($configfile) ||
-    $self->error("error loading config file '$configfile': $!\n");
-
-  # Validate configuration, required fields.
-  my @required = ( 'db_tries','cachefile' );
-  foreach my $req (@required) {
-    $self->error("configuration is missing required parameter '$req'\n")
-      if (! exists $self->{config}->{$req});
-  }
-  foreach my $key (keys %{ $self->{config} } ) {
-    $self->{$key} = $self->{config}->{$key}
-      if (exists $self->{$key});
-  }
-}
+#sub read_config {
+#  # Read a simple configuration file that contains a hash object
+#  # and subroutines.
+#  my $self = shift;
+#
+#  # abs_path for config file path
+#  #use File::Basename;
+#  use Cwd qw/abs_path/;
+#  # YAML has Load
+#  use YAML::XS qw/Load/;
+#  # Slurp has read_file
+#  use File::Slurp qw/read_file/;
+#
+#  $self->local_debug("read_config()\n");
+#
+#  return
+#    if (! defined $self->{configfile});
+#
+#  $self->error("no such file: $self->{configfile}\n")
+#    if (! -f $self->{configfile});
+#
+#  my $configfile = abs_path($self->{configfile});
+#
+#  $self->{config} = Load scalar read_file($configfile) ||
+#    $self->error("error loading config file '$configfile': $!\n");
+#
+#  # Validate configuration, required fields.
+#  my @required = ( 'db_tries','cachefile' );
+#  foreach my $req (@required) {
+#    $self->error("configuration is missing required parameter '$req'\n")
+#      if (! exists $self->{config}->{$req});
+#  }
+#  foreach my $key (keys %{ $self->{config} } ) {
+#    $self->{$key} = $self->{config}->{$key}
+#      if (exists $self->{$key});
+#  }
+#}
 
 # Read the config file and find NFS servers and Filters
 sub parse_disk_conf {
@@ -164,9 +162,9 @@ sub parse_disk_conf {
   my $self = shift;
 
   $self->local_debug("parse_disk_conf()\n");
-  $self->logger("using disk config file: $self->{diskconf}\n");
-  $self->error("error loading disk configuration file: $self->{diskconf}: $!\n")
+  $self->error("disk configuration file is undefined, use -D\n")
     if (! -f $self->{diskconf});
+  $self->logger("using disk config file: $self->{diskconf}\n");
 
   # Parse config file for disk definitions.
   open FH, "<", $self->{diskconf} or
@@ -342,19 +340,19 @@ sub build_cache {
     # Have to queried this host recently?
     if (! $self->is_current($host) ) {
       print "Querying host $host\n";
-      if (defined $hosts->{$host}) {
-        # Query the host and cache the result
-        my $result = {};
-        my $error = 0;
-        try eval {
-          $result = $self->{snmp}->query_snmp($host);
-        };
-        if (catch my $err) {
-          $self->logger("snmp error: $host: " . $err->{message});
-          $error = 1;
-        }
-        $self->cache($host,$result,$error);
+      # Query the host and cache the result
+      my $result = {};
+      my $error = 0;
+      eval {
+        $result = $self->{snmp}->query_snmp($host);
+      };
+      if ($@) {
+        $self->logger("snmp error: $host: $@\n");
+        $error = 1;
       }
+      $self->cache($host,$result,$error);
+    } else {
+      print "host $host is current\n";
     }
   } # end foreach my $host
 }
@@ -374,6 +372,7 @@ sub main {
   $self->prepare_logger();
 
   # Read configuration file, may have logfile setting in it.
+  # FIXME: remove use of yaml?
   #$self->read_config();
 
   # Define list of hosts to query
