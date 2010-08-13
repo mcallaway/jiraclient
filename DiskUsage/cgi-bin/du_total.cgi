@@ -48,7 +48,7 @@ sub cgiapp_init {
         });
 
   # -- set up database
-  my $db = $self->cfg('db') or die('Missing config param: db');
+  my $db = $self->{cfg}->{db} or die('Missing config param: db');
   $self->dbh_config($db->{dsn}, '', '', $db->{attributes});
 
 } # /cgiapp_init
@@ -77,7 +77,7 @@ sub table_data {
 sub _get_table_content {
 
   my $self = shift;
-  my $table = shift or die("Missing table name.");
+  my $table = shift;
 
   my $dbh = $self->dbh();
   my $sql = qq~SELECT SUM(total_kb),SUM(used_kb) FROM $table~;

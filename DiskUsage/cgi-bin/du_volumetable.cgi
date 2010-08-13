@@ -48,7 +48,7 @@ sub cgiapp_init {
         });
 
   # -- set up database
-  my $db = $self->cfg('db') or die('Missing config param: db');
+  my $db = $self->{cfg}->{db} or die('Missing config param: db');
   $self->dbh_config($db->{dsn}, '', '', $db->{attributes});
 
 } # /cgiapp_init
@@ -152,7 +152,7 @@ sub _generate_where_clause {
 
 sub _fnColumnToField {
   my $self = shift;
-  my $i = shift // die("Missing column index i.");
+  my $i = shift;
 
   # Note: we could have used an array, but for dispatching purposes, this is
   # more readable.
