@@ -46,7 +46,7 @@ sub test_start {
   my $obj = new DiskUsage;
   $obj->parse_args();
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
-  $obj->{debug} = 0;
+  $obj->{debug} = 1;
   $obj->{dryrun} = 0;
   $obj->prepare_logger();
   #$obj->read_config();
@@ -182,12 +182,9 @@ if ($opts->{'L'}) {
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
-      #print $method->name . "\n";
-      print "$\n";
+      print "$method\n";
     }
   }
   exit;

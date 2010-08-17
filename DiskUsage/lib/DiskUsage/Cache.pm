@@ -149,7 +149,7 @@ sub prep {
   # but DISK_GROUP exists in OLTP already.
 
   # disk_df table and triggers
-  my $sql = "CREATE TABLE IF NOT EXISTS disk_df (df_id INTEGER PRIMARY KEY AUTOINCREMENT, mount_path VARCHAR(255), physical_path VARCHAR(255), total_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, used_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, group_name VARCHAR(255), created DATE, last_modified DATE)";
+  my $sql = "CREATE TABLE IF NOT EXISTS disk_df (df_id INTEGER PRIMARY KEY AUTOINCREMENT, mount_path VARCHAR(255), physical_path VARCHAR(255), total_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, used_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, group_name VARCHAR(255), host_id INTEGER, created DATE, last_modified DATE)";
   $self->sql_exec($sql);
 
   $sql = "CREATE TRIGGER IF NOT EXISTS disk_df_update_created AFTER INSERT ON disk_df BEGIN UPDATE disk_df SET created = DATETIME('NOW') where rowid = new.rowid; END;";
@@ -174,6 +174,23 @@ sub prep {
   $sql = "CREATE TRIGGER IF NOT EXISTS disk_hosts_update_last_modified AFTER UPDATE OF snmp_ok ON disk_hosts WHEN new.snmp_ok = 1 BEGIN UPDATE disk_hosts SET last_modified = DATETIME('NOW') where rowid = new.rowid; END;";
   $self->sql_exec($sql);
 
+}
+
+sub link_volumes_to_host {
+  my $self = shift;
+  my $host = shift;
+  my $result = shift;
+
+  $self->local_debug("link_volumes_to_hosts()\n");
+
+  my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
+  my $res = $self->sql_exec($sql,($host) );
+  my $host_id = pop @{ pop @$res };
+
+  foreach my $volume (keys %$result) {
+    $sql = "UPDATE disk_df SET host_id=? WHERE physical_path=?";
+    $res = $self->sql_exec($sql,($host_id,$volume));
+  }
 }
 
 sub disk_hosts_add {
@@ -203,6 +220,7 @@ sub disk_hosts_add {
     $sql = "UPDATE disk_hosts SET hostname=?, snmp_ok=?  WHERE hostname=?";
     @args = ($host,$snmp_ok,$host);
   }
+
   return $self->sql_exec($sql,@args);
 }
 
@@ -219,7 +237,7 @@ sub disk_df_add {
   my $self = shift;
   my $params = shift;
 
-  $self->local_debug("disk_df_add()" . Dumper($params) . "\n");
+  $self->local_debug("disk_df_add( " . Dumper($params) . ")\n");
 
   foreach my $key ( 'mount_path', 'physical_path', 'total_kb', 'used_kb', 'group_name' ) {
     $self->error("params is missing key: $key\n")
@@ -255,6 +273,15 @@ sub disk_df_add {
   }
 
   return $self->sql_exec($sql,@args);
+}
+
+sub fetch_disk_group {
+  my $self = shift;
+  my $mount_path = shift;
+
+  my $sql = "SELECT group_name FROM disk_df WHERE mount_path = ?";
+  $self->local_debug("fetch_disk_group($mount_path)\n");
+  return $self->sql_exec($sql,($mount_path));
 }
 
 sub fetch {

@@ -110,8 +110,9 @@
             /* snmp_ok */  { "bVisible":    false },
             null,
             null,
+            null,
           ],
-          "aaSorting": [ [1,'asc'] ],
+          "aaSorting": [ [1,'asc'],[4,'desc'] ],
           "fnRowCallback": function( nRow, aaData, iDisplayIndex ) {
                 var $col = 1;
                 var $cell = $(nRow).children('td').eq(0);
@@ -122,9 +123,9 @@
                   $cell.addClass('notice');
                 }
               return nRow;
-              },
+          },
         } );
-        /* end #summary */
+        /* end #hosts_table */
 
         /* Top of page total host summary */
         $.getJSON('/cgi-bin/du_total.cgi', function(result) {
@@ -134,6 +135,7 @@
             + 'Total KB: ' + result.total_kb + '<br/>'
             + 'Used KB: ' + result.used_kb + '<br/>'
             + 'Percentage Consumed: ' + result.capacity + '<br/>'
+            + 'Last Check: ' + result.last_modified + '<br/>'
           );
           $("div#total").addClass('emphasis');
         });
@@ -167,11 +169,12 @@
       <th >SNMP Status</th>
       <th>First Checked</th>
       <th>Last Successful Check</th>
+      <th>Total Space Served</th>
       </tr>
       </thead>
       <tbody>
       <tr>
-      <td colspan="3" class="dataTables_empty">Loading data from server</td>
+      <td colspan="4" class="dataTables_empty">Loading data from server</td>
       </tr>
       </tbody>
       <tfoot>
@@ -180,6 +183,7 @@
       <th >SNMP Status</th>
       <th>First Checked</th>
       <th>Last Successful Check</th>
+      <th>Total Space Served</th>
       </tr>
       </tfoot>
       </table>

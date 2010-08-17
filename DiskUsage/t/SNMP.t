@@ -25,22 +25,21 @@ use DiskUsage::SNMP;
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
 
-# Determine if we're 'live' and can use LSF.
 sub new {
   my $class = shift;
+  # live means we're on local network and can connect
   my $self = {
-    live => 1,
+    live => 0,
   };
   return bless $self, $class;
 }
 
 sub test_start {
   my $obj = new DiskUsage;
-  $obj->{configfile} = $cwd . "/data/disk_usage_good_001.cfg";
-  $obj->{cachefile} = $cwd . "/data/test.cache";
-  $obj->{debug} = 0;
+  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
+  $obj->{cachefile} = "$cwd/data/test.cache";
+  $obj->{debug} = 1;
   $obj->prepare_logger();
-  #$obj->read_config();
   $obj->{diskconf} = "./t/data/good_disk_conf_001";
   $obj->{cachefile} = "./t/data/test.cache";
   unlink($obj->{cachefile});
@@ -57,6 +56,119 @@ sub test_logger {
   stdout_isnt { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug off ok";
 }
 
+sub test_connect {
+  my $obj = test_start();
+  my $result = {};
+  my $host = "foo";
+  throws_ok { $obj->{snmp}->connect_snmp($host); } qr/SNMP failed/, "test_connect: fails ok on bad host";
+}
+
+sub test_snmp_get_table {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = test_start();
+  # Only use this test during development when you know
+  # we can connect to target host;
+  my $host = "gpfs1";
+  my $res = $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->snmp_get_table('1.3.6.1.2.1.25.4.2.1.2');
+  print Dumper($res);
+}
+
+sub test_snmp_get_request {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = test_start();
+  # Only use this test during development when you know
+  # we can connect to target host;
+  my $host = "nfs17";
+
+  my $res = $obj->{snmp}->connect_snmp($host);
+  ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
+  $res = $obj->{snmp}->snmp_get_request(
+   '1.3.6.1.2.1.1.1.0',
+   '1.3.6.1.2.1.1.5.0',
+  );
+  ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
+  ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: nfs17 is linuxcs84");
+}
+
+sub test_spot_gpfs {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = test_start();
+  # a mockup of what snmp will return for gpfs process list
+  my $host = "gpfs1";
+  $obj->{snmp}->connect_snmp($host);
+  my $res = $obj->{snmp}->spot_gpfs();
+  ok( $res == 1, "test_spot_gpfs: gpfs1 is gpfs, ok");
+  $host = "nfs17";
+  $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->spot_gpfs();
+  ok( $res == 0, "test_spot_gpfs: nfs17 is not gpfs, ok");
+}
+
+sub test_type_mapper {
+  my $obj = test_start();
+  my $string = "This is an unrecognized sysDescr string";
+  throws_ok { $obj->{snmp}->type_string_to_type($string); } qr/No such host/, "test_type_mapper: fails ok on bad host type";
+  $string = "NetApp Release 7.3.2: Thu Oct 15 04:12:15 PDT 2009";
+  my $res = $obj->{snmp}->type_string_to_type($string);
+  ok($res = 'linux',"test_type_mapper: sees netapp ok");
+}
+
+sub test_get_host_type {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = test_start();
+  my $result = {};
+
+  my $host = "nfs17";
+  $obj->{snmp}->connect_snmp($host);
+  my $res = $obj->{snmp}->get_host_type($host);
+  ok( $res eq 'linux' );
+
+  $host = "ntap8";
+  $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->get_host_type($host);
+  ok( $res eq 'netapp' );
+
+  $host = "gpfs1";
+  $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->get_host_type($host);
+  ok( $res eq 'gpfs' );
+}
+
+sub test_get_snmp_disk_usage {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = test_start();
+  my $result = {};
+  my $host = "nfs11";
+  $obj->{snmp}->connect_snmp($host);
+  $obj->{snmp}->get_snmp_disk_usage($result);
+  print Dumper($result);
+  ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: nfs17 ok");
+  return;
+
+  $host = "ntap8";
+  $obj->{snmp}->connect_snmp($host);
+  $obj->{snmp}->get_snmp_disk_usage($result);
+  print Dumper($result);
+  ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
+
+  #$host = "blue1";
+  #$obj->{snmp}->connect_snmp($host);
+  #$obj->{snmp}->get_snmp_disk_usage($result);
+  #ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: blue1 ok");
+
+  # gpfs doesn't use /vol
+  #my $host = "gpfs1";
+  #$obj->{snmp}->connect_snmp($host);
+  #$obj->{snmp}->get_snmp_disk_usage($result);
+  #ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: gpfs1 ok");
+}
+
 sub test_cache_snmp {
   my $obj = test_start();
   # Requires active network access to real host
@@ -69,11 +181,8 @@ sub test_cache_snmp {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
-      #my $test = $method->name;
       $self->$method();
     }
   }
@@ -86,17 +195,15 @@ getopts("lL",$opts) or
 
 my $Test = $CLASS->new();
 
-# Run "live tests" that actually bsub.
+# Run "live tests" that actually connect to hosts.
 if ($opts->{'L'}) {
-  $Test->{live} = 0;
+  $Test->{live} = 1;
 }
 
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
       print "$method\n";
     }

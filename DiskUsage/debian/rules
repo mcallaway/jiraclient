@@ -56,7 +56,7 @@ lib/DiskUsage/SNMP.pm \
 lib/DiskUsage/Cache.pm \
 lib/DiskUsage/Error.pm
 
-CGI = cgi-bin/du.config \
+CGI = cgi-bin/du_lib.pm \
 cgi-bin/du_summarytable.cgi \
 cgi-bin/du_total.cgi \
 cgi-bin/du_hosttable.cgi \

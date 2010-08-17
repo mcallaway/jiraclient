@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
-package DataTableServer;
+package du_volumetable;
+
+use du_lib qw/short commify/;
 
 use strict;
 use warnings;
@@ -188,8 +190,8 @@ sub _get_table_content {
   while( my @a = $sth->fetchrow_array() ) {
     # A hack to fix double // in returned mount point
     $a[0] =~ s/\/\//\//;
-    $a[2] = $self->_commify($a[2]) . " (" . $self->_short($a[2]) . ")";
-    $a[3] = $self->_commify($a[3]) . " (" . $self->_short($a[3]) . ")";
+    $a[2] = du_lib::commify($a[2]) . " (" . du_lib::short($a[2]) . ")";
+    $a[3] = du_lib::commify($a[3]) . " (" . du_lib::short($a[3]) . ")";
     # A hack to work around an empty capacity column
     $a[4] = 0 if (!defined $a[4]);
     # Don't add % or javascript can't do numeric tests
@@ -219,54 +221,12 @@ sub _get_total_record_count {
   return $cnt;
 } # /_get_total_record_count
 
-sub _short {
-  my $self = shift;
-  my $number = shift;
-
-  my $cn = $self->_commify($number);
-  my $size = 0;
-  $size++ while $cn =~ /,/g;
-
-  my $units = {
-    0 => 'KB',
-    1 => 'MB',
-    2 => 'GB',
-    3 => 'TB',
-    4 => 'PB',
-    5 => 'EB',
-  };
-  my $round = {
-    0 => 1,
-    1 => 1000,
-    2 => 1000000,
-    3 => 1000000000,
-    4 => 1000000000000,
-    5 => 1000000000000000,
-  };
-  my $n = int($number / $round->{$size} + 0.5);
-  return "$n " . $units->{$size};
-}
-
-sub _commify {
-  my $self = shift;
-  my $number = shift;
-  # commify a number. Perl Cookbook, 2.17, p. 64
-  my $text = reverse $number;
-  $text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
-  return scalar reverse $text;
-}
-
-
 1;
 
 use strict;
 use warnings;
 use FindBin qw/$Bin/;
 
-my $app = DataTableServer->new(
-  PARAMS => {
-      cfg_file => $Bin . '/du.config',
-  },
-);
+my $app = du_volumetable->new();
 $app->run();
 

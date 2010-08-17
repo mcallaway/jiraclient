@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
-package HostTable;
+package du_hosttable;
+
+use du_lib qw/short commify/;
 
 use strict;
 use warnings;
@@ -58,9 +60,7 @@ sub table_data {
   my $self = shift;
   my $q = $self->query();
 
-  my $table = "disk_hosts";
-
-  my $select = "SELECT hostname, snmp_ok, created, last_modified FROM $table";
+  my $select = "SELECT disk_hosts.hostname as hname, disk_hosts.snmp_ok as sok, disk_hosts.created as creat, disk_hosts.last_modified as last_mod, IFNULL(SUM(disk_df.total_kb),0) as total_served FROM disk_hosts LEFT OUTER JOIN disk_df ON disk_hosts.host_id = disk_df.host_id GROUP BY disk_hosts.hostname";
 
   # -- Filtering: applies DataTables search box
   my $where = $self->_generate_where_clause();
@@ -85,11 +85,11 @@ sub table_data {
   }
 
   # -- get table contents
-  my @aaData = $self->_get_table_content( $table, $select );
+  my @aaData = $self->_get_table_content( $select );
 
   # -- get meta information about the resultset
   my $iFilteredTotal = scalar @aaData;
-  my $iTotal = $self->_get_total_record_count( $table );
+  my $iTotal = $self->_get_total_record_count();
 
   my $sEcho = defined $q->param('sEcho') ? $q->param('sEcho') : 1;
   my $sOutput = {
@@ -145,7 +145,7 @@ sub _generate_where_clause {
   }
 
   my $where;
-  $where .= " WHERE " . join(" OR ",@where) if (@where);
+  $where .= " HAVING " . join(" OR ",@where) if (@where);
   return $where;
 } # /_generate_where_clause
 
@@ -157,10 +157,11 @@ sub _fnColumnToField {
   # more readable.
   my %dispatcher = (
     # column => 'rowname',
-    0 => 'hostname',
-    1 => 'snmp_ok',
-    2 => 'created',
-    3 => 'last_modified',
+    0 => 'hname',
+    1 => 'sok',
+    2 => 'creat',
+    3 => 'last_mod',
+    4 => 'total_served',
   );
 
   die("No such row index defined: $i") unless exists $dispatcher{$i};
@@ -171,7 +172,6 @@ sub _fnColumnToField {
 sub _get_table_content {
 
   my $self = shift;
-  my $table = shift or die("Missing table.");
   my $sql = shift or die("Missing sql.");
 
   my $q = $self->query();
@@ -182,6 +182,8 @@ sub _get_table_content {
 
   my @aaData = ();
   while( my @a = $sth->fetchrow_array() ) {
+    # format total_served column
+    $a[4] = du_lib::commify($a[4]) . " (" . du_lib::short($a[4]) . ")";
     push @aaData, \@a;
   }
   $sth->finish(); # clean up
@@ -192,10 +194,9 @@ sub _get_table_content {
 sub _get_total_record_count {
 
   my $self = shift;
-  my $table = shift or die("Missing table name.");
 
   my $dbh = $self->dbh();
-  my $sql = qq~SELECT COUNT(host_id) AS count FROM $table~;
+  my $sql = qq~SELECT COUNT(host_id) AS count FROM disk_hosts~;
   my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
   my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
 
@@ -214,10 +215,6 @@ use strict;
 use warnings;
 use FindBin qw/$Bin/;
 
-my $app = HostTable ->new(
-  PARAMS => {
-      cfg_file => $Bin . '/du.config',
-  },
-);
+my $app = du_hosttable->new();
 $app->run();
 

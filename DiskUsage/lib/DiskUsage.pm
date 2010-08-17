@@ -21,7 +21,7 @@ use DiskUsage::SNMP;
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.1.0";
+our $VERSION = "0.1.5";
 
 # Add commas to big numbers
 my $comma_rx = qr/\d{1,3}(?=(\d{3})+(?!\d))/;
@@ -29,23 +29,11 @@ my $comma_rx = qr/\d{1,3}(?=(\d{3})+(?!\d))/;
 # FIXME: move to a config file
 my @prefixes = ("/vol","/home");
 
-# A mapping of disk related OIDs
-my $oids = {
-  'hrStorageEntry' => '1.3.6.1.2.1.25.2.3.1.0',
-  'hrStorageIndex' => '1.3.6.1.2.1.25.2.3.1.1',
-  'hrStorageType'  => '1.3.6.1.2.1.25.2.3.1.2',
-  'hrStorageDescr' => '1.3.6.1.2.1.25.2.3.1.3',
-  'hrStorageAllocationUnits' => '1.3.6.1.2.1.25.2.3.1.4',
-  'hrStorageSize'  => '1.3.6.1.2.1.25.2.3.1.5',
-  'hrStorageUsed'  => '1.3.6.1.2.1.25.2.3.1.6',
-  'extOutput'      => '1.3.6.1.4.1.2021.8.1.101.1',
-};
-
 sub new {
   my $self = {
     debug => 0,
     db_tries => 5,
-    maxage => 1, # hours : FIXME, add to config file
+    maxage => 3600, # seconds : FIXME, add to config file
     configfile => undef,
     cachefile => undef,
     logdir => undef,
@@ -243,6 +231,7 @@ sub cache {
   }
 
   $self->{cache}->disk_hosts_add($host,$result,$err);
+  $self->{cache}->link_volumes_to_host($host,$result);
 }
 
 sub is_current {
@@ -271,13 +260,12 @@ sub is_current {
     if ($err);
   $self->error("Error in DateCalc: $date0, $date1, $err\n")
     if (! defined $calc);
-  my @res = split(':',$calc);
-  my $hours = $res[4];
-  return 0 if (! defined $hours);
+  my $delta = Delta_Format($calc,0,'%st');
+  return 0 if (! defined $delta);
 
-  $self->local_debug("hrs delta: @res => $hours hrs\n");
+  $self->local_debug("hrs delta: $calc => $delta sec\n");
   return 1
-    if $hours < $self->{maxage};
+    if $delta < $self->{maxage};
 
   return 0;
 }
@@ -287,7 +275,8 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("cC:dD:fhi:l:V",\%opts) or
+  #getopts("C:dD:fFhi:l:V",\%opts) or
+  getopts("dD:fFhi:l:V",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -299,32 +288,14 @@ sub parse_args {
     exit;
   }
 
-  $self->{cacheonly} = delete $opts{'c'} ? 1 : 0;
-  $self->{configfile} = delete $opts{'C'};
+  #$self->{configfile} = delete $opts{'C'};
   $self->{diskconf} = delete $opts{'D'};
-  $self->{debug} = delete $opts{'d'} ? 1 : 0;
   $self->{force} = delete $opts{'f'} ? 1 : 0;
+  $self->{recache} = delete $opts{'F'} ? 1 : 0;
+  $self->{debug} = delete $opts{'d'} ? 1 : 0;
   $self->{logfile} = delete $opts{'l'};
   $self->{cachefile} = delete $opts{'i'}
     if ($opts{'i'});
-}
-
-sub cumulative {
-  my $self = shift;
-  my $result;
-  $result = $self->{cache}->sql_exec("SELECT SUM(total_kb) from disk_df");
-  my $total = $result->[0]->[0];
-  $result = $self->{cache}->sql_exec("SELECT SUM(used_kb) from disk_df");
-  my $used = $result->[0]->[0];
-  #$self->local_debug("cumulative(): $total $used\n");
-  return ($total,$used);
-}
-
-sub group_totals {
-  my $self = shift;
-  my $result;
-  $result = $self->{cache}->sql_exec("SELECT group_name,SUM(total_kb),SUM(used_kb) from disk_df GROUP BY group_name");
-  return $result;
 }
 
 sub build_cache {
@@ -380,13 +351,12 @@ sub main {
 
   # Build the cache of data
   $self->build_cache($hosts);
+
   $self->logger("queried " . ( scalar keys %$hosts ) . " host(s)\n");
-  return if $self->{cacheonly};
 
-  # Tally totals per disk_group_name and cumulative
-  my ($total,$used) = $self->cumulative();
-  my $group_totals = $self->group_totals();
+  print "Complete\n";
 
+  return 0;
 }
 
 1;
@@ -407,7 +377,8 @@ DiskUsage - Gather disk consumption data
 
  -c         Build the cache only.
  -d         Enable debug mode.
- -f         Force refresh.
+ -f         Refresh data even if current.
+ -F         Refresh disk group name even if cached.
  -h         This useful documentation.
  -V         Display version.
  -C [file]  Specify config file.
