@@ -9,7 +9,7 @@ my $CLASS = __PACKAGE__;
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 15;
 use Test::Output;
 use Test::Exception;
 
@@ -29,7 +29,7 @@ sub new {
   my $class = shift;
   # live means we're on local network and can connect
   my $self = {
-    live => 0,
+    live => 1,
   };
   return bless $self, $class;
 }
@@ -82,15 +82,10 @@ sub test_snmp_get_request {
   # Only use this test during development when you know
   # we can connect to target host;
   my $host = "nfs17";
-
   my $res = $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->snmp_get_request( ['1.3.6.1.2.1.1.1.0', '1.3.6.1.2.1.1.5.0']);
   ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
-  $res = $obj->{snmp}->snmp_get_request(
-   '1.3.6.1.2.1.1.1.0',
-   '1.3.6.1.2.1.1.5.0',
-  );
-  ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
-  ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: nfs17 is linuxcs84");
+  ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: sysDesc is linuxcs84");
 }
 
 sub test_spot_gpfs {
@@ -148,8 +143,7 @@ sub test_get_snmp_disk_usage {
   $obj->{snmp}->connect_snmp($host);
   $obj->{snmp}->get_snmp_disk_usage($result);
   print Dumper($result);
-  ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: nfs17 ok");
-  return;
+  ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: nfs11 ok");
 
   $host = "ntap8";
   $obj->{snmp}->connect_snmp($host);
@@ -157,6 +151,7 @@ sub test_get_snmp_disk_usage {
   print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
 
+  # bluearc are down
   #$host = "blue1";
   #$obj->{snmp}->connect_snmp($host);
   #$obj->{snmp}->get_snmp_disk_usage($result);
@@ -195,9 +190,9 @@ getopts("lL",$opts) or
 
 my $Test = $CLASS->new();
 
-# Run "live tests" that actually connect to hosts.
+# Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
-  $Test->{live} = 1;
+  $Test->{live} = 0;
 }
 
 if ($opts->{'l'}) {

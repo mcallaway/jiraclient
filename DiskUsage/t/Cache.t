@@ -143,7 +143,8 @@ sub test_add {
   $res = $cache->disk_df_add($params);
   $res = $cache->fetch('mount_path','/gscmnt/sata800');
   ok( $res->[0]->[4] = 999, "update and fetch work ok");
-  ok( $res->[0]->[5] ne $res->[0]->[6], "update trigger works ok");
+  # compare create vs. last modified
+  ok( $res->[0]->[7] ne $res->[0]->[8], "update trigger works ok");
 }
 
 sub test_retry {
@@ -163,7 +164,7 @@ sub test_retry {
   open(DB,">$obj->{cachefile}");
   close(DB);
   chmod 0000, $obj->{cachefile};
-  throws_ok { $cache->prep() } qr/failed during execute/, "test_retry: fail to connect properly caught";
+  throws_ok { $cache->prep() } qr/SQLite can't connect/, "test_retry: fail to connect properly caught";
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
 }
@@ -171,11 +172,8 @@ sub test_retry {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
-      #my $test = $method->name;
       $self->$method();
     }
   }
@@ -188,7 +186,7 @@ getopts("lL",$opts) or
 
 my $Test = $CLASS->new();
 
-# Run "live tests" that actually bsub.
+# Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
   $Test->{live} = 0;
 }
@@ -196,11 +194,8 @@ if ($opts->{'L'}) {
 if ($opts->{'l'}) {
   print "Display list of tests\n\n";
   my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
-      #print $method->name . "\n";
       print "$method\n";
     }
   }

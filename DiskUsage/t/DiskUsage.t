@@ -25,14 +25,14 @@ use Test::Exception;
 
 # The module to test
 use DiskUsage;
-use DiskUsage::SNMP;
+#use DiskUsage::SNMP;
 
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
 
-# Determine if we're 'live' and can use LSF.
 sub new {
   my $class = shift;
+  # Determine if we're 'live' and can connect over the network.
   my $self = {
     live => 1,
   };
@@ -49,10 +49,8 @@ sub test_start {
   $obj->{debug} = 1;
   $obj->{dryrun} = 0;
   $obj->prepare_logger();
-  #$obj->read_config();
   $obj->{diskconf} = "./t/data/good_disk_conf_001";
   $obj->{cachefile} = "./t/data/test.cache";
-  #print Dumper($obj);
   return $obj;
 }
 
@@ -71,24 +69,6 @@ sub test_prepare_logger {
   stdout_unlike { $obj->local_debug("Test") } qr/^.*: Test/, "debug off ok";
 }
 
-sub test_read_good_config_001 {
-  my $self = shift;
-  # Test a valid config.
-  my $obj = new DiskUsage;
-  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
-  #$obj->read_config();
-  $obj->prepare_logger();
-  is($obj->{db_tries},5);
-}
-
-sub test_read_bad_config_001 {
-  my $self = shift;
-  my $obj = test_start();
-  # Test an invalid config.
-  $obj->{configfile} = "$cwd/data/disk_usage_bad_001.cfg";
-  #throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
-}
-
 sub test_parse_disk_conf {
   my $self = shift;
   my $obj = test_start();
@@ -103,21 +83,26 @@ sub test_parse_disk_conf {
 
 sub test_build_cache {
   my $self = shift;
+  return if (! $self->{live});
   my $obj = test_start();
-  my $hosts = { 'nfs8'=>{} };
-  my $result = $obj->build_cache($hosts);
+  $obj->{force} = 1;
+  my $hosts = { 'nfs17'=>{} };
+  lives_ok { $obj->build_cache($hosts); } "build_cache runs ok";
 }
 
 sub test_query_snmp {
   my $self = shift;
+  return if (! $self->{live});
   my $obj = test_start();
-  # FIXME: need a real SNMP using NFS server to hit
-  my $host = "nfs17"; # no vols
+  $obj->{cache}->prep();
+  my $host = "nfs17";
   my $result = $obj->{snmp}->query_snmp($host);
   ok(scalar keys %$result > 1);
 }
 
 sub test_is_current {
+  my $self = shift;
+  return if (! $self->{live});
   my $obj = test_start();
   my $host = 'nfs17';
   my $result;
@@ -126,30 +111,6 @@ sub test_is_current {
   $result = $obj->cache($host,$result,0);
   $result = $obj->is_current($host);
   ok($result == 1);
-}
-
-sub test_cumulative {
-  my $obj = test_start();
-  my $host = 'nfs8';
-  my $result;
-  $obj->{cache}->prep();
-  if (! -s $obj->{cachefile}) {
-    $result = $obj->{snmp}->query_snmp($host);
-    $result = $obj->cache($host,$result);
-  }
-  $result = $obj->cumulative();
-}
-
-sub test_group_totals {
-  my $obj = test_start();
-  my $host = 'nfs8';
-  my $result;
-  $obj->{cache}->prep();
-  if (! -s $obj->{cachefile}) {
-    $result = $obj->{snmp}->query_snmp($host);
-    $result = $obj->cache($host,$result);
-  }
-  $result = $obj->group_totals();
 }
 
 # --- end of test subs
@@ -174,7 +135,7 @@ getopts("lL",$opts) or
 
 my $Test = $CLASS->new();
 
-# Run "live tests" that actually bsub.
+# Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
   $Test->{live} = 0;
 }
