@@ -5,6 +5,8 @@ libdiskusage-perl (0v0.6.0-1) unstable; urgency=low
   * Removed use of TryCatch in favor of eval {}; if ($@) {};
   * Support SNMP 32 bit integer correction.
 
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 18 Aug 2010 13:55:29 -0500
+
 libdiskusage-perl (0v0.5.0-1) unstable; urgency=low
 
   * Updated SNMP support to handle NetApp, Linux, GPFS Linux.
