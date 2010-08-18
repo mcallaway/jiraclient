@@ -60,7 +60,7 @@ sub table_data {
   my $self = shift;
   my $q = $self->query();
 
-  my $select = "SELECT disk_hosts.hostname as hname, disk_hosts.snmp_ok as sok, disk_hosts.created as creat, disk_hosts.last_modified as last_mod, IFNULL(SUM(disk_df.total_kb),0) as total_served FROM disk_hosts LEFT OUTER JOIN disk_df ON disk_hosts.host_id = disk_df.host_id GROUP BY disk_hosts.hostname";
+  my $select = "SELECT hostname, snmp_ok, created, last_modified FROM disk_hosts";
 
   # -- Filtering: applies DataTables search box
   my $where = $self->_generate_where_clause();
@@ -145,7 +145,7 @@ sub _generate_where_clause {
   }
 
   my $where;
-  $where .= " HAVING " . join(" OR ",@where) if (@where);
+  $where .= " WHERE " . join(" OR ",@where) if (@where);
   return $where;
 } # /_generate_where_clause
 
@@ -157,11 +157,10 @@ sub _fnColumnToField {
   # more readable.
   my %dispatcher = (
     # column => 'rowname',
-    0 => 'hname',
-    1 => 'sok',
-    2 => 'creat',
-    3 => 'last_mod',
-    4 => 'total_served',
+    0 => 'hostname',
+    1 => 'snmp_ok',
+    2 => 'created',
+    3 => 'last_modified',
   );
 
   die("No such row index defined: $i") unless exists $dispatcher{$i};
@@ -182,8 +181,6 @@ sub _get_table_content {
 
   my @aaData = ();
   while( my @a = $sth->fetchrow_array() ) {
-    # format total_served column
-    $a[4] = du_lib::commify($a[4]) . " (" . du_lib::short($a[4]) . ")";
     push @aaData, \@a;
   }
   $sth->finish(); # clean up

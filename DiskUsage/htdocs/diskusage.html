@@ -110,9 +110,8 @@
             /* snmp_ok */  { "bVisible":    false },
             null,
             null,
-            null,
           ],
-          "aaSorting": [ [1,'asc'],[4,'desc'] ],
+          "aaSorting": [ [1,'asc'] ],
           "fnRowCallback": function( nRow, aaData, iDisplayIndex ) {
                 var $col = 1;
                 var $cell = $(nRow).children('td').eq(0);
@@ -169,7 +168,6 @@
       <th >SNMP Status</th>
       <th>First Checked</th>
       <th>Last Successful Check</th>
-      <th>Total Space Served</th>
       </tr>
       </thead>
       <tbody>
@@ -183,7 +181,6 @@
       <th >SNMP Status</th>
       <th>First Checked</th>
       <th>Last Successful Check</th>
-      <th>Total Space Served</th>
       </tr>
       </tfoot>
       </table>
@@ -275,6 +272,8 @@
       A: See the <a href=#volume>Disk Volumes</a> table, sort by group name and find <b>unknown</b>.</p>
       <p>Q: How much space has not yet been made available?<br/>
       A: That answer is not available from this page. We would have to query storage arrays directly, rather than the filesystems, and this isn't currently possible.</p>
+      <p>Q: How does a volume show up in these stats?<br/>
+      A: A host running nfsd and snmpd must be present in the configuration file used by the "diskusage" cron job on this host, and the Volumes that it serves must begin with a prefix path coded into disk_usage.pl (currently "/home" and "/vol").</p>
       </div>
 
     </div> <!-- end of container -->
