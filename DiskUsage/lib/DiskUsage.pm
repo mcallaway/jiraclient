@@ -14,47 +14,50 @@ use Date::Manip;
 use Pod::Find qw(pod_where);
 use Pod::Usage;
 
-# Use try/catch exceptions
 use DiskUsage::Cache;
 use DiskUsage::SNMP;
 
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.1.5";
+our $VERSION = "0.1.6";
 
-# Add commas to big numbers
-my $comma_rx = qr/\d{1,3}(?=(\d{3})+(?!\d))/;
 # Convention for all NFS exports
-# FIXME: move to a config file
+# FIXME: move to a config file?
 my @prefixes = ("/vol","/home");
 
 sub new {
   my $self = {
-    debug => 0,
-    db_tries => 5,
-    maxage => 3600, # seconds : FIXME, add to config file
+    debug      => 0,
+    force      => 0,
+    db_tries   => 5,
+    maxage     => 3600, # seconds : FIXME, add to config file?
+    diskconf   => "./disk.conf",
     configfile => undef,
-    cachefile => undef,
-    logdir => undef,
-    logfile => undef,
-    logfh => undef,
-    dbh => undef,
-    diskconf => "./disk.conf",
-    cache => new DiskUsage::Cache,
-    snmp => new DiskUsage::SNMP,
-    config  => {},
+    cachefile  => undef,
+    logdir     => undef,
+    logfile    => undef,
+    logfh      => undef,
+    dbh        => undef,
+    config     => {},
+    cache      => new DiskUsage::Cache,
+    snmp       => new DiskUsage::SNMP,
   };
   bless $self, 'DiskUsage';
   $self->{cache}->{parent} = $self;
   $self->{snmp}->{parent} = $self;
-  # This is a bit of a hack to get sub-modules to use the
-  # same logging/debugging as the toplevel module.  Should probably
-  # have a Utility library or something.
   return $self;
 }
 
-sub error {  # Raise a generic Exception object.
+sub error {
+  # I had been using Exception::Class::TryCatch and would throw()
+  # here, but this presented problems in perl 5.8.8 where catch()
+  # would use @DB::args in a way that would trigger the error
+  # "Bizarre copy of HASH in aassign at /usr/local/lib/perl5/site_perl/5.8.0/Devel/StackTrace.pm line 67"
+  # Which is also seen here:
+  # http://www.perlmonks.org/index.pl?node_id=293338
+  #
+  # So, instead we revert to the old perl standby of eval {}; if ($@) {};
   my $self = shift;
   die "@_";
 }
@@ -64,10 +67,8 @@ sub logger {
   # to either a file handle or STDOUT.
   my $self = shift;
   my $fh = $self->{logfh};
-
   die "no logfile defined, run prepare_logger"
     if (! defined $fh);
-
   print $fh localtime() . ": @_";
 }
 
@@ -82,6 +83,7 @@ sub local_debug {
 sub version {
   my $self = shift;
   print "disk_usage $VERSION\n";
+  exit;
 }
 
 sub prepare_logger {
@@ -106,6 +108,7 @@ sub prepare_logger {
   }
 }
 
+# FIXME: Avoiding the use of a configuration file for now.
 #sub read_config {
 #  # Read a simple configuration file that contains a hash object
 #  # and subroutines.
@@ -144,8 +147,9 @@ sub prepare_logger {
 #  }
 #}
 
-# Read the config file and find NFS servers and Filters
 sub parse_disk_conf {
+  # Read the config file and find NFS servers.
+  # This currently supports reading disk.conf as well as the gscmnt autoconfig file.
 
   my $self = shift;
 
@@ -160,6 +164,7 @@ sub parse_disk_conf {
 
   my $result = {};
   my $gscmnt = 0; # sets format to be expected
+
   while (<FH>) {
     my $host;
     $gscmnt = 1 if (/^#!/);
@@ -190,12 +195,13 @@ sub parse_disk_conf {
     $result->{$host} = {};
   }
   close(FH);
+
   $self->local_debug("found " . scalar(keys %$result). " host(s)\n");
   return $result;
 }
 
 sub define_hosts {
-  # target host may be a CLI arg or come from a config file
+  # Target host may be a CLI arg or come from a config file.
 
   my $self = shift;
   my @argv = @_;
@@ -216,6 +222,7 @@ sub define_hosts {
 }
 
 sub cache {
+  # Iterate over the result hash and add to sqlite cache.
   my $self = shift;
   my $host = shift;
   my $result = shift;
@@ -256,10 +263,12 @@ sub is_current {
   my $err;
   my $date1 = ParseDate(scalar gmtime());
   my $calc = DateCalc($date0,$date1,\$err);
+
   $self->error("Error in DateCalc: $date0, $date1, $err\n")
     if ($err);
   $self->error("Error in DateCalc: $date0, $date1, $err\n")
     if (! defined $calc);
+
   my $delta = Delta_Format($calc,0,'%st');
   return 0 if (! defined $delta);
 
@@ -275,7 +284,6 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  #getopts("C:dD:fFhi:l:V",\%opts) or
   getopts("dD:fFhi:l:V",\%opts) or
     $self->error("Error parsing options\n");
 
@@ -285,7 +293,6 @@ sub parse_args {
   }
   if ($opts{'V'}) {
     $self->version();
-    exit;
   }
 
   #$self->{configfile} = delete $opts{'C'};
@@ -299,6 +306,7 @@ sub parse_args {
 }
 
 sub build_cache {
+  # Build the sqlite cache for every host found.
 
   my $self = shift;
   my $hosts = shift;
@@ -378,10 +386,9 @@ DiskUsage - Gather disk consumption data
  -c         Build the cache only.
  -d         Enable debug mode.
  -f         Refresh data even if current.
- -F         Refresh disk group name even if cached.
+ -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
- -C [file]  Specify config file.
  -D [file]  Specify disk config file.
  -i [file]  Set file path for cache file.
  -l [file]  Set file path for log file.
