@@ -3,7 +3,6 @@ MANIFEST
 META.yml
 bin/disk_usage.pl
 cron/diskusage.cron
-cgi-bin/du.config
 cgi-bin/du_lib.pm
 cgi-bin/du_hosttable.cgi
 cgi-bin/du_summarytable.cgi
@@ -20,7 +19,6 @@ etc/diskusage.gsc.wustl.edu.conf
 htdocs/diskusage.html
 htdocs/favicon.ico
 lib/DiskUsage/Cache.pm
-lib/DiskUsage/Error.pm
 lib/DiskUsage/SNMP.pm
 lib/DiskUsage.pm
 media/css/diskusage_page.css
@@ -44,4 +42,3 @@ t/data/disk_usage_good_001.cfg
 t/data/disk_usage_good_002.cfg
 t/data/good_disk_conf_001
 t/data/good_gscmnt_001
-t/data/test.cache
