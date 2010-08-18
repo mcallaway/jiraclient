@@ -34,6 +34,8 @@ HTML = ./htdocs/diskusage.html \
 
 SCRIPT = ./bin/disk_usage.pl
 
+CRON = ./cron/diskusage.cron
+
 JS = media/js/jquery.js \
 media/js/jquery.dataTables.js \
 media/js/jquery.dataTables.min.js.gz \
@@ -98,7 +100,11 @@ config: $(CONFIG)
 	install -D -m 0644 ./etc/diskusage.gsc.wustl.edu.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-available/diskusage.gsc.wustl.edu.conf
 	ln -s ../sites-available/diskusage.gsc.wustl.edu.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-enabled/diskusage.gsc.wustl.edu.conf
 
-local_install: config htdocs cgi js css images
+.PHONY: cron
+cron: $(CRON)
+	install -D -m 0644 $(CRON) $(CURDIR)/debian/libdiskusage-perl/etc/cron.d/diskusage
+
+local_install: config htdocs cgi js css images cron
 
 build: build-stamp
 build-stamp:
