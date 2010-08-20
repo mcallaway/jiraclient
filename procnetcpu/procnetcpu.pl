@@ -109,7 +109,7 @@ sub save {
   my $self = shift;
   my $result = shift;
   $self->warn("save run to " . $self->{output} . "\n");
-  Storable::store($result,$self->{output});
+  Storable::nstore($result,$self->{output});
 }
 
 sub get {
