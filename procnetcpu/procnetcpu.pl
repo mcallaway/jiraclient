@@ -8,14 +8,13 @@ use Data::Dumper;
 use strict;
 use warnings;
 
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 sub new {
   my $class = shift;
   my $self = {
     'cpu' => '/proc/stat',
     'net' => '/proc/net/dev',
-    #'output' => '/var/run/procnetcpu.$$';
     'output' => 'procnetcpu.cache',
   };
   bless $self, $class;
@@ -37,16 +36,26 @@ sub read_net {
   my $self = shift;
   my $this = shift;
 
+  $self->error("network file error: $self->{net}: $!")
+    if (! -f $self->{net});
+
   # Read network data for each interface and add it to our
   # data structure.
   open (NET,"<$self->{net}");
   while (<NET>) {
     chomp;
     next unless (/:/);
+    my $line = $_;
     my $i = {};
-    my $iface;
-    my ($toss,$rbytes,$rpackets,$rerrs,$rdrop,$rfifo,$rframe,$rcompressed,$rmulticast, $tbytes,$tpackets,$terrs,$tdrop,$tfifo,$tcalls,$tcarrier,$tcompressed) = split(/\s+/);
-    ($iface,$rbytes) = split(/:/,$rbytes);
+
+    my $idx = index($line,":");
+    my $iface = substr($line,0,$idx);
+    $iface =~ s/\s+//g; # trim all whitespac
+    $line = substr($line,$idx+1);
+    $line =~ s/^\s+//; # trim leading whitespace
+
+    my ($rbytes,$rpackets,$rerrs,$rdrop,$rfifo,$rframe,$rcompressed,$rmulticast, $tbytes,$tpackets,$terrs,$tdrop,$tfifo,$tcalls,$tcarrier,$tcompressed) = split(/\s+/,$line);
+
     $i = {
       'rbytes' => $rbytes,
       'rpackets' => $rpackets,
@@ -73,6 +82,9 @@ sub read_net {
 sub read_cpu {
   my $self = shift;
   my $this = shift;
+
+  $self->error("cpu file error: $self->{cpu}: $!")
+    if (! -f $self->{cpu});
 
   # Read cpu data and add it to our data structure.
   open (CPU,"<$self->{cpu}");
@@ -118,7 +130,14 @@ sub compare {
       # This is a ref, and thus the interfaces reference
       foreach my $iface (keys %{ $$this->{$key} } ) {
         foreach my $item (keys %{ $$this->{$key}->{$iface} } ) {
-          $diff = $$this->{'interfaces'}->{$iface}->{$item} - $last->{'interfaces'}->{$iface}->{$item};
+          my $a = $last->{'interfaces'}->{$iface}->{$item};
+          my $b = $$this->{'interfaces'}->{$iface}->{$item};
+          $self->error("fatal: field is not numeric: $a")
+            if ($a !~ /\d+/);
+          $self->error("fatal: field is not numeric: $b")
+            if ($b !~ /\d+/);
+          #next if ($a !~ /\d+/ or $b !~ /\d+/);
+          $diff = $b - $a;
           $$this->{'interfaces'}->{$iface}->{"d_" . $item} = $diff;
         }
       }
