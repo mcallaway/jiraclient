@@ -12,12 +12,14 @@ my $build = Module::Build->new
     'debian/libdiskusage-perl.substvars',
     'debian/libdiskusage-perl',
     ],
+    build_requires => {
+    'Class::MOP' => '0',
+    },
     requires => {
     'Cwd' => '0',
     'Data::Dumper' => '0',
     'Date::Manip' => '0',
     'DBI' => '0',
-    'Exception::Class' => '0',
     'File::Basename' => '0',
     'File::Find::Rule' => '0',
     'Getopt::Std' => '0',
