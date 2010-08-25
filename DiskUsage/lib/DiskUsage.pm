@@ -20,7 +20,7 @@ use DiskUsage::SNMP;
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.1.6";
+our $VERSION = "0.8.0";
 
 # Convention for all NFS exports
 # FIXME: move to a config file?
@@ -218,6 +218,13 @@ sub define_hosts {
     $hosts = $self->parse_disk_conf();
   }
 
+  if (defined $self->{hosts}) {
+    my @list = split(/,/,$self->{hosts});
+    foreach my $host (@list) {
+      $hosts->{$host} = {};
+    }
+  }
+
   return $hosts;
 }
 
@@ -284,7 +291,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dD:fFhi:l:V",\%opts) or
+  getopts("dfFhVD:H:i:l:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -296,10 +303,11 @@ sub parse_args {
   }
 
   #$self->{configfile} = delete $opts{'C'};
-  $self->{diskconf} = delete $opts{'D'};
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{recache} = delete $opts{'F'} ? 1 : 0;
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
+  $self->{diskconf} = delete $opts{'D'};
+  $self->{hosts} = delete $opts{'H'};
   $self->{logfile} = delete $opts{'l'};
   $self->{cachefile} = delete $opts{'i'}
     if ($opts{'i'});
@@ -383,12 +391,12 @@ DiskUsage - Gather disk consumption data
 
 =head1 OPTIONS
 
- -c         Build the cache only.
  -d         Enable debug mode.
  -f         Refresh data even if current.
  -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
+ -H [LIST]  Set comma separated list of hosts to add to disk config file.
  -D [file]  Specify disk config file.
  -i [file]  Set file path for cache file.
  -l [file]  Set file path for log file.
