@@ -31,6 +31,8 @@ my $oids = {
     'hrStorageAllocationUnits' => '1.3.6.1.2.1.25.2.3.1.4',
     'hrStorageSize'  => '1.3.6.1.2.1.25.2.3.1.5',
     'hrStorageUsed'  => '1.3.6.1.2.1.25.2.3.1.6',
+    'extTable'       => '1.3.6.1.4.1.2021.8',
+    'nsExtendOutLine' => '1.3.6.1.4.1.8072.1.3.2.4.1.2',
   },
   'netapp'           => {
     'dfFileSys'      => '1.3.6.1.4.1.789.1.5.4.1.2',
@@ -273,17 +275,33 @@ sub get_disk_group {
   # Look on a mount point for a DISK_ touch file.
 
   my $self = shift;
+  my $physical_path = shift;
   my $mount_path = shift;
   my $group_name;
 
-  $self->local_debug("get_disk_group($mount_path)\n");
+  $self->local_debug("get_disk_group($physical_path,$mount_path)\n");
 
+  # Does the cache already have the disk group name?
   my $res = $self->{parent}->{cache}->fetch_disk_group($mount_path);
   if (defined $res and scalar @$res > 0 and ! $self->{parent}->{recache}) {
     $self->local_debug("res: " . Dumper($res));
     $group_name = pop @{ pop @$res };
     $self->local_debug("$mount_path is cached for: $group_name\n");
     return $group_name;
+  }
+
+  # Determine the disk group name.
+  my $host_type = $self->get_host_type();
+  if ($host_type eq 'linux') {
+    # Try SNMP for linux hosts, which may have been configured to
+    # report disk group touch files via SNMP.
+    my $ref = $self->snmp_get_table( $oids->{$host_type}->{'nsExtendOutLine'} );
+    foreach my $touchfile (values %$ref) {
+      $touchfile =~ /^(.*)\/(\S+)/;
+      my $dirname = $1;
+      my $group_name = $2;
+      return $group_name if ($dirname eq $physical_path);
+    }
   }
 
   # This will actually mount a mount point via automounter.
@@ -325,6 +343,9 @@ sub connect_snmp {
     $self->{snmp_session}->close();
   }
 
+  # Note: We're returning some big messages!
+  $sess->max_msg_size(15000);
+
   $self->{snmp_session} = $sess;
 }
 
@@ -339,9 +360,10 @@ sub query_snmp {
   $self->get_snmp_disk_usage($result);
 
   foreach my $physical_path (keys %$result) {
-    $result->{$physical_path}->{'group_name'} = $self->get_disk_group($result->{$physical_path}->{'mount_path'});
+    $result->{$physical_path}->{'group_name'} = $self->get_disk_group($physical_path,$result->{$physical_path}->{'mount_path'});
   }
 
   return $result;
 }
+
 1;
