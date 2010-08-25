@@ -8,6 +8,7 @@
           @import "media/css/diskusage_page.css";
           @import "media/css/diskusage_table.css";
     </style>
+    <link rel="shortcut icon" href="favicon.ico" />
     <script type="text/javascript" language="javascript" src="media/js/jquery.js"></script>
     <script type="text/javascript" language="javascript" src="media/js/jquery.dataTables.js"></script>
     <script type="text/javascript" charset="utf-8">
@@ -17,8 +18,9 @@
           "bProcessing": true,
           "bServerSide": true,
           "iDisplayLength": 25,
+          "sPaginationType": "full_numbers",
           "aaSorting": [ [2,'desc'] ],
-          "sAjaxSource": "/cgi-bin/du_volumetable.cgi",
+          "sAjaxSource": "../cgi-bin/du_volumetable.cgi",
           "fnServerData": function ( sSource, aoData, fnCallback )
           {
                 /* Add some extra data to the sender */
@@ -61,7 +63,8 @@
           "bProcessing": true,
           "bServerSide": true,
           "iDisplayLength": 25,
-          "sAjaxSource": "/cgi-bin/du_summarytable.cgi",
+          "sPaginationType": "full_numbers",
+          "sAjaxSource": "../cgi-bin/du_summarytable.cgi",
           "aaSorting": [ [1,'desc'] ],
           "fnServerData": function ( sSource, aoData, fnCallback )
           {
@@ -97,8 +100,9 @@
           "bProcessing": true,
           "bServerSide": true,
           "iDisplayLength": 10,
+          "sPaginationType": "full_numbers",
           "bAutoWidth": false,
-          "sAjaxSource": "/cgi-bin/du_hosttable.cgi",
+          "sAjaxSource": "../cgi-bin/du_hosttable.cgi",
           "fnServerData": function ( sSource, aoData, fnCallback ) {
                 aoData.push( { "name": "rm", "value": "table_data" } );
                 $.getJSON( sSource, aoData, function (json) {
@@ -127,7 +131,7 @@
         /* end #hosts_table */
 
         /* Top of page total host summary */
-        $.getJSON('/cgi-bin/du_total.cgi', function(result) {
+        $.getJSON('../cgi-bin/du_total.cgi', function(result) {
           $("div#total").html(
             '<h2>Cumulative Disk Usage</h2>'
             + '<h3>Disk usage added over all reporting NFS servers</h3>'
