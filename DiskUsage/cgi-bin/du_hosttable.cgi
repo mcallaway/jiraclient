@@ -13,7 +13,7 @@ use CGI::Application::Plugin::DBH (qw/dbh_config dbh/);
 
 use Data::Dumper qw/Dumper/;
 
-our $VERSION = 0.2;
+our $VERSION = 0.8.0;
 
 sub setup {
   my $self = shift;
@@ -75,23 +75,27 @@ sub table_data {
   }
 
   # -- Paging
+  my $paging;
   my $limit = $q->param('iDisplayLength') || 25;
+  if ($limit) {
+    $paging .= " LIMIT $limit";
+  }
   my $offset = 0;
   if( $q->param('iDisplayStart') ) {
     $offset = $q->param('iDisplayStart');
   }
-  if ($limit) {
-    $select .= " LIMIT $limit";
+  if ($offset) {
+    $paging .= " OFFSET $offset";
   }
 
   # -- get table contents
-  my @aaData = $self->_get_table_content( $select );
+  my @aaData = $self->_get_table_content( $select . $paging );
 
   # -- get meta information about the resultset
-  my $iFilteredTotal = scalar @aaData;
   my $iTotal = $self->_get_total_record_count();
+  my $iFilteredTotal = $self->_get_filtered_record_count( $select );
 
-  my $sEcho = defined $q->param('sEcho') ? $q->param('sEcho') : 1;
+  my $sEcho = defined $q->param('sEcho') ? int($q->param('sEcho')) : 1;
   my $sOutput = {
     sEcho => $sEcho,
     iTotalRecords => int($iTotal),
@@ -173,7 +177,6 @@ sub _get_table_content {
   my $self = shift;
   my $sql = shift or die("Missing sql.");
 
-  my $q = $self->query();
   my $dbh = $self->dbh();
 
   my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
@@ -205,6 +208,22 @@ sub _get_total_record_count {
   return $cnt;
 
 } # /_get_total_record_count
+
+sub _get_filtered_record_count {
+
+  my $self = shift;
+  my $sql = shift or die("Missing sql.");
+
+  my $dbh = $self->dbh();
+
+  my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+  my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+
+  my $href = $sth->fetchall_arrayref();
+  my $cnt = scalar @{ $href };
+
+  return $cnt;
+} # /_get_filtered_record_count
 
 1;
 

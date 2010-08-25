@@ -13,7 +13,7 @@ use CGI::Application::Plugin::DBH (qw/dbh_config dbh/);
 
 use Data::Dumper qw/Dumper/;
 
-our $VERSION = 0.2;
+our $VERSION = 0.8.0;
 
 sub setup {
   my $self = shift;
@@ -59,11 +59,8 @@ sub table_data {
   my $self = shift;
   my $q = $self->query();
 
-  # -- Define the name of the table that holds the data.
-  my $table = 'disk_df';
-
   # -- Select
-  my $select = "SELECT mount_path, physical_path, total_kb, used_kb, ROUND((CAST(used_kb AS REAL)/total_kb * 100),2) as capacity, group_name, last_modified FROM $table";
+  my $select = "SELECT mount_path, physical_path, total_kb, used_kb, ROUND((CAST(used_kb AS REAL)/total_kb * 100),2) as capacity, group_name, last_modified FROM disk_df";
 
   # -- Filtering: applies DataTables search box
   my $where = $self->_generate_where_clause();
@@ -78,21 +75,25 @@ sub table_data {
   }
 
   # -- Paging
+  my $paging;
   my $limit = $q->param('iDisplayLength') || 10;
+  if ($limit) {
+    $paging .= " LIMIT $limit";
+  }
   my $offset = 0;
   if( $q->param('iDisplayStart') ) {
     $offset = $q->param('iDisplayStart');
   }
-  if ($limit) {
-    $select .= " LIMIT $limit";
+  if ($offset) {
+    $paging .= " OFFSET $offset";
   }
 
   # -- get table contents
-  my @aaData = $self->_get_table_content( $table, $select );
+  my @aaData = $self->_get_table_content( $select . $paging );
 
   # -- get meta information about the resultset
-  my $iFilteredTotal = scalar @aaData;
-  my $iTotal = $self->_get_total_record_count( $table );
+  my $iTotal = $self->_get_total_record_count();
+  my $iFilteredTotal = $self->_get_filtered_record_count( $select );
 
   # -- build final data structure
   my $sEcho = defined $q->param('sEcho') ? $q->param('sEcho') : 1;
@@ -177,7 +178,6 @@ sub _fnColumnToField {
 sub _get_table_content {
 
   my $self = shift;
-  my $table = shift or die("Missing table.");
   my $sql = shift or die("Missing sql.");
 
   my $q = $self->query();
@@ -206,10 +206,9 @@ sub _get_table_content {
 sub _get_total_record_count {
 
   my $self = shift;
-  my $table = shift or die("Missing table name.");
 
   my $dbh = $self->dbh();
-  my $sql = qq~SELECT COUNT(df_id) AS count FROM $table~;
+  my $sql = qq~SELECT COUNT(df_id) AS count FROM disk_df~;
   my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
   my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
 
@@ -220,6 +219,22 @@ sub _get_total_record_count {
 
   return $cnt;
 } # /_get_total_record_count
+
+sub _get_filtered_record_count {
+
+  my $self = shift;
+  my $sql = shift or die("Missing sql.");
+
+  my $dbh = $self->dbh();
+
+  my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+  my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+
+  my $href = $sth->fetchall_arrayref();
+  my $cnt = scalar @{ $href };
+
+  return $cnt;
+} # /_get_filtered_record_count
 
 1;
 

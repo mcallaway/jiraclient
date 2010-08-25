@@ -13,7 +13,7 @@ use CGI::Application::Plugin::DBH (qw/dbh_config dbh/);
 
 use Data::Dumper qw/Dumper/;
 
-our $VERSION = 0.2;
+our $VERSION = 0.8.0;
 
 sub setup {
   my $self = shift;
