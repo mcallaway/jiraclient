@@ -81,6 +81,17 @@ sub test_parse_disk_conf {
   ok(scalar keys %$hosts == 33);
 }
 
+sub test_define_hosts {
+  my $self = shift;
+  my $obj = test_start();
+  $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
+  $obj->{hosts} = "host1,host2";
+  print Dumper($obj);
+  my $hosts = $obj->define_hosts();
+  print Dumper($hosts);
+  ok(scalar keys %$hosts == 35);
+}
+
 sub test_build_cache {
   my $self = shift;
   return if (! $self->{live});
@@ -118,11 +129,8 @@ sub test_is_current {
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
-  #foreach my $method ($meta->get_all_methods()) {
   foreach my $method ($meta->get_method_list()) {
-    #if ($method->name =~ m/^test_/) {
     if ($method =~ m/^test_/) {
-      #my $test = $method->name;
       $self->$method();
     }
   }
