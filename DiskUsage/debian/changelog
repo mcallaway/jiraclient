@@ -1,3 +1,18 @@
+libdiskusage-perl (0v0.8.0-1) unstable; urgency=low
+
+  * Update SNMP to use nsExtendOutput2Table
+  * Update SNMP max message size to 15000
+  * Add -H option to append list of hosts to targets
+  * Update cron job to support a list of hosts to append to gscmnt config
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 25 Aug 2010 17:30:00 -0500
+
+libdiskusage-perl (0v0.7.0-1) unstable; urgency=low
+
+  * Fixed paging in all three tables.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 25 Aug 2010 13:24:00 -0500
+
 libdiskusage-perl (0v0.6.0-1) unstable; urgency=low
 
   * Updated unit tests.
