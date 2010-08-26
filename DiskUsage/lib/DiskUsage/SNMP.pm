@@ -377,7 +377,7 @@ sub get_disk_group_via_snmp {
     }
   }
   foreach my $touchfile (values %{ $self->{groups} } ) {
-    $touchfile =~ /^(.*)\/(\S+)/;
+    $touchfile =~ /^(.*)\/DISK_(\S+)/;
     my $dirname = $1;
     my $group_name = $2;
     if ($dirname eq $physical_path) {
@@ -401,7 +401,6 @@ sub get_disk_group {
   # Does the cache already have the disk group name?
   my $res = $self->{parent}->{cache}->fetch_disk_group($mount_path);
   if (defined $res and scalar @$res > 0 and ! $self->{parent}->{recache}) {
-    $self->local_debug("res: " . Dumper($res));
     $group_name = pop @{ pop @$res };
     $self->local_debug("$mount_path is cached for: $group_name\n");
     return $group_name;
