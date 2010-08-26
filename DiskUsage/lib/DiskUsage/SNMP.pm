@@ -362,7 +362,7 @@ sub get_disk_group_via_snmp {
       my $msg = $self->{snmp_session}->error();
       if ($msg =~ /No response/) {
         $self->logger("took too long looking for groups via snmp...proceeding\n");
-      } elsif ($msg =~ /Requested table is empty/) {
+      } elsif ($msg =~ /The requested table is empty/) {
         $self->logger("this host doesn't serve groups via snmp...proceeding\n");
         $self->{no_snmp} = 1;
       } elsif ($msg =~ /Message size exceeded/) {
