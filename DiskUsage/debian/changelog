@@ -1,3 +1,12 @@
+libdiskusage-perl (0v0.9.0-1) unstable; urgency=low
+
+  * Update SNMP to query extension for GPFS.
+  * Improve disk group caching.
+  * Add mount_to_disk table.
+  * Add SNMP debugging.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 26 Aug 2010 13:45:00 -0500
+
 libdiskusage-perl (0v0.8.0-1) unstable; urgency=low
 
   * Update SNMP to use nsExtendOutput2Table

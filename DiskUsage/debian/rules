@@ -26,8 +26,7 @@ DOCROOT = /var/www/domains/gsc.wustl.edu/diskusage/htdocs
 
 CGIROOT= /var/www/domains/gsc.wustl.edu/diskusage
 
-CONFIG = etc/diskusage.gsc.wustl.edu.conf \
-etc/diskusage-inc.gsc.wustl.edu.conf
+CONFIG = etc/diskusage.conf
 
 HTML = ./htdocs/diskusage.html \
 ./htdocs/favicon.ico
@@ -51,7 +50,8 @@ media/images/sort_both.png \
 media/images/forward_disabled.jpg \
 media/images/sort_asc.png \
 media/images/sort_desc.png \
-media/images/sort_both.png
+media/images/sort_both.png \
+media/images/underconstruction-small.png
 
 PERLMODS = lib/DiskUsage.pm \
 lib/DiskUsage/SNMP.pm \
@@ -96,9 +96,7 @@ htdocs: $(HTML)
 .PHONY: config
 config: $(CONFIG)
 	install -d $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-enabled/includes
-	install -D -m 0644 ./etc/diskusage-inc.gsc.wustl.edu.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-available/includes/diskusage.gsc.wustl.edu.conf
-	install -D -m 0644 ./etc/diskusage.gsc.wustl.edu.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-available/diskusage.gsc.wustl.edu.conf
-	ln -s ../sites-available/diskusage.gsc.wustl.edu.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-enabled/diskusage.gsc.wustl.edu.conf
+	install -D -m 0644 ./etc/diskusage.conf $(CURDIR)/debian/libdiskusage-perl/etc/apache2/sites-available/includes/diskusage.conf
 
 .PHONY: cron
 cron: $(CRON)
