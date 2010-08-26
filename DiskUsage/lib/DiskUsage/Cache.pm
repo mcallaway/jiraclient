@@ -145,21 +145,24 @@ sub prep {
 
   $self->local_debug("Connected to: $cachefile\n");
 
-  # FIXME: These tables could include DISK_DF, DISK_DF_DG, DISK_GROUP
-  # but DISK_GROUP exists in OLTP already.
-
   # disk_df table and triggers
-  my $sql = "CREATE TABLE IF NOT EXISTS disk_df (df_id INTEGER PRIMARY KEY AUTOINCREMENT, mount_path VARCHAR(255), physical_path VARCHAR(255), total_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, used_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, group_name VARCHAR(255), host_id INTEGER, created DATE, last_modified DATE)";
+  my $sql = "CREATE TABLE IF NOT EXISTS disk_df (df_id INTEGER PRIMARY KEY AUTOINCREMENT, mount_path VARCHAR(255), physical_path VARCHAR(255), total_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, used_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, group_name VARCHAR(255), created DATE, last_modified DATE)";
+  $self->sql_exec($sql);
+
+  # disk_hosts table and triggers
+  $sql = "CREATE TABLE IF NOT EXISTS disk_hosts (host_id INTEGER PRIMARY KEY AUTOINCREMENT, hostname VARCHAR(255), snmp_ok UNSIGNED INTEGER NOT NULL DEFAULT 0, created DATE NOT NULL DEFAULT '0000-00-00 00:00:00', last_modified DATE NOT NULL DEFAULT '0000-00-00 00:00:00')";
+  $self->sql_exec($sql);
+
+  # path_to_host table, where can I find a given df_id?
+  # note no PRIMARY KEY, df_id can repeat... we take precautions
+  # to have only unique pairs: df_id -> host_id;
+  $sql = "CREATE TABLE IF NOT EXISTS mount_to_host (df_id INTEGER, host_id INTEGER)";
   $self->sql_exec($sql);
 
   $sql = "CREATE TRIGGER IF NOT EXISTS disk_df_update_created AFTER INSERT ON disk_df BEGIN UPDATE disk_df SET created = DATETIME('NOW') where rowid = new.rowid; END;";
   $self->sql_exec($sql);
 
   $sql = "CREATE TRIGGER IF NOT EXISTS disk_df_update_last_modified AFTER UPDATE ON disk_df BEGIN UPDATE disk_df SET last_modified = DATETIME('NOW') where rowid = new.rowid; END;";
-  $self->sql_exec($sql);
-
-  # disk_hosts table and triggers
-  $sql = "CREATE TABLE IF NOT EXISTS disk_hosts (host_id INTEGER PRIMARY KEY AUTOINCREMENT, hostname VARCHAR(255), snmp_ok UNSIGNED INTEGER NOT NULL DEFAULT 0, created DATE NOT NULL DEFAULT '0000-00-00 00:00:00', last_modified DATE NOT NULL DEFAULT '0000-00-00 00:00:00')";
   $self->sql_exec($sql);
 
   # set created after insert
@@ -178,18 +181,31 @@ sub prep {
 
 sub link_volumes_to_host {
   my $self = shift;
-  my $host = shift;
+  my $host_id = shift;
   my $result = shift;
 
-  $self->local_debug("link_volumes_to_hosts()\n");
+  $self->local_debug("link_volumes_to_hosts($host_id,\$result)\n");
 
-  my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
-  my $res = $self->sql_exec($sql,($host) );
-  my $host_id = pop @{ pop @$res };
+  # Get host_id of this host.
+  #my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
+  #my $res = $self->sql_exec($sql,($host) );
+  #my $host_id = pop @{ pop @$res };
 
   foreach my $volume (keys %$result) {
-    $sql = "UPDATE disk_df SET host_id=? WHERE physical_path=?";
-    $res = $self->sql_exec($sql,($host_id,$volume));
+    # Insert if not already present.
+    my $mount_path = $result->{$volume}->{mount_path};
+
+    my $sql = "SELECT df_id FROM disk_df WHERE mount_path = ?";
+    my $res = $self->sql_exec($sql,($mount_path) );
+    my $df_id = pop @{ pop @$res };
+
+    $sql = "SELECT df_id,host_id FROM mount_to_host WHERE df_id = ? AND host_id = ?";
+    $res  = $self->sql_exec($sql,($df_id,$host_id) );
+    my $cnt = scalar @$res;
+    if (! $cnt) {
+      $sql = "INSERT INTO mount_to_host (df_id,host_id) VALUES (?,?)";
+      $res = $self->sql_exec($sql,($df_id,$host_id));
+    }
   }
 }
 
@@ -210,6 +226,7 @@ sub disk_hosts_add {
 
   my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
   my $res = $self->sql_exec($sql,($host) );
+  my $host_id;
 
   my @args = ();
   if ( $#$res == -1 ) {
@@ -220,8 +237,16 @@ sub disk_hosts_add {
     $sql = "UPDATE disk_hosts SET hostname=?, snmp_ok=?  WHERE hostname=?";
     @args = ($host,$snmp_ok,$host);
   }
+  # Do the insert or update
+  $res = $self->sql_exec($sql,@args);
 
-  return $self->sql_exec($sql,@args);
+  # Now get the host_id
+  $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
+  $res = $self->sql_exec($sql,($host) );
+  $host_id = pop @{ pop @$res };
+
+  # Update link table
+  $self->link_volumes_to_host($host_id,$result);
 }
 
 sub disk_df_add {
