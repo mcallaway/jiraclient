@@ -20,17 +20,14 @@ use DiskUsage::SNMP;
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.8.0";
-
-# Convention for all NFS exports
-# FIXME: move to a config file?
-my @prefixes = ("/vol","/home");
+our $VERSION = "0.9.0";
 
 sub new {
   my $self = {
     debug      => 0,
     force      => 0,
     db_tries   => 5,
+    timeout    => 15,
     maxage     => 3600, # seconds : FIXME, add to config file?
     diskconf   => "./disk.conf",
     configfile => undef,
@@ -216,14 +213,14 @@ sub define_hosts {
     }
   } else {
     $hosts = $self->parse_disk_conf();
-  }
-
-  if (defined $self->{hosts}) {
-    my @list = split(/,/,$self->{hosts});
-    foreach my $host (@list) {
-      $hosts->{$host} = {};
+    if (defined $self->{hosts}) {
+      my @list = split(/,/,$self->{hosts});
+      foreach my $host (@list) {
+        $hosts->{$host} = {};
+      }
     }
   }
+
 
   return $hosts;
 }
@@ -245,7 +242,6 @@ sub cache {
   }
 
   $self->{cache}->disk_hosts_add($host,$result,$err);
-  $self->{cache}->link_volumes_to_host($host,$result);
 }
 
 sub is_current {
@@ -291,7 +287,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:",\%opts) or
+  getopts("dfFhVD:H:i:l:t:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -309,6 +305,8 @@ sub parse_args {
   $self->{diskconf} = delete $opts{'D'};
   $self->{hosts} = delete $opts{'H'};
   $self->{logfile} = delete $opts{'l'};
+  $self->{timeout} = delete $opts{'t'}
+    if ($opts{'t'});
   $self->{cachefile} = delete $opts{'i'}
     if ($opts{'i'});
 }
@@ -396,6 +394,7 @@ DiskUsage - Gather disk consumption data
  -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
+ -t [num]   Set SNMP timeout (default 15 seconds).
  -H [LIST]  Set comma separated list of hosts to add to disk config file.
  -D [file]  Specify disk config file.
  -i [file]  Set file path for cache file.
