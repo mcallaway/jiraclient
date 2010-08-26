@@ -368,6 +368,7 @@ sub get_disk_group_via_snmp {
       } elsif ($msg =~ /Message size exceeded/) {
         my $size = $self->{snmp_session}->max_msg_size();
         return if ($size == 12000); # don't do this twice
+        $self->logger("query snmp again with larger message size...\n");
         $self->{snmp_session}->max_msg_size(12000); # try larger size
         return $self->get_disk_group_via_snmp($physical_path,$mount_path);
       } else {
@@ -384,6 +385,7 @@ sub get_disk_group_via_snmp {
       return $group_name;
     }
   }
+  return 'unknown';
 }
 
 sub get_disk_group {

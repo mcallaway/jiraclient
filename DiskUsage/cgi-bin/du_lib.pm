@@ -2,8 +2,6 @@
 
 package du_lib;
 
-our $VERSION = "0.9.0";
-
 sub short {
   my $number = shift;
 
