@@ -9,12 +9,11 @@ my $CLASS = __PACKAGE__;
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 6;
 use Test::Output;
 use Test::Exception;
 
 use Class::MOP;
-use Getopt::Std;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
@@ -29,16 +28,18 @@ sub new {
   my $class = shift;
   # live means we're on local network and can connect
   my $self = {
-    live => 1,
+    live => 0,
+    debug => 0,
   };
   return bless $self, $class;
 }
 
 sub test_start {
+  my $self = shift;
   my $obj = new DiskUsage;
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = "$cwd/data/test.cache";
-  $obj->{debug} = 1;
+  $obj->{debug} = $self->{debug};
   $obj->prepare_logger();
   $obj->{diskconf} = "./t/data/good_disk_conf_001";
   $obj->{cachefile} = "./t/data/test.cache";
@@ -49,7 +50,8 @@ sub test_start {
 
 sub test_logger {
   # Test logging to stdout.
-  my $obj = test_start();
+  my $self = shift;
+  my $obj = $self->test_start();
   $obj->{debug} = 1;
   stdout_like { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug on ok";
   $obj->{debug} = 0;
@@ -57,7 +59,8 @@ sub test_logger {
 }
 
 sub test_connect {
-  my $obj = test_start();
+  my $self = shift;
+  my $obj = $self->test_start();
   my $result = {};
   my $host = "foo";
   throws_ok { $obj->{snmp}->connect_snmp($host); } qr/SNMP failed/, "test_connect: fails ok on bad host";
@@ -66,19 +69,19 @@ sub test_connect {
 sub test_snmp_get_table {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   # Only use this test during development when you know
   # we can connect to target host;
   my $host = "gpfs1";
   my $res = $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->snmp_get_table('1.3.6.1.2.1.25.4.2.1.2');
-  print Dumper($res);
+  ok( scalar @{ [ keys %$res ] } > 1 );
 }
 
 sub test_snmp_get_request {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   # Only use this test during development when you know
   # we can connect to target host;
   my $host = "nfs17";
@@ -91,7 +94,7 @@ sub test_snmp_get_request {
 sub test_spot_gpfs {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   # a mockup of what snmp will return for gpfs process list
   my $host = "gpfs1";
   $obj->{snmp}->connect_snmp($host);
@@ -104,7 +107,8 @@ sub test_spot_gpfs {
 }
 
 sub test_type_mapper {
-  my $obj = test_start();
+  my $self = shift;
+  my $obj = $self->test_start();
   my $string = "This is an unrecognized sysDescr string";
   throws_ok { $obj->{snmp}->type_string_to_type($string); } qr/No such host/, "test_type_mapper: fails ok on bad host type";
   $string = "NetApp Release 7.3.2: Thu Oct 15 04:12:15 PDT 2009";
@@ -115,40 +119,52 @@ sub test_type_mapper {
 sub test_get_host_type {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   my $result = {};
 
   my $host = "nfs17";
   $obj->{snmp}->connect_snmp($host);
   my $res = $obj->{snmp}->get_host_type($host);
-  ok( $res eq 'linux' );
+  ok( $res eq 'linux', "test_get_host_type: linux detected" );
 
   $host = "ntap8";
   $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->get_host_type($host);
-  ok( $res eq 'netapp' );
+  ok( $res eq 'netapp', "test_get_host_type: ntap8 detected" );
 
   $host = "gpfs1";
   $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->get_host_type($host);
-  ok( $res eq 'gpfs' );
+  print Dumper($res);
+  ok( $res eq 'gpfs', "test_get_host_type: gpfs1 detected" );
+}
+
+sub test_spot_gpfsext {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = $self->test_start();
+  my $result = {};
+  my $host = "linuscs98";
+  $obj->{snmp}->connect_snmp($host);
+  my $res = $obj->{snmp}->spot_gpfsext();
+  ok($res == 1, "test_spot_gpfsext: returns true");
 }
 
 sub test_get_snmp_disk_usage {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   my $result = {};
   my $host = "nfs11";
   $obj->{snmp}->connect_snmp($host);
   $obj->{snmp}->get_snmp_disk_usage($result);
-  print Dumper($result);
+  #print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: nfs11 ok");
 
   $host = "ntap8";
   $obj->{snmp}->connect_snmp($host);
   $obj->{snmp}->get_snmp_disk_usage($result);
-  print Dumper($result);
+  #print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
 
   # bluearc are down
@@ -165,7 +181,8 @@ sub test_get_snmp_disk_usage {
 }
 
 sub test_cache_snmp {
-  my $obj = test_start();
+  my $self = shift;
+  my $obj = $self->test_start();
   # Requires active network access to real host
   my $result = $obj->{snmp}->query_snmp('nfs17');
   lives_ok { $obj->cache($result); } "cache_snmp: doesn't crash";
@@ -183,16 +200,27 @@ sub main {
   }
 }
 
+1;
+
+package main;
+
+use Class::MOP;
+use Getopt::Std;
+
 # MAIN
 my $opts = {};
-getopts("lL",$opts) or
+getopts("dlL",$opts) or
   die("failure parsing options: $!");
 
 my $Test = $CLASS->new();
 
+if ($opts->{'d'}) {
+  $Test->{debug} = 1;
+}
+
 # Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
-  $Test->{live} = 0;
+  $Test->{live} = 1;
 }
 
 if ($opts->{'l'}) {

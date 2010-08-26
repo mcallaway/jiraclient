@@ -14,7 +14,6 @@ use Test::Output;
 use Test::Exception;
 
 use Class::MOP;
-use Getopt::Std;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
@@ -29,16 +28,18 @@ my $cwd = dirname $thisfile;
 sub new {
   my $class = shift;
   my $self = {
-    live => 1,
+    live => 0,
+    debug => 0,
   };
   return bless $self, $class;
 }
 
 sub test_start {
+  my $self = shift;
   my $obj = new DiskUsage;
   $obj->{configfile} = $cwd . "/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = $cwd . "/data/test.cache";
-  $obj->{debug} = 0;
+  $obj->{debug} = $self->{debug};
   #$obj->read_config();
   $obj->{diskconf} = "./t/data/good_disk_conf_001";
   $obj->{cachefile} = "./t/data/test.cache";
@@ -49,8 +50,9 @@ sub test_start {
 }
 
 sub test_logger {
+  my $self = shift;
   # Test logging to stdout.
-  my $obj = test_start();
+  my $obj = $self->test_start();
   $obj->{parent}->{debug} = 1;
   stdout_like { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug on ok";
   $obj->{parent}->{debug} = 0;
@@ -58,7 +60,8 @@ sub test_logger {
 }
 
 sub test_sql_exec {
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
 
   # Sample data: df output
   my @args = ( "/gscmnt/sata920", "/vol/sata920", 6438993376, 5743812256);
@@ -89,7 +92,8 @@ sub test_sql_exec {
 
 sub test_prep_bad_db_path {
   # Test creation of the cache DB.
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
 
   # First ensure failure is caught
   $cache->{parent}->{cachefile} = "$cwd/bogus/path/foo";
@@ -98,7 +102,8 @@ sub test_prep_bad_db_path {
 
 sub test_prep_no_db {
   # Test creation of the cache DB.
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
 
   # Test fetch before prep
   $cache->{dbh}->disconnect();
@@ -108,7 +113,8 @@ sub test_prep_no_db {
 
 sub test_prep_good {
   # Test creation of the cache DB.
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
   my $cachefile;
 
   # Now do it right
@@ -122,7 +128,8 @@ sub test_prep_good {
 }
 
 sub test_add {
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
 
   # Duplicate insert
   my $params = {
@@ -148,7 +155,8 @@ sub test_add {
 }
 
 sub test_retry {
-  my $cache = test_start();
+  my $self = shift;
+  my $cache = $self->test_start();
   my $obj = $cache->{parent};
 
   # This test loops, and thus runs an indeterminate number
@@ -164,7 +172,7 @@ sub test_retry {
   open(DB,">$obj->{cachefile}");
   close(DB);
   chmod 0000, $obj->{cachefile};
-  throws_ok { $cache->prep() } qr/SQLite can't connect/, "test_retry: fail to connect properly caught";
+  throws_ok { $cache->prep() } qr/failed during execute 3 times, giving up/, "test_retry: fail to connect properly caught";
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
 }
@@ -179,16 +187,25 @@ sub main {
   }
 }
 
-# MAIN
+1;
+
+package main;
+
+use Getopt::Std;
+use Class::MOP;
+
 my $opts = {};
-getopts("lL",$opts) or
+getopts("dlL",$opts) or
   die("failure parsing options: $!");
 
 my $Test = $CLASS->new();
 
-# Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
-  $Test->{live} = 0;
+  $Test->{live} = 1;
+}
+
+if ($opts->{'d'}) {
+  $Test->{debug} = 1;
 }
 
 if ($opts->{'l'}) {

@@ -10,22 +10,21 @@ use strict;
 use warnings;
 
 # Modules for calling this unit test script
+use Class::MOP;
 use Getopt::Std;
 use Error;
-use Class::MOP;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
 use File::Path;
 
 # Unit test modules
-use Test::More tests => 10;
+use Test::More tests => 8;
 use Test::Output;
 use Test::Exception;
 
 # The module to test
 use DiskUsage;
-#use DiskUsage::SNMP;
 
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
@@ -34,7 +33,8 @@ sub new {
   my $class = shift;
   # Determine if we're 'live' and can connect over the network.
   my $self = {
-    live => 1,
+    live => 0,
+    debug => 0,
   };
   return bless $self, $class;
 }
@@ -46,7 +46,7 @@ sub test_start {
   my $obj = new DiskUsage;
   $obj->parse_args();
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
-  $obj->{debug} = 1;
+  $obj->{debug} = $self->{debug};
   $obj->{dryrun} = 0;
   $obj->prepare_logger();
   $obj->{diskconf} = "./t/data/good_disk_conf_001";
@@ -71,7 +71,7 @@ sub test_prepare_logger {
 
 sub test_parse_disk_conf {
   my $self = shift;
-  my $obj = test_start();
+  my $obj = $self->test_start();
   $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
   my $hosts = $obj->parse_disk_conf();
   ok(scalar keys %$hosts == 36);
@@ -83,19 +83,17 @@ sub test_parse_disk_conf {
 
 sub test_define_hosts {
   my $self = shift;
-  my $obj = test_start();
+  my $obj = $self->test_start();
   $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
   $obj->{hosts} = "host1,host2";
-  print Dumper($obj);
   my $hosts = $obj->define_hosts();
-  print Dumper($hosts);
   ok(scalar keys %$hosts == 35);
 }
 
 sub test_build_cache {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   $obj->{force} = 1;
   my $hosts = { 'nfs17'=>{} };
   lives_ok { $obj->build_cache($hosts); } "build_cache runs ok";
@@ -104,17 +102,29 @@ sub test_build_cache {
 sub test_query_snmp {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   $obj->{cache}->prep();
   my $host = "nfs17";
   my $result = $obj->{snmp}->query_snmp($host);
   ok(scalar keys %$result > 1);
 }
 
+sub test_cache_result {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = $self->test_start();
+  $obj->{cache}->prep();
+  my $host = "nfs17";
+  my $result = $obj->{snmp}->query_snmp($host);
+  ok(scalar keys %$result > 1);
+  my $error = 0;
+  my $res = $obj->cache($host,$result,$error);
+}
+
 sub test_is_current {
   my $self = shift;
   return if (! $self->{live});
-  my $obj = test_start();
+  my $obj = $self->test_start();
   my $host = 'nfs17';
   my $result;
   $obj->{cache}->prep();
@@ -136,16 +146,26 @@ sub main {
   }
 }
 
+1;
+
+package main;
+
+use Getopt::Std;
+use Class::MOP;
+
 # MAIN
 my $opts = {};
-getopts("lL",$opts) or
+getopts("dlL",$opts) or
   throw Error::Simple("failure parsing options: $!");
 
 my $Test = $CLASS->new();
 
-# Disable "live tests" that actually connect over the network.
 if ($opts->{'L'}) {
-  $Test->{live} = 0;
+  $Test->{live} = 1;
+}
+
+if ($opts->{'d'}) {
+  $Test->{debug} = 1;
 }
 
 if ($opts->{'l'}) {
