@@ -49,7 +49,10 @@ sub new {
   my $class = shift;
   my $self = {
     parent => shift,
+    snmp_session => undef,
     no_snmp => 0,
+    hosttype => undef,
+    groups => undef,
   };  bless $self, $class;
   return $self;
 }
@@ -444,6 +447,9 @@ sub connect_snmp {
   }
 
   $self->{snmp_session} = $sess;
+  $self->{hosttype} = undef;
+  $self->{groups} = undef;
+  $self->{no_snmp} = 0;
 }
 
 sub query_snmp {
