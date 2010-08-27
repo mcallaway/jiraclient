@@ -104,7 +104,7 @@ sub test_query_snmp {
   return if (! $self->{live});
   my $obj = $self->test_start();
   $obj->{cache}->prep();
-  my $host = "nfs17";
+  my $host = "nfs24";
   my $result = $obj->{snmp}->query_snmp($host);
   ok(scalar keys %$result > 1);
 }

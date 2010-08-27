@@ -91,19 +91,30 @@ sub test_snmp_get_request {
   ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: sysDesc is linuxcs84");
 }
 
-sub test_spot_gpfs {
+sub test_snmp_get_serial_request {
   my $self = shift;
   return if (! $self->{live});
   my $obj = $self->test_start();
-  # a mockup of what snmp will return for gpfs process list
-  my $host = "gpfs1";
-  $obj->{snmp}->connect_snmp($host);
-  my $res = $obj->{snmp}->spot_gpfs();
-  ok( $res == 1, "test_spot_gpfs: gpfs1 is gpfs, ok");
-  $host = "nfs17";
-  $obj->{snmp}->connect_snmp($host);
-  $res = $obj->{snmp}->spot_gpfs();
-  ok( $res == 0, "test_spot_gpfs: nfs17 is not gpfs, ok");
+  # Only use this test during development when you know
+  # we can connect to target host;
+  my $host = "nfs21";
+  my $res = $obj->{snmp}->connect_snmp($host);
+  $res = $obj->{snmp}->snmp_get_serial_request( [ '1.3.6.1.4.1.8072.1.3.2.4.1.2.15.100.105.115.107.95.103.114.111.117.112.95.110.97.109.101' ] );
+  print Dumper($res);
+}
+
+sub test_snmp_get_serial_request {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = $self->test_start();
+  # Only use this test during development when you know
+  # we can connect to target host;
+  my $host = "nfs24";
+  my $res = $obj->{snmp}->connect_snmp($host);
+  my $oid = '1.3.6.1.2.1.25.2.3.1.3';
+  $res = $obj->{snmp}->snmp_get_serial_request( $oid );
+  #print scalar @{ [ keys %$res ] } . "\n";
+  ok( scalar @{ [ keys %$res ] } == 107, "test_snmp_get_serial_request: ok");
 }
 
 sub test_type_mapper {
@@ -130,24 +141,8 @@ sub test_get_host_type {
   $host = "ntap8";
   $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->get_host_type($host);
-  ok( $res eq 'netapp', "test_get_host_type: ntap8 detected" );
-
-  $host = "gpfs1";
-  $obj->{snmp}->connect_snmp($host);
-  $res = $obj->{snmp}->get_host_type($host);
   print Dumper($res);
-  ok( $res eq 'gpfs', "test_get_host_type: gpfs1 detected" );
-}
-
-sub test_spot_gpfsext {
-  my $self = shift;
-  return if (! $self->{live});
-  my $obj = $self->test_start();
-  my $result = {};
-  my $host = "linuscs98";
-  $obj->{snmp}->connect_snmp($host);
-  my $res = $obj->{snmp}->spot_gpfsext();
-  ok($res == 1, "test_spot_gpfsext: returns true");
+  ok( $res eq 'netapp', "test_get_host_type: ntap8 detected" );
 }
 
 sub test_get_snmp_disk_usage {
@@ -166,26 +161,18 @@ sub test_get_snmp_disk_usage {
   $obj->{snmp}->get_snmp_disk_usage($result);
   #print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
-
-  # bluearc are down
-  #$host = "blue1";
-  #$obj->{snmp}->connect_snmp($host);
-  #$obj->{snmp}->get_snmp_disk_usage($result);
-  #ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: blue1 ok");
-
-  # gpfs doesn't use /vol
-  #my $host = "gpfs1";
-  #$obj->{snmp}->connect_snmp($host);
-  #$obj->{snmp}->get_snmp_disk_usage($result);
-  #ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: gpfs1 ok");
 }
 
 sub test_cache_snmp {
   my $self = shift;
+  return if (! $self->{live});
   my $obj = $self->test_start();
   # Requires active network access to real host
-  my $result = $obj->{snmp}->query_snmp('nfs17');
-  lives_ok { $obj->cache($result); } "cache_snmp: doesn't crash";
+  my $host = "nfs24";
+  my $err = 0;
+  $obj->{snmp}->connect_snmp($host);
+  my $result = $obj->{snmp}->query_snmp($host);
+  lives_ok { $obj->cache($host,$result,$err); } "cache_snmp: doesn't crash";
 }
 
 # -- end test subs
