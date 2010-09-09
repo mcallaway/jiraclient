@@ -57,7 +57,8 @@ sub table_data {
   my $self = shift;
   my $q = $self->query();
 
-  my $select = "SELECT group_name, SUM(total_kb) as tkb, SUM(used_kb) as ukb, ROUND((CAST(SUM(used_kb) AS REAL)/SUM(total_kb) * 100),2) as capacity FROM disk_df GROUP BY group_name";
+  # Cost calculated from MWeil's estimate of $2500 per TB
+  my $select = "SELECT group_name, SUM(total_kb) as tkb, SUM(used_kb) as ukb, ROUND((CAST(SUM(used_kb) AS REAL)/SUM(total_kb) * 100),2) as capacity, (SUM(total_kb)*2500/1000000000) as cost FROM disk_df GROUP BY group_name";
 
   # -- Filtering: applies DataTables search box
   my $where = $self->_generate_where_clause();
@@ -162,6 +163,7 @@ sub _fnColumnToField {
     1 => 'tkb',
     2 => 'ukb',
     3 => 'capacity',
+    4 => 'cost',
   );
 
   die("No such row index defined: $i") unless exists $dispatcher{$i};
@@ -183,6 +185,7 @@ sub _get_table_content {
   while( my @a = $sth->fetchrow_array() ) {
     $a[1] = du_lib::commify($a[1]) . " (" . du_lib::short($a[1]) . ")";
     $a[2] = du_lib::commify($a[2]) . " (" . du_lib::short($a[2]) . ")";
+    $a[4] = "\$" . du_lib::commify($a[4]);
     # Don't add percentage or javascript can't do numeric test
     #$a[3] = $a[3] . "%";
     push @aaData, \@a;

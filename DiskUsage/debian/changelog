@@ -1,3 +1,9 @@
+libdiskusage-perl (0v0.11.0-1) unstable; urgency=low
+
+  * Add estimated cost column.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 09 Sep 2010 08:53:42 -0500
+
 libdiskusage-perl (0v0.10.0-1) unstable; urgency=low
 
   * Return 'unknown' for empty group name in snmp.
