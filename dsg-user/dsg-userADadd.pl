@@ -16,7 +16,7 @@ sub new {
     adldap => undef,
     defaultNewUserPassword => "genetics1!",
     ldap_host => 'ldap.dsg.wustl.edu',
-    ldap_baseDN => 'uid='.$user.',ou=People,dc=gsc,dc=wustl,dc=edu',
+    ldap_baseDN => 'ou=People,dc=gsc,dc=wustl,dc=edu',
     ad_host => 'dvm1.gsc.wustl.edu',
     ad_username => 'svc_ldap',
     ad_userDN => 'svc_ldap@gc.local',
@@ -33,7 +33,7 @@ sub find_ldap_user {
   my $user = shift;
 
   my $ldaphost = $self->{ldap_host};
-  my $LDAPbaseDN = $self->{ldap_baseDN};
+  my $ldap_baseDN = "uid=$user,$self->{ldap_baseDN}";
 
   my $ldap = new Net::LDAP( $ldaphost, debug => $self->{debug}) or die "Failed to connect() to $ldaphost: $!";
   my $result;
@@ -42,7 +42,7 @@ sub find_ldap_user {
   $result = $ldap->start_tls() or die "Failed to start_tls(): $!";
 
   my $query = '(&(uid='.$user.'))';
-  $result = $ldap->search(base => $LDAPbaseDN, filter => $query);
+  $result = $ldap->search(base => $ldap_baseDN, filter => $query);
   my $ldapentry  = pop @{ [ $result->entries() ] };
   die "User $user not found in LDAP"
     if (! defined $ldapentry or ! defined $ldapentry->get_value("uid"));
@@ -85,7 +85,7 @@ sub ad_adduser {
   my $ldapentry = shift;
   my $user = $ldapentry->get_value("uid");
   my $ad_container = $self->{ad_container};
-  my $default_pw = $self->{defaultNewUserPassword},
+  my $default_pw = $self->{defaultNewUserPassword};
 
   my $arg = {
       "cn=$ldapentry->{givenName} $ldapentry->{sn}",
@@ -102,7 +102,11 @@ sub ad_adduser {
       ]
   };
   print Dumper($arg);
-  return if ($self->{test});
+  if ($self->{test}) {
+    print "Would add:\n";
+    print Dumper($arg);
+    return;
+  }
   $self->{adldap}->add( $arg ) or die "Failed to add user $user to AD: $!";
 }
 

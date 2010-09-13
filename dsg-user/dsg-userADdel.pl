@@ -32,8 +32,8 @@ sub ad_connect {
   my $ad_username = $self->{ad_username};
   my $ad_userDN = $self->{ad_userDN};
   my $ad_password = $self->{ad_password};
-  my $adldap = new Net::LDAP( $adhost, debug => $self->{debug}) or die "$@";
-  $adldap->bind($ad_userDN,password => $ad_password) or die "Failed to bind() to $adhost: $!";
+  my $adldap = new Net::LDAP( $ad_host, debug => $self->{debug}) or die "$@";
+  $adldap->bind($ad_userDN,password => $ad_password) or die "Failed to bind() to $ad_host: $!";
   $adldap->start_tls(sslversion => 'sslv3') or die "Failed to start_tls(): $!";
   $self->{adldap} = $adldap;
 }
@@ -43,7 +43,7 @@ sub user_in_ad {
   my $user = shift;
   my $ad_baseDN = $self->{ad_baseDN};
   my $query = "(&(uid=".$user."))";
-  my $result = $self->{adldap}->search(base => $ADbaseDN, filter => $query, attrs => ["samaccountname","mail","memberof","department","displayname","telephonenumber","primarygroupid","objectsid"]);
+  my $result = $self->{adldap}->search(base => $ad_baseDN, filter => $query, attrs => ["samaccountname","mail","memberof","department","displayname","telephonenumber","primarygroupid","objectsid"]);
   my $adentry  = pop @{ [ $result->entries() ] };
   if (! defined $adentry->get_value("samaccountname") ) {
     print "User $user does not exist in AD\n";
@@ -60,7 +60,7 @@ sub ad_deluser {
     print "Would remove: $dn\n";
     return;
   }
-  $self->{adldap}->delete( $dn ) or die "Failed to remove user $user from AD: $!";
+  $self->{adldap}->delete( $dn ) or die "Failed to remove user from AD: $!";
 }
 
 sub run {
