@@ -66,7 +66,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.5.1"
+  version = "1.5.2"
 
   priorities = {}
   typemap = {}
@@ -189,17 +189,17 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-f","--file",
+      "-r","--remaining",
       action="store",
-      dest="file",
-      help="Text file containing bug details",
+      dest="remaining",
+      help="Jira issue time 'remaining estimate'",
       default=None,
     )
     optParser.add_option(
       "-t","--time",
       action="store",
-      dest="time",
-      help="Jira issue time estimate",
+      dest="timetracking",
+      help="Jira issue time 'original estimate'",
       default=None,
     )
     optParser.add_option(
@@ -336,6 +336,12 @@ class Jiraclient(object):
       if not hasattr(self.options,k) or getattr(self.options,k) is None:
         setattr(self.options,k,v)
 
+    # Map the items in the rc file to options, but only for issue *creation*
+    if self.options.issueID is None:
+      for (k,v) in (parser.items('issues')):
+        if not hasattr(self.options,k) or getattr(self.options,k) is None:
+          setattr(self.options,k,v)
+
   def get_project_id(self,project):
 
     auth = self.proxy.login(self.options.user,self.options.password)
@@ -350,7 +356,7 @@ class Jiraclient(object):
         if hash.has_key('key') and hash['key'] == project:
           return hash['id']
 
-  def get_issue_types(self,projectID):
+  def set_issue_types(self,projectID):
 
     auth = self.proxy.login(self.options.user,self.options.password)
     result = self.proxy.getIssueTypesForProject(auth,projectID)
@@ -367,120 +373,61 @@ class Jiraclient(object):
       self.priorities[item['name'].lower()] = item['id']
 
   def create_issue_obj(self):
-    # Creates an Issue object based on CLI args and config file
+    # Creates an Issue object based on CLI args and config file.
+    # We do this for create and modify operations.
 
     parser = ConfigParser.ConfigParser()
     issue = Issue()
 
-    # Read bug details from text file
-    if self.options.file is not None:
-      try:
-        parser.readfp(file(self.options.file,'r'))
-      except ConfigParser.ParsingError:
-        self.logger.warning("Body has multiple lines, truncating...")
-      except Exception, details:
-        self.fatal("Unable to open file at %r: %s" % (self.options.file,details))
+    attrs = {
+      'project'         : True,
+      'type'            : True,
+      'summary'         : True,
+      'assignee'        : False,
+      'components'      : False,
+      'fixversions'     : False,
+      'affectsversions' : False,
+      'priority'        : False,
+      'environment'     : False,
+      'timetracking'    : False,
+    }
 
-    # Project must be on CLI or in bug file
-    if self.options.project is not None:
-      issue.project = self.options.project
-    elif self.options.file is not None:
-      issue.project = parser.get('issue','project')
-    elif self.options.issueID is not None:
-      pass
-    else:
-      self.fatal("You must specify a Jira Project")
+    for (k,v) in attrs.items():
+      if hasattr(self.options,k) and getattr(self.options,k) is not None:
+        setattr(issue,k,getattr(self.options,k))
+      else:
+        if self.options.issueID is None:
+          # This is a create, which requires some attrs
+          if v is True:
+            self.fatal("You must specify: %s" % k)
 
     # Now that we have the project, get its ID and then project types
-    projectID = self.get_project_id(issue.project)
-    if not projectID:
-      self.fatal("Project %s is unknown" % issue.project)
-    self.get_issue_types(projectID)
+    if hasattr(issue,'project'):
+      projectID = self.get_project_id(issue.project)
+      if not projectID and self.options.issueID is None:
+        self.fatal("Project %s is unknown" % issue.project)
+      self.set_issue_types(projectID)
 
-    # Type must be on CLI or in bug file
-    if self.options.type is not None:
-      type = self.options.type
-    elif self.options.file is not None:
-      type = parser.get('issue','type').lower()
-    elif self.options.issueID is not None:
-      type = None
-    else:
-      self.fatal("You must specify an Issue Type, eg. 'task'")
-
-    # A given type must be known to Jira
-    if type is not None:
-      if type not in self.typemap:
+    # A given type must be known to Jira, convert to numerical form
+    if hasattr(issue,'type'):
+      if issue.type not in self.typemap:
         print "Known issue types:\n%r\n" % self.typemap
-        self.fatal("Unknown issue type: '%s' for Project: '%s'" % (type,issue.project))
-      issue.type = self.typemap[type]
+        self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
+      issue.type = self.typemap[issue.type]
 
-    # Summary must be on CLI or in bug file
-    if self.options.summary is not None:
-      issue.summary = self.options.summary
-    elif self.options.file is not None:
-      issue.summary = parser.get('issue','summary')
-    elif self.options.issueID is not None:
-      pass
-    else:
-      self.fatal("Please specify a summary")
+    # Handle various things...
+    if hasattr(issue,'components'):
+      issue.components = [{'id':x} for x in issue.components.split(',')]
 
-    # Get description or use summary
-    if self.options.description is not None:
-      issue.description = self.options.description
-    elif self.options.file is not None:
-      description = parser.items('description',raw=True)[0]
-      issue.description = ': '.join(description)
-    elif self.options.issueID is not None:
-      pass
-    else:
-      issue.description = issue.summary
+    if hasattr(issue,'fixversions'):
+      issue.fixVersions = [{'id':x} for x in issue.fixversions.split(',')]
 
-    # Get optional items
-    if self.options.assignee is not None:
-      issue.assignee = self.options.assignee
-    elif self.options.file is not None:
-      assignee = parser.get('issue','assignee')
-      issue.assignee = assignee
+    if hasattr(issue,'affectsversions'):
+      issue.affectsVersions = [{'id':x} for x in issue.affectsversions.split(',')]
 
-    if self.options.components is not None:
-      issue.components = [{'id':x} for x in self.options.components.split(',')]
-    elif self.options.file is not None:
-      components = parser.get('issue','components')
-      issue.components = [{'id':x} for x in components.split(',')]
+    if hasattr(issue,'priority'):
+      issue.priority = self.priorities[issue.priority.lower()]
 
-    if self.options.fixversions is not None:
-      issue.fixVersions = [{'id':x} for x in self.options.fixversions.split(',')]
-    elif self.options.file is not None:
-      fixversions = parser.get('issue','fixversions')
-      issue.fixVersions = [{'id':x} for x in fixversions.split(',')]
-
-    if self.options.affectsversions is not None:
-      issue.affectsVersions = [{'id':x} for x in self.options.affectsversions.split(',')]
-    elif self.options.file is not None:
-      affectsversions = parser.get('issue','affectsversions')
-      issue.affectsVersions = [{'id':x} for x in affectsversions.split(',')]
-
-    priority = None
-    if self.options.priority is not None:
-      priority = self.options.priority.lower()
-    elif self.options.file is not None:
-      priority = parser.get('issue','priority').lower()
-
-    if priority is not None and \
-     priority not in self.priorities:
-      print "Known priorities:\n%r\n" % self.priorities
-      self.fatal("Unknown priority: %s" % self.options.priority)
-
-    if priority is not None:
-      issue.priority = self.priorities[priority]
-
-    if self.options.environment is not None:
-      issue.environment = self.options.environment
-    elif self.options.file is not None:
-      environment = parser.get('issue','environment')
-      issue.environment = environment
-
-    #return issue.__dict__
     return issue
 
   def get_issue(self,issueID):
@@ -502,10 +449,30 @@ class Jiraclient(object):
     print "Modified %s/browse/%s" % \
      (self.proxy.getServerInfo(auth)['baseUrl'], issueID)
 
+  def update_estimate(self,estimate,issueID):
+    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
+      self.logger.error("Only the SOAP interface supports this operation")
+      return
+
+    rx = re.compile('^\d+[smhdw]')
+    m = rx.match(estimate)
+    if not m:
+      self.logger.warning("Time estimate has dubious format: %s: no action taken" % (estimate))
+      return
+
+    # Note timeSpent must be set, and cannot be less than 1m
+    dt_today = SOAPpy.dateTimeType(time.gmtime(time.time())[:6])
+    worklog = {'startDate':dt_today,'timeSpent':'1m','comment':'jiraclient updates remaining estimate to %s' % estimate}
+    if self.options.noop:
+      self.logger.info("Would update time remaining: %s: %s" % (issueID,estimate))
+      return
+    self.logger.info("Update time remaining: %s: %s" % (issueID,estimate))
+    auth = self.proxy.login(self.options.user,self.options.password)
+    self.proxy.addWorklogWithNewRemainingEstimate(auth, issueID, worklog, estimate)
+
   def modify_issue(self,issueID,issue):
 
     issue = issue.__dict__
-
     auth = self.proxy.login(self.options.user,self.options.password)
 
     if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
@@ -584,7 +551,7 @@ class Jiraclient(object):
     projectID = self.get_project_id(child.project)
     if not projectID:
       self.fatal("Project %s is unknown" % child.project)
-    self.get_issue_types(projectID)
+    self.set_issue_types(projectID)
 
     # Set sub-task link
     result = self.proxy.createSubtaskLink(auth,parentId,childId,linkType)
@@ -598,6 +565,7 @@ class Jiraclient(object):
     return result
 
   def create_issue(self,issue):
+
     issue = issue.__dict__
     print issue
     if self.options.noop:
@@ -608,21 +576,6 @@ class Jiraclient(object):
     issueID = newissue["key"]
     print "Created %s/browse/%s" % \
      (self.proxy.getServerInfo(auth)['baseUrl'], issueID)
-
-    if self.options.time is not None and issueID:
-      estimate = self.options.time
-      self.logger.debug("estimate: %s" % estimate)
-
-      rx = re.compile('^\d+[smhdw]')
-      m = rx.match(estimate)
-      if not m:
-        self.logger.warning("Time estimate has dubious format: %s" % (estimate))
-        return issueID
-
-      # Note timeSpent must be set, and cannot be less than 1m
-      dt_today = SOAPpy.dateTimeType(time.gmtime(time.time())[:6])
-      worklog = {'startDate':dt_today,'timeSpent':'1m','comment':'jiraclient updates remaining estimate'}
-      self.proxy.addWorklogWithNewRemainingEstimate(auth, issueID, worklog, estimate)
 
     return issueID
 
@@ -652,7 +605,7 @@ class Jiraclient(object):
     del template['project']
 
     # Issue types must include epic, story and subtask
-    self.get_issue_types(projectID)
+    self.set_issue_types(projectID)
     for item in ['epic','story','sub-task']:
       if not self.typemap.has_key(item):
         self.fatal("Project '%s' does not have required issue type '%s'" % (projectID, item))
@@ -842,7 +795,11 @@ class Jiraclient(object):
 
       return
 
-    # Create a Jira issue dictionary
+    if self.options.remaining is not None:
+      self.update_estimate(self.options.remaining,self.options.issueID)
+      return
+
+    # Create an issue object
     issue = self.create_issue_obj()
 
     # Modify existing issue
