@@ -401,6 +401,15 @@ class Jiraclient(object):
           if v is True:
             self.fatal("You must specify: %s" % k)
 
+    # Timetracking is only allowed in update
+    if self.options.issueID is None and hasattr(issue,'timetracking'):
+      time = getattr(issue,'timetracking')
+      rx = re.compile('^\d+[smhdw]')
+      m = rx.match(time)
+      if not m:
+        self.fatal("Time estimate has dubious format: %s" % (time))
+      self.fatal("The timetracking option -t is only valid in 'modify' operations, not 'create'")
+
     # Now that we have the project, get its ID and then project types
     if hasattr(issue,'project'):
       projectID = self.get_project_id(issue.project)
@@ -421,9 +430,11 @@ class Jiraclient(object):
 
     if hasattr(issue,'fixversions'):
       issue.fixVersions = [{'id':x} for x in issue.fixversions.split(',')]
+      del issue.fixversions
 
     if hasattr(issue,'affectsversions'):
-      issue.affectsVersions = [{'id':x} for x in issue.affectsversions.split(',')]
+      issue.affectsVersions = [{'id':x} for x in issue.affectsVersions.split(',')]
+      del issue.affectsversions
 
     if hasattr(issue,'priority'):
       issue.priority = self.priorities[issue.priority.lower()]
