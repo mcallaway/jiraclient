@@ -1,14 +1,22 @@
 [jiraclient]
-jiraurl = https://jira.gsc.wustl.edu/rpc/xmlrpc
+# The Extended SOAP interface
+jiraurl = https://jira.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl
+# The XMLRPC interface
+#jiraurl = https://jira.gsc.wustl.edu/rpc/xmlrpc
 
 user = myname
 password = mysecret
 
+[issues]
 project = INFOSYS
 type = story
 priority = Normal
 
-assignee = myname
+# -- Default assignee
+#assignee = myname
+
+# -- Epic/Theme for this installation
+#epic_theme = customfield_10010
 
 # -- Component
 # Systems Development Component = 10002
