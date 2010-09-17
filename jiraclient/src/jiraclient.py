@@ -31,6 +31,18 @@ import xmlrpclib
 import SOAPpy
 import types
 
+time_rx = re.compile('^\d+[mhdw]')
+time_t_rx = re.compile('\s+%(\d+[mhdw])%')
+
+def parse_time(line):
+  def repl(m): return ''
+  time = None
+  m = time_t_rx.search(line)
+  if m:
+    time = m.group(1)
+    line = time_t_rx.sub(repl,line)
+  return (time,line)
+
 def inspect(obj,padding=None):
   # Traverse an object printing non-private attributes
   if padding is None:
@@ -404,8 +416,7 @@ class Jiraclient(object):
     # Timetracking is only allowed in update
     if self.options.issueID is None and hasattr(issue,'timetracking'):
       time = getattr(issue,'timetracking')
-      rx = re.compile('^\d+[smhdw]')
-      m = rx.match(time)
+      m = time_rx.match(time)
       if not m:
         self.fatal("Time estimate has dubious format: %s" % (time))
       self.fatal("The timetracking option -t is only valid in 'modify' operations, not 'create'")
@@ -465,8 +476,7 @@ class Jiraclient(object):
       self.logger.error("Only the SOAP interface supports this operation")
       return
 
-    rx = re.compile('^\d+[smhdw]')
-    m = rx.match(estimate)
+    m = time_rx.match(estimate)
     if not m:
       self.logger.warning("Time estimate has dubious format: %s: no action taken" % (estimate))
       return
@@ -623,8 +633,8 @@ class Jiraclient(object):
 
     for epic,stories in template.items():
       e = Issue(epic)
-      e.type = self.typemap['epic']
       e.project = project
+      e.type = self.typemap['epic']
       eid = None
       if not self.options.noop:
         eid = self.create_issue(e)
@@ -643,14 +653,19 @@ class Jiraclient(object):
               if type(story) is not types.StringType:
                 self.fatal("Template format error: illegal nested entry '%r'" % (story))
           s = Issue(story)
-          s.type = self.typemap['story']
           s.project = project
+          s.type = self.typemap['story']
+          (time,s.summary) = parse_time(s.summary)
           if eid:
             s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-          if not self.options.noop:
-            sid = self.create_issue(s)
-          else:
+          if self.options.noop:
             print s.__dict__
+          else:
+            sid = self.create_issue(s)
+            s = Issue()
+            if time is not None:
+              s.timetracking = time
+              self.modify_issue(sid,s)
 
           if subtasks:
             for subtask in subtasks:
@@ -659,15 +674,20 @@ class Jiraclient(object):
               st = Issue(subtask)
               # You cannot directly create a sub-task, you have to
               # create an issue, set sub-task link, then set type = sub-task
-              st.type = self.typemap['story']
               st.project = project
+              st.type = self.typemap['story']
+              (time,st.summary) = parse_time(st.summary)
               st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-              if not self.options.noop:
-                stid = self.create_issue(st)
-              else:
+              if self.options.noop:
                 print st.__dict__
-              # This converts to a sub-task
-              if not self.options.noop: self.subtask_link(sid,stid)
+              else:
+                stid = self.create_issue(st)
+                st = Issue()
+                if time is not None:
+                  st.timetracking = time
+                  self.modify_issue(stid,st)
+                # This converts to a sub-task
+                self.subtask_link(sid,stid)
 
     if not self.options.noop:
       print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+issuetype+ASC" % (self.proxy.getServerInfo(auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
