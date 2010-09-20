@@ -18,8 +18,7 @@ dsg-userdel.sh \
 rm-alias.sh \
 rm-ssh.sh
 
-PERL = dsg-userADadd.pl \
-dsg-userADdel.pl \
+PERL = dsg-userAD.pl \
 dsg-userldap.pl
 
 SOURCES = $(SCRIPTS) $(PERL)
