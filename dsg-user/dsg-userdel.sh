@@ -167,9 +167,9 @@ else
 fi
 
 # remove from AD
-userAD="/gsc/scripts/sbin/gsc-userADdel $login"
+userAD="/dsg/scripts/sbin/dsg-userAD -d $login"
 if $userAD; then
-   echo "$pkg: user deleted from AD" 
+   echo "$pkg: user deleted from AD"
 else
     echo "$pkg: failed to delete user from AD: $userAD"
     status=1

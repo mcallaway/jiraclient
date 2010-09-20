@@ -75,7 +75,7 @@ for arg
           ;;
 
       -h | --help | --hel | --he | --h)
-	  cat <<EOF
+      cat <<EOF
 Usage: $pkg [OPTIONS]... [LOGIN]
 If an argument to a long option is mandatory, it is also mandatory for
 the corresponding short option; the same is true for optional arguments.
@@ -91,11 +91,11 @@ Options:
   -t,--test           do not actually do anything
   -u,--uid=N          set user uid to N
   --version           print version number and exit
-  -z		      no email account for this user
+  -z                  no email account for this user
 
 
 EOF
-	  exit 0;;
+      exit 0;;
 
       -n | --name | --nam | --na | --n)
           prev_arg=name
@@ -126,18 +126,18 @@ EOF
           ;;
 
       --version | --versio | --versi | --vers | --ver | --ve)
-	  echo "$pkg $version"
-	  exit 0
-	  ;;
+      echo "$pkg $version"
+      exit 0
+      ;;
 
       -z)
           mailaccount=0
           ;;
 
       -*)
-	  echo "$pkg: unrecognized option: $arg"
-	  echo "$pkg: Try '$pkg --help' for more information."
-	  exit 1;;
+      echo "$pkg: unrecognized option: $arg"
+      echo "$pkg: Try '$pkg --help' for more information."
+      exit 1;;
 
       *)
           if [ "$login" ]; then
@@ -197,7 +197,7 @@ fi
 # get the uid
 if [ "$uid" ]; then
     # make sure it is not in use
-    `ldapsearch -x uidNumber=1566 uidNumber | grep -q uidNumber:`
+    `ldapsearch -x uidNumber=$uid uidNumber | grep -q uidNumber:`
     if [ $? -eq 0 ]; then
         echo "$pkg: uid $uid is already in use"
         exit 1
@@ -250,7 +250,7 @@ fi
 dir="/dsguser/$login"
 
 # set shell for email accounts
-if [ "$email" ]; then
+if [ "$email" = 1 ]; then
     shell=/bin/false
 fi
 
@@ -316,11 +316,11 @@ fi
 # add user to samba smbpasswd file with default pass
 samba="ssh -x mercury5 /dsg/share/scripts/dsg-samba $login"
 if [ "$test" ]; then
-	samba="echo $pkg: $samba"
+    samba="echo $pkg: $samba"
 fi
 if ! $samba; then
-	echo "$pkg: failed to create samba account: $mailimap"
-	exit 2
+    echo "$pkg: failed to create samba account: $mailimap"
+    exit 2
 fi
 
 # mail user a welcome message
@@ -334,8 +334,11 @@ if ! mailx -s 'Welcome to the DSG' "$login@dsgmail.wustl.edu" <$message; then
     exit 2
 fi
 
-# Add user to gc.local AD
-userAD="/dsg/scripts/sbin/dsg-userADadd $login"
+# Add user to gc.local AD, ldap must be done first.
+userAD="/dsg/scripts/sbin/dsg-userAD -a $login"
+if [ "$test" ]; then
+    userADD="echo $pkg: $userAD"
+fi
 if $userAD; then
    echo "$pkg: user added to AD" 
 else
