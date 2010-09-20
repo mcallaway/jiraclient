@@ -40,7 +40,7 @@ sub find_ldap_user {
   my $ldapentry  = pop @{ [ $result->entries() ] };
   die "User $user not found in LDAP"
     if (! defined $ldapentry or ! defined $ldapentry->get_value("uid"));
-  return $ldapentry;
+  $self->{ldapentry} = $self->{ldapentry};
 }
 
 sub ad_connect {
@@ -60,7 +60,7 @@ sub ad_connect {
 
 sub user_in_ad {
   my $self = shift;
-  my $ldapentry = shift;
+  my $ldapentry = $self->{ldapentry};
   my $user = $ldapentry->get_value("uid");
   my $query = "(&(uid=".$user."))";
   # FIXME: configurable base DN
@@ -78,7 +78,7 @@ sub user_in_ad {
 
 sub ad_adduser {
   my $self = shift;
-  my $ldapentry = shift;
+  my $ldapentry = $self->{ldapentry};
   my $user = $ldapentry->get_value("uid");
 
   # FIXME: configurable
