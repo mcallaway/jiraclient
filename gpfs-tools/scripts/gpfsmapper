@@ -1,9 +1,0 @@
-#!/usr/bin/env perl
-use gpfsmapper;
-use strict;
-use warnings;
-my $caller = ${ [ caller() ] }[0];
-if (! defined($caller) or $caller eq "PAR") {
-  my $app = gpfsmapper->new();
-  $app->run();
-}
