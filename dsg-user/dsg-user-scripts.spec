@@ -33,7 +33,8 @@ make \
 
 %files
 %defattr(-,root,root)
-%destdir
+%dir %{destdir}
+%attr(0555,root,root) %{destdir}/*
 
 %changelog
 * Mon Sep 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
