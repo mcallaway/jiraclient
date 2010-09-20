@@ -1,4 +1,4 @@
-%define destdir /dsg/share/scripts
+%define destdir /share/scripts
 
 Name: dsg-user-scripts
 Summary: Scripts for creation and removal of users.
