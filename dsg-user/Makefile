@@ -32,8 +32,11 @@ all: dist
 
 install: $(SOURCES)
 	install -d $(DESTDIR)$(INSTALLDIR)
-	for FILE in $(SOURCES) ; do \
-		install -m 0755 $$FILE $(DESTDIR)$(INSTALLDIR) ; \
+	for FILE in $(SCRIPTS) ; do \
+	  cp -aup $$FILE $(DESTDIR)$(INSTALLDIR)/$${FILE%%.sh} ; \
+	done
+	for FILE in $(PERL) ; do \
+	  cp -aup $$FILE $(DESTDIR)$(INSTALLDIR)/$${FILE%%.pl} ; \
 	done
 
 version:
