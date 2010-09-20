@@ -2,7 +2,7 @@ Format-Specification:
     http://wiki.debian.org/Proposals/CopyrightFormat?action=recall&rev=196
 Upstream-Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
 Upstream-Source: http://search.cpan.org/dist/gpfsmapper/
-Upstream-Name: gpfsmapper
+Upstream-Name: gpfs-tools
 Disclaimer: This copyright info was automatically extracted 
     from the perl module. It may not be accurate, so you better 
     check the module sources in order to ensure the module for its 

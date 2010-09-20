@@ -1,4 +1,11 @@
-libgpfsmapper-perl (0v0.1-1) unstable; urgency=low
+gpfs-tools (0v0.2-1) unstable; urgency=low
+
+  * Changed name from libgpfsmapper-perl to gpfs-tools.
+  * Added gpfscrfs.sh.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Mon, 20 Sep 2010 12:34:01 -0500
+
+gpfs-tools (0v0.2-1) unstable; urgency=low
 
   * Initial Release.
 
