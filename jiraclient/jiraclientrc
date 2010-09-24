@@ -5,7 +5,9 @@ jiraurl = https://jira.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl
 #jiraurl = https://jira.gsc.wustl.edu/rpc/xmlrpc
 
 user = myname
-password = mysecret
+# Storing password here is supported, but not necessarily recommended
+# jiraclient will prompt that ~/.jiraclientrc is mode 0600
+#password = mysecret
 
 [issues]
 project = INFOSYS

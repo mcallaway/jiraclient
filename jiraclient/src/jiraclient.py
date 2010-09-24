@@ -19,6 +19,7 @@
 # jiraclient.py.  If not, write to the Free Software Foundation, Inc., 59
 # Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
+import getpass
 import os
 import re
 import sys
@@ -78,7 +79,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.5.2"
+  version = "1.5.3"
 
   priorities = {}
   typemap = {}
@@ -113,7 +114,7 @@ class Jiraclient(object):
       action="store",
       dest="config",
       help="Read configuration from this file",
-      default=os.path.join(os.environ["HOME"],'.jiraclientrc')
+      default=os.path.join(os.environ["HOME"],'.jiraclientrc'),
     )
     optParser.add_option(
       "-a","--api",
@@ -331,14 +332,31 @@ class Jiraclient(object):
     parser = ConfigParser.ConfigParser()
 
     if self.options.config is not None:
+
+      if not os.path.exists(self.options.config):
+        # Write a basic rc file
+        fd = open(self.options.config,'w')
+        fd.write('# .jiraclientrc\n')
+        fd.write('[jiraclient]\n')
+        fd.write('jiraurl = \n')
+        fd.write('user = %s\n' % os.environ["USER"])
+        fd.write('[issues]\n')
+        fd.write('#project = INFOSYS\n')
+        fd.write('#type = story\n')
+        fd.write('#priority = Normal\n')
+        fd.write('#epic_theme = \n')
+        fd.write('#assignee = \n')
+        fd.write('#components = \n')
+        fd.write('#components = \n')
+        fd.write('#fixversions = \n')
+        os.fchmod(fd.fileno(),int("600",8))
+        fd.close()
+
       stat = os.stat(self.options.config)
       if S_IMODE(os.stat(self.options.config).st_mode) != int("600",8):
         self.logger.warning("Config file %s is not mode 600" % (self.options.config))
       try:
         parser.readfp(file(self.options.config,'r'))
-      except IOError, details:
-        # No file is ok, just return
-        return
       except ConfigParser.ParsingError:
         self.logger.warning("Body has multiple lines, truncating...")
       except Exception, details:
@@ -727,14 +745,15 @@ class Jiraclient(object):
     self.prepare_logger()
     self.read_config()
 
-    if self.options.user is None:
+    if not self.options.user:
       self.fatal("Please specify Jira user")
 
-    if self.options.password is None:
-      self.fatal("Please specify Jira password")
-
-    if self.options.jiraurl is None:
+    if not self.options.jiraurl:
       self.fatal("Please specify the Jira URL")
+
+    if not self.options.password:
+      pw = getpass.getpass("Jira password: ")
+      self.options.password = pw
 
     if self.options.jiraurl.lower().find('soap') != -1:
       self.proxy = SOAPpy.WSDL.Proxy(self.options.jiraurl)
