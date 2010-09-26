@@ -34,6 +34,7 @@ import types
 
 time_rx = re.compile('^\d+[mhdw]')
 time_t_rx = re.compile('\s+%(\d+[mhdw])%')
+session_rx = re.compile("session timed out")
 
 def parse_time(line):
   def repl(m): return ''
@@ -79,7 +80,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.5.3"
+  version = "1.5.4"
 
   priorities = {}
   typemap = {}
@@ -373,10 +374,7 @@ class Jiraclient(object):
           setattr(self.options,k,v)
 
   def get_project_id(self,project):
-
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.getProjectsNoSchemes(auth)
-
+    result = self.proxy.getProjectsNoSchemes(self.auth)
     if result.__class__ is SOAPpy.Types.typedArrayType:
       for item in result:
         if hasattr(item,'key') and getattr(item,'key') == project:
@@ -387,18 +385,61 @@ class Jiraclient(object):
           return hash['id']
 
   def set_issue_types(self,projectID):
+    result = self.proxy.getIssueTypesForProject(self.auth,projectID)
+    for item in result:
+      self.typemap[item['name'].lower()] = item['id']
+    result = self.proxy.getSubTaskIssueTypesForProject(self.auth,projectID)
+    for item in result:
+      self.typemap[item['name'].lower()] = item['id']
 
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.getIssueTypesForProject(auth,projectID)
-    for item in result:
-      self.typemap[item['name'].lower()] = item['id']
-    result = self.proxy.getSubTaskIssueTypesForProject(auth,projectID)
-    for item in result:
-      self.typemap[item['name'].lower()] = item['id']
+  def read_password(self):
+    if not self.options.password:
+      print "Please authenticate."
+      pw = getpass.getpass("Jira password: ")
+      self.options.password = pw
+
+  def check_auth(self):
+    session = os.path.join(os.environ["HOME"],'.jira-session')
+
+    if os.path.exists(session):
+      if S_IMODE(os.stat(session).st_mode) != int("600",8):
+        self.logger.error("session file %s is not mode 600, forcing new session" % (session))
+        os.unlink(session)
+
+    if not os.path.exists(session):
+      # New session
+      self.read_password()
+      try:
+        auth = self.proxy.login(self.options.user,self.options.password)
+      except Exception, details:
+        self.fatal("Login failed")
+      fd = open(session,'w')
+      fd.write(auth)
+      os.fchmod(fd.fileno(),int("600",8))
+      fd.close()
+    else:
+      # Existing auth session
+      fd = open(session,'r')
+      auth = fd.read()
+      fd.close()
+
+    self.auth = auth
+
+    # We now have enough to connect,
+    # so get priorities from Jira to validate auth.
+    try:
+      self.get_priorities()
+    except Exception,details:
+      m = session_rx.search(repr(details))
+      if m:
+        # Session expired, re-auth
+        os.unlink(session)
+        self.check_auth()
+      else:
+        self.fatal("Failed to get project priorities from Jira: %r" % (details))
 
   def get_priorities(self):
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.getPriorities(auth)
+    result = self.proxy.getPriorities(self.auth)
     for item in result:
       self.priorities[item['name'].lower()] = item['id']
 
@@ -471,23 +512,20 @@ class Jiraclient(object):
     return issue
 
   def get_issue(self,issueID):
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.getIssue(auth,issueID)
+    result = self.proxy.getIssue(self.auth,issueID)
     return result
 
   def get_issue_links(self,issueID,type=None):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.getIssue(auth,issueID)
-    result = self.proxy.getLinkedIssues(auth,SOAPpy.Types.longType(long(result['id'])),'')
+    result = self.proxy.getIssue(self.auth,issueID)
+    result = self.proxy.getLinkedIssues(self.auth,SOAPpy.Types.longType(long(result['id'])),'')
     return result
 
   def add_comment(self,issueID,comment):
-    auth = self.proxy.login(self.options.user,self.options.password)
-    result = self.proxy.addComment(auth,issueID,comment)
+    result = self.proxy.addComment(self.auth,issueID,comment)
     print "Modified %s/browse/%s" % \
-     (self.proxy.getServerInfo(auth)['baseUrl'], issueID)
+     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
 
   def update_estimate(self,estimate,issueID):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
@@ -506,13 +544,11 @@ class Jiraclient(object):
       self.logger.info("Would update time remaining: %s: %s" % (issueID,estimate))
       return
     self.logger.info("Update time remaining: %s: %s" % (issueID,estimate))
-    auth = self.proxy.login(self.options.user,self.options.password)
-    self.proxy.addWorklogWithNewRemainingEstimate(auth, issueID, worklog, estimate)
+    self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, estimate)
 
   def modify_issue(self,issueID,issue):
 
     issue = issue.__dict__
-    auth = self.proxy.login(self.options.user,self.options.password)
 
     if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
       # SOAP takes a list of dictionaries of parameters, we need to convert to the right format
@@ -534,43 +570,40 @@ class Jiraclient(object):
 
     print issue
     if self.options.noop: return
-    result = self.proxy.updateIssue(auth,issueID,issue)
+    result = self.proxy.updateIssue(self.auth,issueID,issue)
 
     print "Modified %s/browse/%s" % \
-     (self.proxy.getServerInfo(auth)['baseUrl'], issueID)
+     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
 
   def link_issues(self,issueFrom,linkType,issueTo):
     if self.options.noop: return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
-    auth = self.proxy.login(self.options.user,self.options.password)
-    fromIssue = self.proxy.getIssue(auth,issueFrom)
+    fromIssue = self.proxy.getIssue(self.auth,issueFrom)
     fromId = SOAPpy.Types.longType(long(fromIssue['id']))
-    toIssue = self.proxy.getIssue(auth,issueTo)
+    toIssue = self.proxy.getIssue(self.auth,issueTo)
     toId = SOAPpy.Types.longType(long(toIssue['id']))
-    result = self.proxy.linkIssue(auth,fromId,toId,linkType,True,False)
+    result = self.proxy.linkIssue(self.auth,fromId,toId,linkType,True,False)
     return result
 
   def unlink_issues(self,issueFrom,linkType,issueTo):
     if self.options.noop: return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
-    auth = self.proxy.login(self.options.user,self.options.password)
-    fromIssue = self.proxy.getIssue(auth,issueFrom)
+    fromIssue = self.proxy.getIssue(self.auth,issueFrom)
     fromId = SOAPpy.Types.longType(long(fromIssue['id']))
-    toIssue = self.proxy.getIssue(auth,issueTo)
+    toIssue = self.proxy.getIssue(self.auth,issueTo)
     toId = SOAPpy.Types.longType(long(toIssue['id']))
-    result = self.proxy.unlinkIssue(auth,fromId,toId,linkType)
+    result = self.proxy.unlinkIssue(self.auth,fromId,toId,linkType)
     return result
 
   def subtask_link(self,parent,child):
     if self.options.noop: return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
-    auth = self.proxy.login(self.options.user,self.options.password)
-    parent = self.proxy.getIssue(auth,parent)
+    parent = self.proxy.getIssue(self.auth,parent)
     parentId = SOAPpy.Types.longType(long(parent['id']))
-    child = self.proxy.getIssue(auth,child)
+    child = self.proxy.getIssue(self.auth,child)
     childId = SOAPpy.Types.longType(long(child['id']))
 
     # issueType is always jira_subtask_link, which we get from the Jira DB:
@@ -593,7 +626,7 @@ class Jiraclient(object):
     self.set_issue_types(projectID)
 
     # Set sub-task link
-    result = self.proxy.createSubtaskLink(auth,parentId,childId,linkType)
+    result = self.proxy.createSubtaskLink(self.auth,parentId,childId,linkType)
 
     # Set issue type to sub-task after linking.
     issue = Issue()
@@ -610,11 +643,10 @@ class Jiraclient(object):
     if self.options.noop:
       # return a fake Issue Key
       return 'NOPROJECT-0'
-    auth = self.proxy.login(self.options.user,self.options.password)
-    newissue = self.proxy.createIssue(auth,issue)
+    newissue = self.proxy.createIssue(self.auth,issue)
     issueID = newissue["key"]
     print "Created %s/browse/%s" % \
-     (self.proxy.getServerInfo(auth)['baseUrl'], issueID)
+     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
 
     return issueID
 
@@ -635,8 +667,6 @@ class Jiraclient(object):
 
     if not template.has_key('project'):
       self.fatal("Template has no 'project' key")
-
-    auth = self.proxy.login(self.options.user,self.options.password)
 
     # Project ID determines available Issue types.
     project = template['project']
@@ -708,16 +738,15 @@ class Jiraclient(object):
                 self.subtask_link(sid,stid)
 
     if not self.options.noop:
-      print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+issuetype+ASC" % (self.proxy.getServerInfo(auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
+      print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+issuetype+ASC" % (self.proxy.getServerInfo(self.auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
 
   def call_API(self,api,args):
-    auth = self.proxy.login(self.options.user,self.options.password)
     func = getattr(self.proxy,api)
     args = ' '.join(args)
     if args:
-      result = func(auth,args)
+      result = func(self.auth,args)
     else:
-      result = func(auth)
+      result = func(self.auth)
 
     if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
       for item in result:
@@ -751,20 +780,13 @@ class Jiraclient(object):
     if not self.options.jiraurl:
       self.fatal("Please specify the Jira URL")
 
-    if not self.options.password:
-      pw = getpass.getpass("Jira password: ")
-      self.options.password = pw
-
     if self.options.jiraurl.lower().find('soap') != -1:
       self.proxy = SOAPpy.WSDL.Proxy(self.options.jiraurl)
     else:
       self.proxy = xmlrpclib.ServerProxy(self.options.jiraurl).jira1
 
-    # We now have enough to connect, so get priorities and types
-    try:
-      self.get_priorities()
-    except Exception,details:
-      self.fatal("Failed to get project priorities from Jira: %r" % (details))
+    # Check or get auth token
+    self.check_auth()
 
     # Run a named Jira API call and return
     if self.options.api is not None:
@@ -866,7 +888,11 @@ class Jiraclient(object):
 
 def main():
   A = Jiraclient()
-  A.run()
+  try:
+    A.run()
+  except KeyboardInterrupt:
+    print "Exiting..."
+    return
 
 if __name__ == "__main__":
   main()
