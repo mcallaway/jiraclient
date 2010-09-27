@@ -161,11 +161,16 @@ sub report {
 
   # Display only eth0 items, convert to bits
   my $iface = "eth0";
-  print "rbits=" . int($result->{interfaces}->{$iface}->{'d_rbytes'}) * 8 . "\n";
-  print "tbits=" . int($result->{interfaces}->{$iface}->{'d_tbytes'}) * 8 . "\n";
-  print "rpkts=" . $result->{interfaces}->{$iface}->{'d_rpackets'} . "\n";
-  print "tpkts=" . $result->{interfaces}->{$iface}->{'d_tpackets'} . "\n";
-
+  foreach my $item ('d_rbytes','d_tbytes') {
+    my $name = $item;
+    $name =~ s/^d_//;
+    print "$name=" . int($result->{interfaces}->{$iface}->{$item}) * 8 . "\n";
+  }
+  foreach my $item ('d_rpackets','d_tpackets') {
+    my $name = $item;
+    $name =~ s/^d_//;
+    print "$name=" . $result->{interfaces}->{$iface}->{$item} . "\n";
+  }
 }
 
 sub display {
@@ -202,10 +207,14 @@ sub run {
   }
   $self->read_cpu(\$this);
   $self->read_net(\$this);
-  $self->compare($last,\$this);
+  my $result = $self->compare($last,\$this);
   $self->save($this);
-  #$self->display($this);
-  $self->report($this);
+  if (defined $result) {
+    #$self->display($this);
+    $self->report($this);
+  } else {
+    print "no previous run to compare to\n";
+  }
 }
 
 1;
