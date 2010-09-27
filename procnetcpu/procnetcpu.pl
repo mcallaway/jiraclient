@@ -148,6 +148,26 @@ sub compare {
   }
 }
 
+sub report {
+  my $self = shift;
+  my $result = shift;
+
+  # Display CPU deltas
+  foreach my $item ('d_idle', 'd_iowait', 'd_irq', 'd_nice', 'd_softirq', 'd_system', 'd_user', 'd_walltime' ) {
+    my $name = $item;
+    $name =~ s/^d_//;
+    print "$name=$result->{$item}\n";
+  }
+
+  # Display only eth0 items, convert to bits
+  my $iface = "eth0";
+  print "rbits=" . int($result->{interfaces}->{$iface}->{'d_rbytes'}) * 8 . "\n";
+  print "tbits=" . int($result->{interfaces}->{$iface}->{'d_tbytes'}) * 8 . "\n";
+  print "rpkts=" . $result->{interfaces}->{$iface}->{'d_rpackets'} . "\n";
+  print "tpkts=" . $result->{interfaces}->{$iface}->{'d_tpackets'} . "\n";
+
+}
+
 sub display {
   my $self = shift;
   my $result = shift;
@@ -184,7 +204,8 @@ sub run {
   $self->read_net(\$this);
   $self->compare($last,\$this);
   $self->save($this);
-  $self->display($this);
+  #$self->display($this);
+  $self->report($this);
 }
 
 1;
