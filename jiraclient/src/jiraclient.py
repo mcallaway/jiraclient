@@ -675,26 +675,11 @@ class Jiraclient(object):
 
     template = yaml.load(file(self.options.template,"r"))
 
-    if not template.has_key('project'):
-      self.fatal("Template has no 'project' key")
-
-    # Project ID determines available Issue types.
-    project = template['project']
-    projectID = self.get_project_id(template['project'])
-    del template['project']
-
-    # Issue types must include epic, story and subtask
-    self.set_issue_types(projectID)
-    for item in ['epic','story','sub-task']:
-      if not self.typemap.has_key(item):
-        self.fatal("Project '%s' does not have required issue type '%s'" % (projectID, item))
-
     # Parsing the template from here down.
     for epic,stories in template.items():
       # First item is the Epic
       e = self.create_issue_obj(permissive=True)
       e.summary = epic
-      e.project = project
       e.type = self.typemap['epic']
       eid = None
       if not self.options.noop:
