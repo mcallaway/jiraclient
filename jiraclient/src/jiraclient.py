@@ -21,6 +21,7 @@
 
 import getpass
 import os
+import pprint
 import re
 import sys
 import time
@@ -32,6 +33,7 @@ import xmlrpclib
 import SOAPpy
 import types
 
+pp = pprint.PrettyPrinter(indent=4)
 time_rx = re.compile('^\d+[mhdw]')
 time_t_rx = re.compile('\s+%(\d+[mhdw])%')
 session_rx = re.compile("session timed out")
@@ -68,19 +70,26 @@ def inspect(obj,padding=None):
         print "%s%s: %s" % (' ' * padding,attr,a)
 
 class Issue(object):
+
+  project = None
+  type = None
+  summary = None
+  assignee = None
+  components = None
+  fixVersions = None
+  affectsVersions = None
+  priority = None
+  environment = None
+
   # This Issue class exists so that we can easily convert an
   # issue instance into a dictionary later.
-  def __init__(self,summary=None):
-    if summary is not None:
-      self.summary = summary
-
   def __getitem__(self,key):
     item = getattr(self,key)
     if item is not None: return item
 
 class Jiraclient(object):
 
-  version = "1.5.4"
+  version = "1.5.5"
 
   priorities = {}
   typemap = {}
@@ -245,9 +254,9 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-F","--fixversions",
+      "-F","--fixVersions",
       action="store",
-      dest="fixversions",
+      dest="fixVersions",
       help="Jira project 'fix versions', comma separated list",
       default=None,
     )
@@ -287,9 +296,9 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-V","--affecstversions",
+      "-V","--affecstVersions",
       action="store",
-      dest="affectsversions",
+      dest="affectsVersions",
       help="Jira project 'affects versions', comma separated list",
       default=None,
     )
@@ -331,6 +340,7 @@ class Jiraclient(object):
   def read_config(self):
 
     parser = ConfigParser.ConfigParser()
+    parser.optionxform = str
 
     if self.options.config is not None:
 
@@ -349,7 +359,7 @@ class Jiraclient(object):
         fd.write('#assignee = \n')
         fd.write('#components = \n')
         fd.write('#components = \n')
-        fd.write('#fixversions = \n')
+        fd.write('#fixVersions = \n')
         os.fchmod(fd.fileno(),int("600",8))
         fd.close()
 
@@ -443,34 +453,36 @@ class Jiraclient(object):
     for item in result:
       self.priorities[item['name'].lower()] = item['id']
 
-  def create_issue_obj(self):
+  def create_issue_obj(self,permissive=False):
     # Creates an Issue object based on CLI args and config file.
     # We do this for create and modify operations.
 
     parser = ConfigParser.ConfigParser()
     issue = Issue()
 
+    # Supported issue attributes, and whether or not they are required.
+    # Requiredness might be better as some part of an Issue attribute.
     attrs = {
       'project'         : True,
       'type'            : True,
       'summary'         : True,
       'assignee'        : False,
       'components'      : False,
-      'fixversions'     : False,
-      'affectsversions' : False,
+      'fixVersions'     : False,
+      'affectsVersions' : False,
       'priority'        : False,
       'environment'     : False,
       'timetracking'    : False,
     }
 
-    for (k,v) in attrs.items():
-      if hasattr(self.options,k) and getattr(self.options,k) is not None:
-        setattr(issue,k,getattr(self.options,k))
+    for (key,required) in attrs.items():
+      if hasattr(self.options,key) and getattr(self.options,key) is not None:
+        setattr(issue,key,getattr(self.options,key))
       else:
         if self.options.issueID is None:
           # This is a create, which requires some attrs
-          if v is True:
-            self.fatal("You must specify: %s" % k)
+          if required is True and not permissive:
+            self.fatal("You must specify: %s" % key)
 
     # Timetracking is only allowed in update
     if self.options.issueID is None and hasattr(issue,'timetracking'):
@@ -495,18 +507,16 @@ class Jiraclient(object):
       issue.type = self.typemap[issue.type]
 
     # Handle various things...
-    if hasattr(issue,'components'):
+    if hasattr(issue,'components') and issue.components is not None:
       issue.components = [{'id':x} for x in issue.components.split(',')]
 
-    if hasattr(issue,'fixversions'):
-      issue.fixVersions = [{'id':x} for x in issue.fixversions.split(',')]
-      del issue.fixversions
+    if hasattr(issue,'fixVersions') and issue.fixVersions is not None:
+      issue.fixVersions = [{'id':x} for x in issue.fixVersions.split(',')]
 
-    if hasattr(issue,'affectsversions'):
+    if hasattr(issue,'affectsVersions') and issue.affectsVersions is not None:
       issue.affectsVersions = [{'id':x} for x in issue.affectsVersions.split(',')]
-      del issue.affectsversions
 
-    if hasattr(issue,'priority'):
+    if hasattr(issue,'priority') and issue.priority is not None:
       issue.priority = self.priorities[issue.priority.lower()]
 
     return issue
@@ -679,8 +689,11 @@ class Jiraclient(object):
       if not self.typemap.has_key(item):
         self.fatal("Project '%s' does not have required issue type '%s'" % (projectID, item))
 
+    # Parsing the template from here down.
     for epic,stories in template.items():
-      e = Issue(epic)
+      # First item is the Epic
+      e = self.create_issue_obj(permissive=True)
+      e.summary = epic
       e.project = project
       e.type = self.typemap['epic']
       eid = None
@@ -692,6 +705,7 @@ class Jiraclient(object):
       else:
         print e.__dict__
 
+      # Now parse stories and their subtasks.
       if stories:
         for story in stories:
           subtasks = None
@@ -700,8 +714,8 @@ class Jiraclient(object):
 
               if type(story) is not types.StringType:
                 self.fatal("Template format error: illegal nested entry '%r'" % (story))
-          s = Issue(story)
-          s.project = project
+          s = self.create_issue_obj(permissive=True)
+          s.summary = story
           s.type = self.typemap['story']
           (time,s.summary) = parse_time(s.summary)
           if eid:
@@ -710,7 +724,7 @@ class Jiraclient(object):
             print s.__dict__
           else:
             sid = self.create_issue(s)
-            s = Issue()
+            s = self.create_issue_obj(permissive=True)
             if time is not None:
               s.timetracking = time
               self.modify_issue(sid,s)
@@ -719,10 +733,10 @@ class Jiraclient(object):
             for subtask in subtasks:
               if type(subtask) is not types.StringType:
                 self.fatal("Template format error: illegal nested entry '%r'" % (subtask))
-              st = Issue(subtask)
+              st = self.create_issue_obj(permissive=True)
               # You cannot directly create a sub-task, you have to
               # create an issue, set sub-task link, then set type = sub-task
-              st.project = project
+              st.summary = subtask
               st.type = self.typemap['story']
               (time,st.summary) = parse_time(st.summary)
               st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
@@ -730,7 +744,7 @@ class Jiraclient(object):
                 print st.__dict__
               else:
                 stid = self.create_issue(st)
-                st = Issue()
+                st = self.create_issue_obj(permissive=True)
                 if time is not None:
                   st.timetracking = time
                   self.modify_issue(stid,st)
