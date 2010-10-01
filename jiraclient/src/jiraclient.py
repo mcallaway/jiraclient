@@ -88,6 +88,16 @@ class Issue(object):
     item = getattr(self,key)
     if item is not None: return item
 
+  def __repr__(self):
+    text = "%s(" % (self.__class__.__name__)
+    for attr in dir(self):
+      if attr.startswith('_'): continue
+      a = getattr(self,attr)
+      if callable(a): continue
+      text += "%s=%r," % (attr,a)
+    text += ")"
+    return text
+
 class Jiraclient(object):
 
   version = "1.5.6"
@@ -479,7 +489,7 @@ class Jiraclient(object):
     for (key,required) in attrs.items():
       if hasattr(self.options,key) and getattr(self.options,key) is not None:
         # Timetracking must be a "modify" action, not create
-        if key == 'timetracking': continue
+        if key == 'timetracking' and not self.options.issueID: continue
         setattr(issue,key,getattr(self.options,key))
       else:
         if self.options.issueID is None:
@@ -495,7 +505,7 @@ class Jiraclient(object):
       self.set_issue_types(projectID)
 
     # A given type must be known to Jira, convert to numerical form
-    if hasattr(issue,'type'):
+    if hasattr(issue,'type') and issue.type is not None:
       if issue.type not in self.typemap:
         print "Known issue types:\n%r\n" % self.typemap
         self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
@@ -852,7 +862,6 @@ class Jiraclient(object):
         links = self.get_issue_links(self.options.issueID)
         ids = []
         for link in links:
-          #inspect(link)
           ids.append(getattr(link,'key'))
         print "Linked to this issue:"
         print "%r" % ids
