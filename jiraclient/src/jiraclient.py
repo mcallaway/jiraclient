@@ -80,6 +80,7 @@ class Issue(object):
   affectsVersions = None
   priority = None
   environment = None
+  timetracking = None
 
   # This Issue class exists so that we can easily convert an
   # issue instance into a dictionary later.
@@ -89,7 +90,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.5.5"
+  version = "1.5.6"
 
   priorities = {}
   typemap = {}
@@ -477,20 +478,14 @@ class Jiraclient(object):
 
     for (key,required) in attrs.items():
       if hasattr(self.options,key) and getattr(self.options,key) is not None:
+        # Timetracking must be a "modify" action, not create
+        if key == 'timetracking': continue
         setattr(issue,key,getattr(self.options,key))
       else:
         if self.options.issueID is None:
           # This is a create, which requires some attrs
           if required is True and not permissive:
             self.fatal("You must specify: %s" % key)
-
-    # Timetracking is only allowed in update
-    if self.options.issueID is None and hasattr(issue,'timetracking'):
-      time = getattr(issue,'timetracking')
-      m = time_rx.match(time)
-      if not m:
-        self.fatal("Time estimate has dubious format: %s" % (time))
-      self.fatal("The timetracking option -t is only valid in 'modify' operations, not 'create'")
 
     # Now that we have the project, get its ID and then project types
     if hasattr(issue,'project'):
@@ -561,9 +556,9 @@ class Jiraclient(object):
     issue = issue.__dict__
 
     if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
-      # SOAP takes a list of dictionaries of parameters, we need to convert to the right format
+      # SOAP takes a list of dictionaries of parameters, we need to convert to
+      # the right format
       paramlist = []
-
       for item in issue:
         params = {'id':None,'values':None}
         if item == 'type':
@@ -578,7 +573,8 @@ class Jiraclient(object):
           paramlist.append(params)
       issue = paramlist
 
-    print issue
+    print "Modify %s:" % issueID
+    pp.pprint(issue)
     if self.options.noop: return
     result = self.proxy.updateIssue(self.auth,issueID,issue)
 
@@ -586,7 +582,9 @@ class Jiraclient(object):
      (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
 
   def link_issues(self,issueFrom,linkType,issueTo):
-    if self.options.noop: return
+    if self.options.noop:
+      print "Would link %s -> %s" % (parent,child)
+      return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
     fromIssue = self.proxy.getIssue(self.auth,issueFrom)
@@ -597,7 +595,9 @@ class Jiraclient(object):
     return result
 
   def unlink_issues(self,issueFrom,linkType,issueTo):
-    if self.options.noop: return
+    if self.options.noop:
+      print "Would unlink %s -> %s" % (parent,child)
+      return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
     fromIssue = self.proxy.getIssue(self.auth,issueFrom)
@@ -608,7 +608,9 @@ class Jiraclient(object):
     return result
 
   def subtask_link(self,parent,child):
-    if self.options.noop: return
+    if self.options.noop:
+      print "Would subtask %s -> %s" % (parent,child)
+      return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
     parent = self.proxy.getIssue(self.auth,parent)
@@ -649,10 +651,11 @@ class Jiraclient(object):
   def create_issue(self,issue):
 
     issue = issue.__dict__
-    print issue
+    print "Create issue:"
+    pp.pprint(issue)
     if self.options.noop:
       # return a fake Issue Key
-      return 'NOPROJECT-0'
+      return 'issue'
     newissue = self.proxy.createIssue(self.auth,issue)
     issueID = newissue["key"]
     print "Created %s/browse/%s" % \
@@ -681,14 +684,10 @@ class Jiraclient(object):
       e = self.create_issue_obj(permissive=True)
       e.summary = epic
       e.type = self.typemap['epic']
-      eid = None
-      if not self.options.noop:
-        eid = self.create_issue(e)
-        # set epic/theme of eid
-        e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-        self.modify_issue(eid,e)
-      else:
-        print e.__dict__
+      eid = self.create_issue(e)
+      # set epic/theme of eid
+      e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+      self.modify_issue(eid,e)
 
       # Now parse stories and their subtasks.
       if stories:
@@ -705,14 +704,11 @@ class Jiraclient(object):
           (time,s.summary) = parse_time(s.summary)
           if eid:
             s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-          if self.options.noop:
-            print s.__dict__
-          else:
-            sid = self.create_issue(s)
-            s = self.create_issue_obj(permissive=True)
-            if time is not None:
-              s.timetracking = time
-              self.modify_issue(sid,s)
+          sid = self.create_issue(s)
+          if time is not None:
+            s = Issue()
+            s.timetracking = time
+            self.modify_issue(sid,s)
 
           if subtasks:
             for subtask in subtasks:
@@ -725,14 +721,11 @@ class Jiraclient(object):
               st.type = self.typemap['story']
               (time,st.summary) = parse_time(st.summary)
               st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-              if self.options.noop:
-                print st.__dict__
-              else:
-                stid = self.create_issue(st)
-                st = self.create_issue_obj(permissive=True)
-                if time is not None:
-                  st.timetracking = time
-                  self.modify_issue(stid,st)
+              stid = self.create_issue(st)
+              if time is not None:
+                st = Issue()
+                st.timetracking = time
+                self.modify_issue(stid,st)
                 # This converts to a sub-task
                 self.subtask_link(sid,stid)
 
@@ -881,9 +874,15 @@ class Jiraclient(object):
 
     # Create a new issue
     try:
-      self.create_issue(issue)
+      issueID = self.create_issue(issue)
     except Exception, details:
       self.fatal("Failed to create issue.  Reason: %r" % details)
+
+    # Set timetracking if present
+    if self.options.timetracking is not None:
+      tt = Issue()
+      tt.timetracking = self.options.timetracking
+      self.modify_issue(issueID,tt)
 
 def main():
   A = Jiraclient()
