@@ -117,7 +117,7 @@ class Jiraclient(object):
 
  Sample Usage:
   - Standard issue creation in project named INFOSYS:
-    jiraclient.py -u 'username' -p 'jirapassword' -A 'matt callaway' -P INFOSYS -T task -S 'Do some task'
+    jiraclient.py -u 'username' -p 'jirapassword' -A 'auser' -P INFOSYS -T task -S 'Do some task'
 
  - Get numerical Version IDs for Project named INFOSYS:
    jiraclient.py -u 'username' -p 'jirapassword' -a getVersions INFOSYS
