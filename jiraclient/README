@@ -13,7 +13,7 @@ Usage: jiraclient.py [options]
 
  Sample Usage:
   - Standard issue creation in project named INFOSYS:
-    jiraclient.py -u 'username' -p 'jirapassword' -A 'username' -P INFOSYS -T story -S 'Do some task'
+    jiraclient.py -u 'username' -p 'jirapassword' -A 'auser' -P INFOSYS -T task -S 'Do some task'
 
  - Get numerical Version IDs for Project named INFOSYS:
    jiraclient.py -u 'username' -p 'jirapassword' -a getVersions INFOSYS
@@ -45,14 +45,19 @@ Options:
   -d, --display         Display an existing given Jira issue ID
   -i ISSUEID, --issue=ISSUEID
                         Jira issue ID (to modify)
-  -f FILE, --file=FILE  Text file containing bug details
+  -r REMAINING, --remaining=REMAINING
+                        Jira issue time 'remaining estimate'
+  -t TIMETRACKING, --time=TIMETRACKING
+                        Jira issue time 'original estimate'
   -A ASSIGNEE, --assignee=ASSIGNEE
                         Jira assignee
   -C COMPONENTS, --components=COMPONENTS
                         Jira project components, comma separated list
   -D DESCRIPTION, --description=DESCRIPTION
                         Jira issue description text
-  -F FIXVERSIONS, --fixversions=FIXVERSIONS
+  -E ENVIRONMENT, --environment=ENVIRONMENT
+                        Jira environment
+  -F FIXVERSIONS, --fixVersions=FIXVERSIONS
                         Jira project 'fix versions', comma separated list
   -P PROJECT, --project=PROJECT
                         Jira project
@@ -63,20 +68,19 @@ Options:
   -T TYPE, --type=TYPE  Issue type
   -U JIRAURL, --jiraurl=JIRAURL
                         The Jira URL
-  -V AFFECTSVERSIONS, --affecstversions=AFFECTSVERSIONS
+  -V AFFECTSVERSIONS, --affecstVersions=AFFECTSVERSIONS
                         Jira project 'affects versions', comma separated list
   --syslog              Use syslog
-
+  -v, --version         Version information
 
 Create a set of issues with a YAML formatted template file like this:
 
 # -- project.yaml file
-project: INFOSYS
 TEMPLATE_TEST This is epic one:
   - TEMPLATE_TEST This is story one:
-    - TEMPLATE_TEST first sub-task of one
-    - TEMPLATE_TEST second sub-task of one
-  - TEMPLATE_TEST This is story two:
+    - TEMPLATE_TEST first sub-task of one %2h%
+    - TEMPLATE_TEST second sub-task of one %1h%
+  - TEMPLATE_TEST This is story two %1h%:
   - TEMPLATE_TEST This is story three:
     - TEMPLATE_TEST first sub-task of three
     - TEMPLATE_TEST second sub-task of three
