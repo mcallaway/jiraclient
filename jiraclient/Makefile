@@ -26,7 +26,7 @@ all: rpm
 
 # Make build area
 build:
-	mkdir -p build/{SOURCES,SPECS,BUILD,RPMS,SRPMS,buildroot}
+	bash -c "mkdir -p build/{SOURCES,SPECS,BUILD,RPMS,SRPMS,buildroot}"
 
 tgz: $(NAME)-$(VERSION).tar.gz
 
@@ -44,7 +44,7 @@ src: build tgz
 
 srpm: src
 	mkdir -p dist
-	rpmbuild --sign --define "_topdir $(PWD)/build/" \
+	rpmbuild --define "_topdir $(PWD)/build/" \
 	--define "_tmppath $(PWD)/build/buildroot" \
 	-bs --nodeps ./build/SPECS/$(RPMSPEC)
 	find ./build/ -type f -name "*.rpm" -exec mv {} ./dist \;
@@ -53,7 +53,7 @@ srpm: src
 
 rpm: src
 	mkdir -p dist
-	rpmbuild --sign --define "_topdir $(PWD)/build/" \
+	rpmbuild --define "_topdir $(PWD)/build/" \
 	--define "_tmppath $(PWD)/build/buildroot" \
 	-ta ./build/SOURCES/$(NAME)-$(VERSION).tar.gz
 	find ./build/ -type f -name "*.rpm" -exec mv {} ./dist \;
