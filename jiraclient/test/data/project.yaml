@@ -3,3 +3,5 @@ This is an Epic:
   - This is story 1 subtask 1 %2h%
   - This is story 1 subtask 2 %3h%
 - This is Story 2 %5h%
+- "This is Story 3 with a colon: foo bar":
+  - This is story 3 subtask 1 %3h%
