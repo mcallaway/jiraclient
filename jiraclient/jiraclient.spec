@@ -1,16 +1,16 @@
 
 Name: jiraclient
 Summary: A command line client for Jira.
+BuildArch: noarch
 Version: 1.5.6
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
 Packager: %packager
 Group: System/Utilities
-Source0:   %{name}-%version.tar.bz2
+Source0:   %{name}-%version.tar.gz
 BuildRoot: %{_tmppath}/%{name}2-%{version}-%{release}-build
-BuildRequires:
-Requires: python
+Requires: python, python-fpconst, python-soappy, python-yaml
 
 %description
 Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.
@@ -31,7 +31,7 @@ install -D -m 0755 jiraclient.py %{buildroot}/bin/jiraclient
 
 %files
 %defattr(-,root,root)
-%{rootdir}/bin/jiraclient
+/bin/jiraclient
 
 %changelog
 * Fri Oct  8 2010 Matthew Callaway <mcallawa@genome.wustl.edu> 
