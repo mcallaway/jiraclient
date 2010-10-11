@@ -13,6 +13,7 @@ import subprocess
 from optparse import OptionParser,OptionValueError
 from operator import itemgetter,attrgetter
 import pprint
+import pickle
 import sys
 import os
 import re
@@ -25,7 +26,7 @@ except Exception:
   rrdAvailable = False
 
 name = "lsftool"
-version = "0.5.2"
+version = "0.6.0"
 
 pp = pprint.PrettyPrinter(indent=4)
 job_rx = re.compile("^(\d+) ")
@@ -122,6 +123,17 @@ class JobRecord(Record):
 
 class LongJobRecord(JobRecord):
 
+  status = None
+  id = None
+
+  def parseCPUTime(self,text):
+    rx = re.compile("The CPU time used is (\d+) seconds")
+    text = text.replace('\n','')
+    m = rx.search(text)
+    if m:
+      return m.groups()[0]
+    return None
+
   def parseResourceBlock(self,text):
     rx = re.compile("Requested Resources <(.*?)>,")
     text = text.replace('\n','')
@@ -174,6 +186,10 @@ class LongJobRecord(JobRecord):
     resources_block = ''
     reasons_block = ''
 
+    cpu = self.parseCPUTime(data)
+    if cpu:
+      self.cpu = int(cpu)
+
     lines = iter(data.split("\n"))
     while True:
       try:
@@ -204,6 +220,13 @@ class LongJobRecord(JobRecord):
     self.resources = self.parseResourceBlock(resources_block)
     self.reasons = self.parseReasonBlock(reasons_block)
 
+class JobsList(list):
+
+  def fetch(self,id):
+    for job in sorted(self,key=attrgetter('id')):
+      if job.id == id:
+        return job
+
 class Application(object):
   # This is our application class which parses bhosts and bjobs
   # output and puts info into dictionaries so I can get what I want
@@ -233,12 +256,18 @@ class Application(object):
       R = HostRecord(text)
       self.host_records.append(R)
 
-
   def parseLongBJobs(self,data):
     line_rx = re.compile("^Job <(\d+)>,")
     J = None
-    jobs = []
+    #jobs = []
+    jobs = JobsList()
     text = ''
+
+    self.previous_run = None
+    if os.path.exists(self.options.cache):
+      cache = open(self.options.cache,'rb')
+      self.previous_run = pickle.load(cache)
+      cache.close()
 
     lines = iter(data.split("\n"))
     while True:
@@ -251,12 +280,14 @@ class Application(object):
       if m and text:
         # Subsequent matches
         J = LongJobRecord(text)
+        if self.previous_run:
+          lastj = self.previous_run.fetch(J.id)
+          if hasattr(J,'cpu') and hasattr(lastj,'cpu'):
+            J.cpudelta = J.cpu - lastj.cpu
         jobs.append(J)
-        #id = m.groups()[0]
         text = "%s\n" % line
       elif m:
         # First match
-        #id = m.groups()[0]
         text = "%s\n" % line
       elif line and text:
         text += "%s\n" % line
@@ -264,7 +295,16 @@ class Application(object):
     # The last record before end of output...
     if text:
       J = LongJobRecord(text)
+      if self.previous_run:
+        lastj = self.previous_run.fetch(J.id)
+        if hasattr(J,'cpu') and hasattr(lastj,'cpu'):
+          J.cpudelta = J.cpu - lastj.cpu
       jobs.append(J)
+
+    cache = open(self.options.cache,'wb')
+    pickle.dump(jobs,cache)
+    cache.close()
+
     return jobs
 
   def parseWideBJobs(self,data):
@@ -385,15 +425,15 @@ class Application(object):
       if Host.state['status'] == 'closed_Adm':
         count += 1
         # Get job info for this host
-        output = run("bjobs","-w","-u","all","-m",Host.host)
-        Host.jobs = self.parseWideBJobs(output)
+        output = run("bjobs","-l","-u","all","-m",Host.host)
+        #Host.jobs = self.parseWideBJobs(output)
+        Host.jobs = self.parseLongBJobs(output)
 
         t_max += Host.state['max']
         r_max += Host.state['run']
         n_max += Host.state['njobs']
 
         if self.options.verbose:
-          #print "%s %s" % (Host.host,Host.state['status'])
           print "%s: %s max: %s njobs: %s run: %s" % (Host.host,Host.state['max'],Host.state['njobs'],Host.state['run'],Host.comment)
           for job in Host.jobs:
             pp.pprint(job.__dict__)
@@ -425,6 +465,20 @@ class Application(object):
       action="store_true",
       dest="hosts",
       help="Run hosts check",
+      default=False,
+    )
+    optParser.add_option(
+      "--cache",
+      action="store",
+      dest="cache",
+      help="Specify cache file (optional)",
+      default="lsftool.cache",
+    )
+    optParser.add_option(
+      "--running",
+      action="store_true",
+      dest="runningjobs",
+      help="Run running jobs check",
       default=False,
     )
     optParser.add_option(
@@ -460,6 +514,13 @@ class Application(object):
       action="store_true",
       dest="rrd",
       help="Save data to rrd",
+      default=False,
+    )
+    optParser.add_option(
+      "--diffstat",
+      action="store_true",
+      dest="diffstat",
+      help="Compare data from last run (only cpu right now)",
       default=False,
     )
     optParser.add_option(
@@ -508,9 +569,11 @@ class Application(object):
     # Sorted by queue name...
     print "Analyzing %s job(s)" % len(jobs)
     for job in jobs:
+
       if job.status != "pend":
         reason = "job is in state '%s'"
         job.reasons["Job is in state '%s'" % (job.status)] = []
+        pp.pprint(job.__dict__)
 
       try:
         queue = self._getQueue(job.queue)
@@ -577,7 +640,7 @@ class Application(object):
 
     if self.options.jobs:
       # Long form output, includes resources and reasons
-      args = ["bjobs","-l","-u","all","-p"]
+      args = ["bjobs","-l","-u","all"]
       if self.options.pending:
         args.append("-p")
       if self.options.host_group is not None:
@@ -589,7 +652,9 @@ class Application(object):
       output = run(*args)
       # We return a list here because it's also used in
       # parseBHosts() in this way.
+
       jobs = self.parseLongBJobs(output)
+
       if jobs:
         self.jobsReport(jobs)
       else:
