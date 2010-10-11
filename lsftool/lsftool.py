@@ -563,10 +563,10 @@ class Application(object):
     print "Analyzing %s job(s)" % len(jobs)
     for job in jobs:
 
-      if job.status != "pend":
-        reason = "job is in state '%s'"
-        job.reasons["Job is in state '%s'" % (job.status)] = []
-        pp.pprint(job.__dict__)
+      #if job.status != "pend":
+      #  reason = "job is in state '%s'"
+      #  job.reasons["Job is in state '%s'" % (job.status)] = []
+      #  pp.pprint(job.__dict__)
 
       queue = self._getQueue(job.queue)
       if self.options.verbose:
