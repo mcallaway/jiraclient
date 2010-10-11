@@ -26,7 +26,7 @@ except Exception:
   rrdAvailable = False
 
 name = "lsftool"
-version = "0.6.0"
+version = "0.6.1"
 
 pp = pprint.PrettyPrinter(indent=4)
 job_rx = re.compile("^(\d+) ")
@@ -257,9 +257,9 @@ class Application(object):
       self.host_records.append(R)
 
   def parseLongBJobs(self,data):
+    # Note we expect -u all -l -p
     line_rx = re.compile("^Job <(\d+)>,")
     J = None
-    #jobs = []
     jobs = JobsList()
     text = ''
 
@@ -425,7 +425,7 @@ class Application(object):
       if Host.state['status'] == 'closed_Adm':
         count += 1
         # Get job info for this host
-        output = run("bjobs","-l","-u","all","-m",Host.host)
+        output = run("bjobs","-l","-u","all","-p","-m",Host.host)
         #Host.jobs = self.parseWideBJobs(output)
         Host.jobs = self.parseLongBJobs(output)
 
@@ -486,13 +486,6 @@ class Application(object):
       action="store_true",
       dest="jobs",
       help="Run jobs check",
-      default=False,
-    )
-    optParser.add_option(
-      "--pending",
-      action="store_true",
-      dest="pending",
-      help="Check pending jobs only",
       default=False,
     )
     optParser.add_option(
@@ -575,38 +568,33 @@ class Application(object):
         job.reasons["Job is in state '%s'" % (job.status)] = []
         pp.pprint(job.__dict__)
 
-      try:
-        queue = self._getQueue(job.queue)
+      queue = self._getQueue(job.queue)
+      if self.options.verbose:
+        print "job %s is in queue %s having %s hosts" % (job.id,job.queue,len(queue.hosts))
+
+      qhosts = copy.copy(queue.hosts)
+      for reason,jhosts in sorted(job.reasons.items(), key=lambda e: len( e[1] ), reverse=True):
+        count = 0
+        for host in jhosts:
+          if host in qhosts:
+            qhosts.remove(host)
+            count += 1
+
+        if count or len(jhosts) == 0:
+          if reason not in self.pend_reasons:
+            self.pend_reasons[reason] = 1
+          else:
+            self.pend_reasons[reason] += 1
+
         if self.options.verbose:
-          print "job %s is in queue %s having %s hosts" % (job.id,job.queue,len(queue.hosts))
+          if len(jhosts) == 0:
+            print 'Because "%s", this job is pending' % (reason)
+          else:
+            print 'Because "%s", %s hosts are unavailable' % (reason,len(qhosts))
+            print "%s less hosts for me, %s hosts left meet requirements" % (count,len(qhosts))
 
-        qhosts = copy.copy(queue.hosts)
-        for reason,jhosts in sorted(job.reasons.items(), key=lambda e: len( e[1] ), reverse=True):
-          count = 0
-          for host in jhosts:
-            if host in qhosts:
-              qhosts.remove(host)
-              count += 1
-
-          if count or len(jhosts) == 0:
-            if reason not in self.pend_reasons:
-              self.pend_reasons[reason] = 1
-            else:
-              self.pend_reasons[reason] += 1
-
-          if self.options.verbose:
-            if len(jhosts) == 0:
-              print 'Because "%s", this job is pending' % (reason)
-            else:
-              print 'Because "%s", %s hosts are unavailable' % (reason,len(qhosts))
-              print "%s less hosts for me, %s hosts left meet requirements" % (count,len(qhosts))
-
-          if len(qhosts) == 0:
-            break
-
-      except Exception, details:
-        print "Error parsing job: %r: %r" % (job,details)
-      # end of function
+        if len(qhosts) == 0:
+          break
 
     for reason,value in self.pend_reasons.items():
       print "%s %s" % (reason,value)
@@ -640,9 +628,7 @@ class Application(object):
 
     if self.options.jobs:
       # Long form output, includes resources and reasons
-      args = ["bjobs","-l","-u","all"]
-      if self.options.pending:
-        args.append("-p")
+      args = ["bjobs","-l","-u","all","-p"]
       if self.options.host_group is not None:
         args.extend(["-m",self.options.host_group])
       if self.options.queue is not None:
@@ -652,7 +638,6 @@ class Application(object):
       output = run(*args)
       # We return a list here because it's also used in
       # parseBHosts() in this way.
-
       jobs = self.parseLongBJobs(output)
 
       if jobs:
