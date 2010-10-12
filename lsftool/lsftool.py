@@ -20,7 +20,7 @@ import os
 import re
 
 name = "lsftool"
-version = "0.7.0"
+version = "0.7.1"
 
 pp = pprint.PrettyPrinter(indent=4)
 job_rx = re.compile("^(\d+) ")
@@ -592,7 +592,7 @@ class Application(object):
           elif job.cpudelta == 0:
             n_cpu = 0
 
-        print "%s: %s max: %s njobs: %s run: %s cpu: %s" % (Host.host,Host.state['max'],Host.state['njobs'],Host.state['run'],n_cpu,Host.comment)
+        print "%s: max %s: njobs %s: run %s: cpu %s: comment %s" % (Host.host,Host.state['max'],Host.state['njobs'],Host.state['run'],n_cpu,Host.comment)
 
         if self.options.verbose:
           for job in Host.jobs:
