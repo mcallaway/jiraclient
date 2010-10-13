@@ -75,17 +75,37 @@ Options:
 
 Create a set of issues with a YAML formatted template file like this:
 
-# -- project.yaml file
-TEMPLATE_TEST This is epic one:
-  - TEMPLATE_TEST This is story one:
-    - TEMPLATE_TEST first sub-task of one %2h%
-    - TEMPLATE_TEST second sub-task of one %1h%
-  - TEMPLATE_TEST This is story two %1h%:
-  - TEMPLATE_TEST This is story three:
-    - TEMPLATE_TEST first sub-task of three
-    - TEMPLATE_TEST second sub-task of three
-# -- end
-
 python jiraclient.py --template project.yaml
 
-
+# -- project.yaml file
+summary: This is an Epic
+description: Epic description
+stories:
+  - summary: s1 summary
+    description: story s1 has is a very long description for a jira story that will keep on going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going
+    timetracking: 1h
+    subtasks:
+      - summary: s1 st1 summary
+        description: s1 st1 description
+        timetracking: 30m
+      - summary: s1 st2 summary
+        timetracking: 30m
+  - summary: s2 summary
+    description: story s2 description
+    timetracking: 1h
+    subtasks:
+      - summary: s2 st1 summary
+        description: st 1 description
+        timetracking: 30m
+      - summary: s2 st2 summary
+        description: st 2 description
+        timetracking: 1h
+  - summary: s3 summary
+    description: story s3 description
+    timetracking: 1h
+    subtasks:
+      - summary: s3 st1 summary
+        description: s3 st 1 description
+        timetracking: 1h
+      - summary: s3 st2 summary
+        description: s3 st 2 description
