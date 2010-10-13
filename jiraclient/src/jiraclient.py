@@ -74,6 +74,7 @@ class Issue(object):
   project = None
   type = None
   summary = None
+  description = None
   assignee = None
   components = None
   fixVersions = None
@@ -100,7 +101,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.5.6"
+  version = "1.6.0"
 
   priorities = {}
   typemap = {}
@@ -619,7 +620,7 @@ class Jiraclient(object):
 
   def subtask_link(self,parent,child):
     if self.options.noop:
-      print "Would subtask %s -> %s" % (parent,child)
+      print "Would apply subtask link"
       return
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
@@ -686,61 +687,91 @@ class Jiraclient(object):
     if not os.path.exists(self.options.template):
       self.fatal("No such file: %s" % self.options.template)
 
-    template = yaml.load(file(self.options.template,"r"))
+    # This isn't "real" recursion because as we get deeper the thing we represent
+    # goes from Epic to Story to Subtask, which are different datatypes in Jira.
+    try:
+      template = yaml.load(file(self.options.template,"r"))
+    except Exception,details:
+      self.fatal("Failed to parse YAML template: %s" % details)
+    e = self.create_issue_obj(permissive=True)
+    e.type = self.typemap['epic']
+    for (key,value) in template.items():
+      if type(value) is list: continue
+      if type(value) is types.StringType:
+        if hasattr(e,key):
+          setattr(e,key,value)
+        else:
+          self.fatal("Unknown issue attribute in template: %s" % (key))
 
-    # Parsing the template from here down.
-    for epic,stories in template.items():
-      # First item is the Epic
-      e = self.create_issue_obj(permissive=True)
-      e.summary = epic
-      e.type = self.typemap['epic']
-      eid = self.create_issue(e)
-      # set epic/theme of eid
-      e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-      self.modify_issue(eid,e)
+    # Create an epic Issue here
+    eid = self.create_issue(e)
+    # set epic/theme with Issue ID we just received
+    e = Issue()
+    e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+    self.modify_issue(eid,e)
 
-      # Now parse stories and their subtasks.
-      if stories:
-        for story in stories:
-          subtasks = None
-          if type(story) is not types.StringType:
-            for story,subtasks in story.items():
+    # Now create the stories
+    for story in template['stories']:
+      s = self.create_issue_obj(permissive=True)
+      s.type = self.typemap['story']
+      for (key,value) in story.items():
+        if type(value) is list: continue
+        if type(value) is types.StringType:
+          if hasattr(s,key):
+            setattr(s,key,value)
+          else:
+            self.fatal("Unknown issue attribute in template: %s" % (key))
 
-              if type(story) is not types.StringType:
-                self.fatal("Template format error: illegal nested entry '%r'" % (story))
-          s = self.create_issue_obj(permissive=True)
-          s.summary = story
-          s.type = self.typemap['story']
-          (time,s.summary) = parse_time(s.summary)
-          if eid:
-            s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-          sid = self.create_issue(s)
+      time = None
+      # We specify timetracking on issues, but we can only set
+      # that attribute on a Modify action, not a Create action.
+      if hasattr(s,'timetracking') and s.timetracking is not None:
+        time = s.timetracking
+        del s.timetracking
+
+      if eid:
+        s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+      sid = self.create_issue(s)
+      if time is not None:
+        # Now set the timetracking
+        s = Issue()
+        s.timetracking = time
+        self.modify_issue(sid,s)
+
+      # Now create all subtasks of this story
+      time = None
+      if 'subtasks' in story:
+        for subtask in story['subtasks']:
+          st = self.create_issue_obj(permissive=True)
+          # You cannot directly create a sub-task, you have to
+          # create an issue, set sub-task link, then set type = sub-task
+          st.type = self.typemap['story']
+          for (key,value) in subtask.items():
+            if type(value) is list: continue
+            if type(value) is types.StringType:
+              if hasattr(st,key):
+                setattr(st,key,value)
+              else:
+                self.fatal("Unknown issue attribute in template: %s" % (key))
+
+          st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+          # We specify timetracking on issues, but we can only set
+          # that attribute on a Modify action, not a Create action.
+          if hasattr(st,'timetracking') and st.timetracking is not None:
+            time = st.timetracking
+            del st.timetracking
+          stid = self.create_issue(st)
+          # This converts to a sub-task
+          self.subtask_link(sid,stid)
+          # Now set timetracking
           if time is not None:
-            s = Issue()
-            s.timetracking = time
-            self.modify_issue(sid,s)
-
-          if subtasks:
-            for subtask in subtasks:
-              if type(subtask) is not types.StringType:
-                self.fatal("Template format error: illegal nested entry '%r'" % (subtask))
-              st = self.create_issue_obj(permissive=True)
-              # You cannot directly create a sub-task, you have to
-              # create an issue, set sub-task link, then set type = sub-task
-              st.summary = subtask
-              st.type = self.typemap['story']
-              (time,st.summary) = parse_time(st.summary)
-              st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-              stid = self.create_issue(st)
-              if time is not None:
-                st = Issue()
-                st.timetracking = time
-                self.modify_issue(stid,st)
-                # This converts to a sub-task
-                self.subtask_link(sid,stid)
+            st = Issue()
+            st.timetracking = time
+            self.modify_issue(stid,st)
+            time = None
 
     if not self.options.noop:
-      print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+issuetype+ASC" % (self.proxy.getServerInfo(self.auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
+      print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+key+ASC,issuetype+ASC" % (self.proxy.getServerInfo(self.auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
 
   def call_API(self,api,args):
     func = getattr(self.proxy,api)

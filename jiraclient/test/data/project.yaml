@@ -1,7 +1,31 @@
-This is an Epic:
-- This is Story 1:
-  - This is story 1 subtask 1 %2h%
-  - This is story 1 subtask 2 %3h%
-- This is Story 2 %5h%
-- "This is Story 3 with a colon: foo bar":
-  - This is story 3 subtask 1 %3h%
+summary: This is an Epic
+description: Epic description
+stories:
+  - summary: s1 summary
+    description: story s1 has is a very long description for a jira story that will keep on going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going
+    timetracking: 1h
+    subtasks:
+      - summary: s1 st1 summary
+        description: s1 st1 description
+        timetracking: 30m
+      - summary: s1 st2 summary
+        timetracking: 30m
+  - summary: s2 summary
+    description: story s2 description
+    timetracking: 1h
+    subtasks:
+      - summary: s2 st1 summary
+        description: st 1 description
+        timetracking: 30m
+      - summary: s2 st2 summary
+        description: st 2 description
+        timetracking: 1h
+  - summary: s3 summary
+    description: story s3 description
+    timetracking: 1h
+    subtasks:
+      - summary: s3 st1 summary
+        description: s3 st 1 description
+        timetracking: 1h
+      - summary: s3 st2 summary
+        description: s3 st 2 description
