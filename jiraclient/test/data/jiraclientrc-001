@@ -6,6 +6,7 @@ user = jirauser
 
 password = jirauser
 
+[issues]
 epic_theme = customfield_10020
 
 project = INFOSYS
