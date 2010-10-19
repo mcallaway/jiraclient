@@ -22,7 +22,7 @@ use Pod::Usage;
 # for debugging
 use Data::Dumper;
 
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 sub new {
   my $class = shift;
@@ -179,7 +179,8 @@ sub read_mmlscluster {
   while (<MM>) {
     $seen = 1 if (/Node/);
     next unless ($seen);
-    if (/^\s+\d+\s+(\S+)\s+/) {
+    #  Node Daemon_node_name IP_address Admin_node_name Designation
+    if (/^\s+\d+\s+(\S+)\s+\S+\s+\S+\s+quorum/) {
       push @hosts,$1;
     }
   }
