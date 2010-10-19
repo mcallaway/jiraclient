@@ -1,9 +1,11 @@
 summary: This is an Epic
 description: Epic description
+components: 10022
 stories:
   - summary: s1 summary
     description: story s1 has is a very long description for a jira story that will keep on going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going
     timetracking: 1h
+    components: 10022
     subtasks:
       - summary: s1 st1 summary
         description: s1 st1 description
@@ -26,6 +28,5 @@ stories:
     subtasks:
       - summary: s3 st1 summary
         description: s3 st 1 description
-        timetracking: 1h
       - summary: s3 st2 summary
         description: s3 st 2 description
