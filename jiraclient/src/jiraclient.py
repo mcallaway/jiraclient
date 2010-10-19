@@ -34,18 +34,16 @@ import SOAPpy
 import types
 
 pp = pprint.PrettyPrinter(indent=4)
-time_rx = re.compile('^\d+[mhdw]')
-time_t_rx = re.compile('\s+%(\d+[mhdw])%')
+time_rx = re.compile('^\d+[mhdw]$')
 session_rx = re.compile("session timed out")
 
-def parse_time(line):
+def time_is_valid(value):
   def repl(m): return ''
   time = None
-  m = time_t_rx.search(line)
-  if m:
-    time = m.group(1)
-    line = time_t_rx.sub(repl,line)
-  return (time,line)
+  m = time_rx.search(value)
+  if not m:
+    return False
+  return True
 
 def inspect(obj,padding=None):
   # Traverse an object printing non-private attributes
@@ -76,9 +74,9 @@ class Issue(object):
   summary = None
   description = None
   assignee = None
-  components = None
-  fixVersions = None
-  affectsVersions = None
+  components = []
+  fixVersions = []
+  affectsVersions = []
   priority = None
   environment = None
   timetracking = None
@@ -99,9 +97,30 @@ class Issue(object):
     text += ")"
     return text
 
+  def update(self,key,value):
+    if key == 'timetracking':
+      if not time_is_valid(value):
+        raise Exception("Illegal time value: %s" % value)
+
+    if key == 'summary' and getattr(self,key) is not None:
+      # Concatenate existing text, supports self.options.prefix
+      newvalue = self.summary + value
+      self.summary = newvalue
+      return
+
+    if type(getattr(self,key)) is list:
+      if type(value) is list:
+        setattr(self,key,value)
+      else:
+        # List types support split on comma
+        value = "%s" % value
+        setattr(self,key,[{'id':x} for x in value.split(',')])
+    else:
+      setattr(self,key,value)
+
 class Jiraclient(object):
 
-  version = "1.6.0"
+  version = "1.6.1"
 
   priorities = {}
   typemap = {}
@@ -249,7 +268,7 @@ class Jiraclient(object):
       action="store",
       dest="components",
       help="Jira project components, comma separated list",
-      default=None,
+      default=[],
     )
     optParser.add_option(
       "-D","--description",
@@ -270,7 +289,7 @@ class Jiraclient(object):
       action="store",
       dest="fixVersions",
       help="Jira project 'fix versions', comma separated list",
-      default=None,
+      default=[],
     )
     optParser.add_option(
       "-P","--project",
@@ -312,6 +331,20 @@ class Jiraclient(object):
       action="store",
       dest="affectsVersions",
       help="Jira project 'affects versions', comma separated list",
+      default=[],
+    )
+    optParser.add_option(
+      "--epic_theme",
+      action="store",
+      dest="epic_theme",
+      help="Jira project 'Epic/Theme', custom field ID (eg. customfield_10010)",
+      default=None,
+    )
+    optParser.add_option(
+      "--prefix",
+      action="store",
+      dest="prefix",
+      help="Specify prefix text to prepend to all Issue summaries",
       default=None,
     )
     optParser.add_option(
@@ -370,7 +403,6 @@ class Jiraclient(object):
         fd.write('#epic_theme = \n')
         fd.write('#assignee = \n')
         fd.write('#components = \n')
-        fd.write('#components = \n')
         fd.write('#fixVersions = \n')
         os.fchmod(fd.fileno(),int("600",8))
         fd.close()
@@ -392,8 +424,11 @@ class Jiraclient(object):
     # Map the items in the rc file to options, but only for issue *creation*
     if self.options.issueID is None:
       for (k,v) in (parser.items('issues')):
-        if not hasattr(self.options,k) or getattr(self.options,k) is None:
+        if hasattr(self.options,k):
           setattr(self.options,k,v)
+        else:
+          # You can't set in rcfile something that isn't also an option.
+          self.fatal("Unknown issue attribute: %s" % k)
 
   def get_project_id(self,project):
     result = self.proxy.getProjectsNoSchemes(self.auth)
@@ -491,14 +526,15 @@ class Jiraclient(object):
       if hasattr(self.options,key) and getattr(self.options,key) is not None:
         # Timetracking must be a "modify" action, not create
         if key == 'timetracking' and not self.options.issueID: continue
-        setattr(issue,key,getattr(self.options,key))
+        issue.update(key,getattr(self.options,key))
       else:
         if self.options.issueID is None:
           # This is a create, which requires some attrs
           if required is True and not permissive:
             self.fatal("You must specify: %s" % key)
 
-    # Now that we have the project, get its ID and then project types
+    # Now that we have the project, get its ID and then project types.
+    # Project ID is installation specific.
     if hasattr(issue,'project'):
       projectID = self.get_project_id(issue.project)
       if not projectID and self.options.issueID is None:
@@ -512,18 +548,13 @@ class Jiraclient(object):
         self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
       issue.type = self.typemap[issue.type]
 
-    # Handle various things...
-    if hasattr(issue,'components') and issue.components is not None:
-      issue.components = [{'id':x} for x in issue.components.split(',')]
-
-    if hasattr(issue,'fixVersions') and issue.fixVersions is not None:
-      issue.fixVersions = [{'id':x} for x in issue.fixVersions.split(',')]
-
-    if hasattr(issue,'affectsVersions') and issue.affectsVersions is not None:
-      issue.affectsVersions = [{'id':x} for x in issue.affectsVersions.split(',')]
-
+    # Priorities are also installation specific
     if hasattr(issue,'priority') and issue.priority is not None:
       issue.priority = self.priorities[issue.priority.lower()]
+
+    # Set prefix on summary
+    if self.options.prefix:
+      issue.summary = self.options.prefix
 
     return issue
 
@@ -679,27 +710,32 @@ class Jiraclient(object):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP extended webservice supports issue templates")
 
+    # Epic is required on templates to satisfy a GC convention.
     if not hasattr(self.options,'epic_theme'):
       self.fatal("Configuration lacking epic_theme parameter")
 
     import yaml
 
-    if not os.path.exists(self.options.template):
+    if not self.options.template == "-" and not os.path.exists(self.options.template):
       self.fatal("No such file: %s" % self.options.template)
 
     # This isn't "real" recursion because as we get deeper the thing we represent
     # goes from Epic to Story to Subtask, which are different datatypes in Jira.
     try:
-      template = yaml.load(file(self.options.template,"r"))
+      if self.options.template == "-":
+        template = yaml.load(sys.stdin)
+      else:
+        template = yaml.load(file(self.options.template,"r"))
     except Exception,details:
       self.fatal("Failed to parse YAML template: %s" % details)
+
     e = self.create_issue_obj(permissive=True)
     e.type = self.typemap['epic']
     for (key,value) in template.items():
       if type(value) is list: continue
-      if type(value) is types.StringType:
+      if type(value) is types.StringType or type(value) is int:
         if hasattr(e,key):
-          setattr(e,key,value)
+          e.update(key,value)
         else:
           self.fatal("Unknown issue attribute in template: %s" % (key))
 
@@ -716,9 +752,9 @@ class Jiraclient(object):
       s.type = self.typemap['story']
       for (key,value) in story.items():
         if type(value) is list: continue
-        if type(value) is types.StringType:
+        if type(value) is types.StringType or type(value) is int:
           if hasattr(s,key):
-            setattr(s,key,value)
+            s.update(key,value)
           else:
             self.fatal("Unknown issue attribute in template: %s" % (key))
 
@@ -735,7 +771,7 @@ class Jiraclient(object):
       if time is not None:
         # Now set the timetracking
         s = Issue()
-        s.timetracking = time
+        s.update('timetracking',time)
         self.modify_issue(sid,s)
 
       # Now create all subtasks of this story
@@ -747,10 +783,11 @@ class Jiraclient(object):
           # create an issue, set sub-task link, then set type = sub-task
           st.type = self.typemap['story']
           for (key,value) in subtask.items():
-            if type(value) is list: continue
-            if type(value) is types.StringType:
+            if type(value) is list:
+              self.fatal("Unsupported nesting depth in subtask of story: %s" % s.summary)
+            if type(value) is types.StringType or type(value) is int:
               if hasattr(st,key):
-                setattr(st,key,value)
+                st.update(key,value)
               else:
                 self.fatal("Unknown issue attribute in template: %s" % (key))
 
@@ -766,7 +803,7 @@ class Jiraclient(object):
           # Now set timetracking
           if time is not None:
             st = Issue()
-            st.timetracking = time
+            st.update('timetracking',time)
             self.modify_issue(stid,st)
             time = None
 
@@ -899,6 +936,7 @@ class Jiraclient(object):
 
       return
 
+    # Update time remaining of given issue
     if self.options.remaining is not None:
       self.update_estimate(self.options.remaining,self.options.issueID)
       return
