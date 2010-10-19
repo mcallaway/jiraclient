@@ -268,7 +268,7 @@ class Jiraclient(object):
       action="store",
       dest="components",
       help="Jira project components, comma separated list",
-      default=[],
+      default=None,
     )
     optParser.add_option(
       "-D","--description",
@@ -289,7 +289,7 @@ class Jiraclient(object):
       action="store",
       dest="fixVersions",
       help="Jira project 'fix versions', comma separated list",
-      default=[],
+      default=None,
     )
     optParser.add_option(
       "-P","--project",
@@ -331,7 +331,7 @@ class Jiraclient(object):
       action="store",
       dest="affectsVersions",
       help="Jira project 'affects versions', comma separated list",
-      default=[],
+      default=None,
     )
     optParser.add_option(
       "--epic_theme",
@@ -424,11 +424,12 @@ class Jiraclient(object):
     # Map the items in the rc file to options, but only for issue *creation*
     if self.options.issueID is None:
       for (k,v) in (parser.items('issues')):
-        if hasattr(self.options,k):
-          setattr(self.options,k,v)
-        else:
+        if not hasattr(self.options,k):
           # You can't set in rcfile something that isn't also an option.
           self.fatal("Unknown issue attribute: %s" % k)
+        if getattr(self.options,k) is None:
+          # Take the rc file value if not given on CLI
+          setattr(self.options,k,v)
 
   def get_project_id(self,project):
     result = self.proxy.getProjectsNoSchemes(self.auth)
@@ -504,7 +505,6 @@ class Jiraclient(object):
     # Creates an Issue object based on CLI args and config file.
     # We do this for create and modify operations.
 
-    parser = ConfigParser.ConfigParser()
     issue = Issue()
 
     # Supported issue attributes, and whether or not they are required.
@@ -523,7 +523,7 @@ class Jiraclient(object):
     }
 
     for (key,required) in attrs.items():
-      if hasattr(self.options,key) and getattr(self.options,key) is not None:
+      if hasattr(self.options,key) and getattr(self.options,key):
         # Timetracking must be a "modify" action, not create
         if key == 'timetracking' and not self.options.issueID: continue
         issue.update(key,getattr(self.options,key))
