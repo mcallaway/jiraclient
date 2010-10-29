@@ -515,6 +515,7 @@ class Jiraclient(object):
       'summary'         : True,
       'assignee'        : False,
       'components'      : False,
+      'description'      : False,
       'fixVersions'     : False,
       'affectsVersions' : False,
       'priority'        : False,
@@ -522,6 +523,13 @@ class Jiraclient(object):
       'timetracking'    : False,
     }
 
+    # Allow 'None' on command line to unset something specified in .jiraclientrc
+    for (key,value) in attrs.items():
+      if hasattr(self.options,key) and getattr(self.options,key) is not None:
+        if getattr(self.options,key).lower() == "none":
+          setattr(self.options,key,None)
+
+    # Validate that required options are present.
     for (key,required) in attrs.items():
       if hasattr(self.options,key) and getattr(self.options,key):
         # Timetracking must be a "modify" action, not create
