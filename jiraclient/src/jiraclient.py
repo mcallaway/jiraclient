@@ -120,7 +120,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.1"
+  version = "1.6.2"
 
   priorities = {}
   typemap = {}
@@ -714,6 +714,7 @@ class Jiraclient(object):
     return issueID
 
   def create_issues_from_template(self):
+    # FIXME: This method is too long and has opportunities to reduce duplicate code.
 
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP extended webservice supports issue templates")
@@ -739,6 +740,7 @@ class Jiraclient(object):
 
     e = self.create_issue_obj(permissive=True)
     e.type = self.typemap['epic']
+    # FIXME: Assumes we have a single epic in this template
     for (key,value) in template.items():
       if type(value) is list: continue
       if type(value) is types.StringType or type(value) is int:
@@ -753,6 +755,37 @@ class Jiraclient(object):
     e = Issue()
     e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
     self.modify_issue(eid,e)
+
+    if 'subtasks' in template.keys():
+      for subtask in template['subtasks']:
+        st = self.create_issue_obj(permissive=True)
+        # You cannot directly create a sub-task, you have to
+        # create an issue, set sub-task link, then set type = sub-task
+        st.type = self.typemap['story']
+        for (key,value) in subtask.items():
+          if type(value) is list:
+            self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
+          if type(value) is types.StringType or type(value) is int:
+            if hasattr(st,key):
+              st.update(key,value)
+            else:
+              self.fatal("Unknown issue attribute in template: %s" % (key))
+
+        st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+        # We specify timetracking on issues, but we can only set
+        # that attribute on a Modify action, not a Create action.
+        if hasattr(st,'timetracking') and st.timetracking is not None:
+          time = st.timetracking
+          del st.timetracking
+        stid = self.create_issue(st)
+        # This converts to a sub-task
+        self.subtask_link(eid,stid)
+        # Now set timetracking
+        if time is not None:
+          st = Issue()
+          st.update('timetracking',time)
+          self.modify_issue(stid,st)
+          time = None
 
     # Now create the stories
     for story in template['stories']:
@@ -792,7 +825,7 @@ class Jiraclient(object):
           st.type = self.typemap['story']
           for (key,value) in subtask.items():
             if type(value) is list:
-              self.fatal("Unsupported nesting depth in subtask of story: %s" % s.summary)
+              self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
             if type(value) is types.StringType or type(value) is int:
               if hasattr(st,key):
                 st.update(key,value)
