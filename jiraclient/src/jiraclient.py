@@ -788,65 +788,66 @@ class Jiraclient(object):
           time = None
 
     # Now create the stories
-    for story in template['stories']:
-      s = self.create_issue_obj(permissive=True)
-      s.type = self.typemap['story']
-      for (key,value) in story.items():
-        if type(value) is list: continue
-        if type(value) is types.StringType or type(value) is int:
-          if hasattr(s,key):
-            s.update(key,value)
-          else:
-            self.fatal("Unknown issue attribute in template: %s" % (key))
+    if 'stories' in template.keys():
+      for story in template['stories']:
+        s = self.create_issue_obj(permissive=True)
+        s.type = self.typemap['story']
+        for (key,value) in story.items():
+          if type(value) is list: continue
+          if type(value) is types.StringType or type(value) is int:
+            if hasattr(s,key):
+              s.update(key,value)
+            else:
+              self.fatal("Unknown issue attribute in template: %s" % (key))
 
-      time = None
-      # We specify timetracking on issues, but we can only set
-      # that attribute on a Modify action, not a Create action.
-      if hasattr(s,'timetracking') and s.timetracking is not None:
-        time = s.timetracking
-        del s.timetracking
+        time = None
+        # We specify timetracking on issues, but we can only set
+        # that attribute on a Modify action, not a Create action.
+        if hasattr(s,'timetracking') and s.timetracking is not None:
+          time = s.timetracking
+          del s.timetracking
 
-      if eid:
-        s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-      sid = self.create_issue(s)
-      if time is not None:
-        # Now set the timetracking
-        s = Issue()
-        s.update('timetracking',time)
-        self.modify_issue(sid,s)
+        if eid:
+          s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+        sid = self.create_issue(s)
+        if time is not None:
+          # Now set the timetracking
+          s = Issue()
+          s.update('timetracking',time)
+          self.modify_issue(sid,s)
 
-      # Now create all subtasks of this story
-      time = None
-      if 'subtasks' in story:
-        for subtask in story['subtasks']:
-          st = self.create_issue_obj(permissive=True)
-          # You cannot directly create a sub-task, you have to
-          # create an issue, set sub-task link, then set type = sub-task
-          st.type = self.typemap['story']
-          for (key,value) in subtask.items():
-            if type(value) is list:
-              self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
-            if type(value) is types.StringType or type(value) is int:
-              if hasattr(st,key):
-                st.update(key,value)
-              else:
-                self.fatal("Unknown issue attribute in template: %s" % (key))
+        # Now create all subtasks of this story
+        time = None
+        if 'subtasks' in story:
+          for subtask in story['subtasks']:
+            st = self.create_issue_obj(permissive=True)
+            # You cannot directly create a sub-task, you have to
+            # create an issue, set sub-task link, then set type = sub-task
+            st.type = self.typemap['story']
+            for (key,value) in subtask.items():
+              if type(value) is list:
+                self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
+              if type(value) is types.StringType or type(value) is int:
+                if hasattr(st,key):
+                  st.update(key,value)
+                else:
+                  self.fatal("Unknown issue attribute in template: %s" % (key))
 
-          st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-          # We specify timetracking on issues, but we can only set
-          # that attribute on a Modify action, not a Create action.
-          if hasattr(st,'timetracking') and st.timetracking is not None:
-            time = st.timetracking
-            del st.timetracking
-          stid = self.create_issue(st)
-          # This converts to a sub-task
-          self.subtask_link(sid,stid)
-          # Now set timetracking
-          if time is not None:
-            st = Issue()
-            st.update('timetracking',time)
-            self.modify_issue(stid,st)
-            time = None
+            st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
+            # We specify timetracking on issues, but we can only set
+            # that attribute on a Modify action, not a Create action.
+            if hasattr(st,'timetracking') and st.timetracking is not None:
+              time = st.timetracking
+              del st.timetracking
+            stid = self.create_issue(st)
+            # This converts to a sub-task
+            self.subtask_link(sid,stid)
+            # Now set timetracking
+            if time is not None:
+              st = Issue()
+              st.update('timetracking',time)
+              self.modify_issue(stid,st)
+              time = None
 
     if not self.options.noop:
       print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+key+ASC,issuetype+ASC" % (self.proxy.getServerInfo(self.auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
