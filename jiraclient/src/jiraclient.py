@@ -183,21 +183,21 @@ class Jiraclient(object):
       "--link",
       action="store",
       dest="link",
-      help="Link two issues",
+      help="Given link=A,B link issues A and B",
       default=None,
     )
     optParser.add_option(
       "--unlink",
       action="store",
       dest="unlink",
-      help="Unlink two issues",
+      help="Given unlink=A,B unlink issues A and B",
       default=None,
     )
     optParser.add_option(
       "--subtask",
       action="store",
       dest="subtask",
-      help="Make issue into a sub-task of another",
+      help="Given subtask=A,B Make issue B into a sub-task of A",
       default=None,
     )
     optParser.add_option(
@@ -338,6 +338,13 @@ class Jiraclient(object):
       action="store",
       dest="affectsVersions",
       help="Jira project 'affects versions', comma separated list",
+      default=None,
+    )
+    optParser.add_option(
+      "--subtask-of",
+      action="store",
+      dest="subtask_of",
+      help="Make the new issue a subtask of this issue key",
       default=None,
     )
     optParser.add_option(
@@ -1013,6 +1020,10 @@ class Jiraclient(object):
       issueID = self.create_issue(issue)
     except Exception, details:
       self.fatal("Failed to create issue.  Reason: %r" % details)
+
+    # Make the issue a subtask, if a parent is given
+    if self.options.subtask_of:
+      self.subtask_link(self.options.subtask_of,issueID)
 
     # Set timetracking if present
     if self.options.timetracking is not None:
