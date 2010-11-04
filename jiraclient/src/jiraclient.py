@@ -120,7 +120,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.2"
+  version = "1.6.3"
 
   priorities = {}
   typemap = {}
@@ -292,6 +292,13 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
+      "-H","--epic",
+      action="store",
+      dest="issue_epic_theme",
+      help="Set the epic/theme for the issue",
+      default=None,
+    )
+    optParser.add_option(
       "-P","--project",
       action="store",
       dest="project",
@@ -337,7 +344,7 @@ class Jiraclient(object):
       "--epic_theme",
       action="store",
       dest="epic_theme",
-      help="Jira project 'Epic/Theme', custom field ID (eg. customfield_10010)",
+      help="Jira project 'Epic/Theme', custom field ID for the project (eg. customfield_10010)",
       default=None,
     )
     optParser.add_option(
@@ -404,8 +411,8 @@ class Jiraclient(object):
         fd.write('#assignee = \n')
         fd.write('#components = \n')
         fd.write('#fixVersions = \n')
-        os.fchmod(fd.fileno(),int("600",8))
         fd.close()
+        os.chmod(self.options.config,int("600",8))
 
       stat = os.stat(self.options.config)
       if S_IMODE(os.stat(self.options.config).st_mode) != int("600",8):
@@ -473,8 +480,8 @@ class Jiraclient(object):
         self.fatal("Login failed")
       fd = open(session,'w')
       fd.write(auth)
-      os.fchmod(fd.fileno(),int("600",8))
       fd.close()
+      os.chmod(session,int("600",8))
     else:
       # Existing auth session
       fd = open(session,'r')
@@ -555,6 +562,15 @@ class Jiraclient(object):
         print "Known issue types:\n%r\n" % self.typemap
         self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
       issue.type = self.typemap[issue.type]
+
+
+    # Epic/Theme is a custom field that may or may not be enabled
+    # for a given project.  We have the issue_epic_theme which is the desired
+    # existing Epic issue we want to include in the issue we're creating,
+    # and we have the epic_theme, which is the custom field ID for this 
+    # installation's current Project.
+    if self.options.issue_epic_theme:
+      issue.customFieldValues = [{'values':self.options.issue_epic_theme,'customfieldId':self.options.epic_theme}]
 
     # Priorities are also installation specific
     if hasattr(issue,'priority') and issue.priority is not None:
