@@ -120,7 +120,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.3"
+  version = "1.6.4"
 
   priorities = {}
   typemap = {}
@@ -779,6 +779,7 @@ class Jiraclient(object):
     e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
     self.modify_issue(eid,e)
 
+    time = None
     if 'subtasks' in template.keys():
       for subtask in template['subtasks']:
         st = self.create_issue_obj(permissive=True)
