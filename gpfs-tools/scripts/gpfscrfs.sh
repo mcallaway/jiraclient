@@ -4,8 +4,9 @@ set -e
 
 usage () {
   cat <<EOF
-Usage: $0 [NAME] [NUMBER]
+Usage: $0 <NAME> <NUMBER> [ARRAY]
 Assign NUMBER free GPFS nsds to a filesystem named NAME.
+Use array named ARRAY if specified.
 EOF
   exit 1
 }
@@ -30,8 +31,9 @@ yesorno () {
   esac
 }
 
-NAME=$1
-NUMBER=$2
+NAME="$1"
+NUMBER="$2"
+ARRAY="$3"
 
 [ -n "$NAME" ] || usage
 [ -n "$NUMBER" ] || usage
@@ -43,7 +45,7 @@ MMLS=$( which mmlsnsd 2>/dev/null )
 MMCR=$( which mmcrfs 2>/dev/null )
 [ -n "$MMLS" ] || die "Cannot find mmcrfs"
 
-ARG=$( mmlsnsd -F | sed -e '1,/^-*$/d' | head -n $NUMBER | awk '{print $3}' | tr '\n' ';' )
+ARG=$( mmlsnsd -F | sed -e '1,/^-*$/d' | head -n $NUMBER | awk "/$ARRAY/{print \$3}" | tr '\n' ';' )
 [ -n "$ARG" ] || die "Error identifying free nsds"
 
 CMD="$MMCR /vol/$NAME $NAME $ARG -A yes"
