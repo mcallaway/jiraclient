@@ -1,7 +1,10 @@
 
+.PHONY: test src deb clean distclean
+
 NAME = gpfs-tools
 # Makefile can't handle parens in version here... use tr to strip.
-VERSION = $(shell head -n1 debian/changelog | gawk '{match($$2,/v(.*)/,a);print a[1];}' | tr -d '()')
+VERSION = $(shell head -n1 debian/changelog | gawk '{match($$2,/v(.*)-/,a);print a[1];}' | tr -d '()')
+RELEASE = $(shell head -n1 debian/changelog | gawk '{match($$2,/v.*-(.*)/,a);print a[1];}' | tr -d '()')
 
 MAKEFILE = Makefile
 
@@ -17,7 +20,10 @@ INSTALLDIR = /usr/sbin
 
 .PHONY: clean dist install version
 
-all: dist
+all: noop
+
+noop:
+	@echo noop
 
 install: $(SOURCES)
 	install -d $(DESTDIR)$(INSTALLDIR)
@@ -34,6 +40,21 @@ $(NAME)-${VERSION}.tar.gz: $(SOURCES)
 	tar czvf $(NAME)-${VERSION}.tar.gz $(NAME)-${VERSION}/
 	rm -rf $(NAME)-${VERSION}/
 
+deb: src
+	dpkg-buildpackage ||:
+	mkdir -p dist || exit 1
+	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE).dsc ./dist/
+	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE).tar.gz ./dist/
+	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_i386.changes ./dist/
+	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_all.deb ./dist/
+	@find ./dist -type f
+
 clean:
 	rm -rf $(NAME)-${VERSION}/
 	rm -f $(NAME)-${VERSION}.tar.gz
+	rm -rf debian/$(NAME)
+	rm -rf debian/$(NAME).*
+	rm -rf debian/files
+
+distclean: clean
+	rm -rf dist/

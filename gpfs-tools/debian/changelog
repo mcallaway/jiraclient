@@ -1,3 +1,9 @@
+gpfs-tools (0v0.3-1) unstable; urgency=low
+
+  * Added Debian packaging
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Mon, 15 Nov 2010 11:27:17 -0600
+
 gpfs-tools (0v0.2-1) unstable; urgency=low
 
   * Changed name from libgpfsmapper-perl to gpfs-tools.
