@@ -22,7 +22,7 @@ CONFIG = jiraclientrc
 
 ALLSOURCES = $(SOURCES) $(TEST) $(CONFIG) $(RPMSPEC)
 
-all: rpm
+all: deb
 
 # Make build area
 build:
