@@ -29,8 +29,9 @@ binary-arch: build
 	dh_installchangelogs
 
 # Copy the packages's files.
-	find . -maxdepth 1 -mindepth 1 -not -name debian -print0 | \
+#	find . -maxdepth 1 -mindepth 1 -not -name debian -print0 | \
 		xargs -0 -r -i cp -a {} debian/$(PACKAGE)
+	install -D -m 755 src/jiraclient.py debian/$(PACKAGE)/usr/bin/jiraclient
 
 #
 # If you need to move files around in debian/$(PACKAGE) or do some
