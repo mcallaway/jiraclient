@@ -1,0 +1,21 @@
+This package was debianized by the alien program by converting
+a binary .rpm package on Mon, 15 Nov 2010 09:51:13 -0600
+
+Copyright: 
+
+Information from the binary package:
+Name        : jiraclient                   Relocations: (not relocatable)
+Version     : 1.5.6                             Vendor: The Genome Center at Washington University
+Release     : 1                             Build Date: Mon 15 Nov 2010 09:50:27 AM CST
+Install Date: (not installed)               Build Host: localhost
+Group       : System/Utilities              Source RPM: jiraclient-1.5.6-1.src.rpm
+Size        : 34217                            License: GPL
+Signature   : (none)
+Packager    : Matthew Callaway <mcallawa@genome.wustl.edu>
+Summary     : A command line client for Jira.
+Description :
+Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.
+It leverages SOAP or XML-RPC, depending upon the API selected in the
+configuration.  It allows command line access to a number of Jira tasks
+like issue creation and creation of many issues via YAML templates.
+

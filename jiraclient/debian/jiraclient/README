@@ -1,0 +1,120 @@
+
+This is a python Jira command line interface.
+
+Prerequisites:
+
+python
+python-fpconst
+python-soappy (SOAPpy)
+python-yaml
+python-xmlrpclib (xmlrpclib) # part of standard python
+
+Templates:
+
+Create a set of issues with a YAML formatted template file like this:
+
+python jiraclient.py --template project.yaml
+
+# -- project.yaml file
+summary: This is an Epic
+description: Epic description
+stories:
+  - summary: s1 summary
+    description: story s1 has is a very long description for a jira story that will keep on going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going and going
+    timetracking: 1h
+    subtasks:
+      - summary: s1 st1 summary
+        description: s1 st1 description
+        timetracking: 30m
+      - summary: s1 st2 summary
+        timetracking: 30m
+  - summary: s2 summary
+    description: story s2 description
+    timetracking: 1h
+    subtasks:
+      - summary: s2 st1 summary
+        description: st 1 description
+        timetracking: 30m
+      - summary: s2 st2 summary
+        description: st 2 description
+        timetracking: 1h
+  - summary: s3 summary
+    description: story s3 description
+    timetracking: 1h
+    subtasks:
+      - summary: s3 st1 summary
+        description: s3 st 1 description
+        timetracking: 1h
+      - summary: s3 st2 summary
+        description: s3 st 2 description
+
+General Usage
+
+Usage: jiraclient.py [options]
+
+ Sample Usage:
+  - Standard issue creation in project named INFOSYS:
+    jiraclient.py -u 'username' -p 'jirapassword' -A 'auser' -P INFOSYS -T task -S 'Do some task'
+
+ - Get numerical Version IDs for Project named INFOSYS:
+   jiraclient.py -u 'username' -p 'jirapassword' -a getVersions INFOSYS
+
+ - Get numerical Component IDs for Project named INFOSYS:
+   jiraclient.py -u 'username' -p 'jirapassword' -a getComponents INFOSYS
+
+ - Create an issue with a specified Component and Fix Version 
+   and assign it to myself:
+   jiraclient.py -u 'username' -p 'jirapassword' -A 'username' -P INFOSYS -Q major -F 10000  -C 10003 -T epic -S 'Investigate Platform IFS'
+
+
+Options:
+  -h, --help            show this help message and exit
+  --config=CONFIG       Read configuration from this file
+  -a API, --api=API     Call this API method
+  -c COMMENT, --comment=COMMENT
+                        Comment text
+  -l LOGLEVEL, --loglevel=LOGLEVEL
+                        Set the log level
+  --link=LINK           Link two issues
+  --unlink=UNLINK       Unlink two issues
+  --subtask=SUBTASK     Make issue into a sub-task of another
+  --template=TEMPLATE   Make a set of Issues based on a YAML template file
+  -n, --noop            Parse bug file but don't connect to Jira
+  -u USER, --user=USER  Jira user
+  -p PASSWORD, --password=PASSWORD
+                        Jira password
+  -d, --display         Display an existing given Jira issue ID
+  -i ISSUEID, --issue=ISSUEID
+                        Jira issue ID (to modify)
+  -r REMAINING, --remaining=REMAINING
+                        Jira issue time 'remaining estimate'
+  -t TIMETRACKING, --time=TIMETRACKING
+                        Jira issue time 'original estimate'
+  -A ASSIGNEE, --assignee=ASSIGNEE
+                        Jira assignee
+  -C COMPONENTS, --components=COMPONENTS
+                        Jira project components, comma separated list
+  -D DESCRIPTION, --description=DESCRIPTION
+                        Jira issue description text
+  -E ENVIRONMENT, --environment=ENVIRONMENT
+                        Jira environment
+  -F FIXVERSIONS, --fixVersions=FIXVERSIONS
+                        Jira project 'fix versions', comma separated list
+  -P PROJECT, --project=PROJECT
+                        Jira project
+  -Q PRIORITY, --priority=PRIORITY
+                        Issue priority name
+  -S SUMMARY, --summary=SUMMARY
+                        Issue summary
+  -T TYPE, --type=TYPE  Issue type
+  -U JIRAURL, --jiraurl=JIRAURL
+                        The Jira URL
+  -V AFFECTSVERSIONS, --affecstVersions=AFFECTSVERSIONS
+                        Jira project 'affects versions', comma separated list
+  --epic_theme=EPIC_THEME
+                        Jira project 'Epic/Theme', custom field ID (eg.
+                        customfield_10010)
+  --prefix=PREFIX       Specify prefix text to prepend to all Issue summaries
+  --syslog              Use syslog
+  -v, --version         Version information
+

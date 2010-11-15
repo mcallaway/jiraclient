@@ -1,0 +1,13 @@
+Source: jiraclient
+Section: devel
+Priority: extra
+Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
+
+Package: jiraclient
+Architecture: all
+Depends: ${shlibs:Depends}, python, python-soappy, python-yaml, python-fpconst
+Description: A command line client for Jira.
+ Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.
+ It leverages SOAP or XML-RPC, depending upon the API selected in the
+ configuration.  It allows command line access to a number of Jira tasks
+ like issue creation and creation of many issues via YAML templates.

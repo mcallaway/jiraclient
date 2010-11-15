@@ -1,0 +1,14 @@
+17ffc6d96861620746a883557dccf3b3  build/SOURCES/jiraclient-1.5.7.tar.gz
+a561be563deec3576ffc63bbbd8cdeb6  build/SPECS/jiraclient.spec
+17ffc6d96861620746a883557dccf3b3  jiraclient-1.5.7.tar.gz
+a561be563deec3576ffc63bbbd8cdeb6  jiraclient.spec
+67bc6d123ae5d15e4184effb9cbbc269  jiraclientrc
+3aedc6d8829cae340fef41f2dc540ac8  Makefile
+8422f2c3e25d07b9f3bcd1ebe4e0f4f7  README
+f7af80e74b5c99014467d88313c701ca  src/jiraclient.py
+0343a4b39d468b61993bcad72333ee8d  test/data/jiraclientrc
+65bac270d58227f29cb0b50fb2f50053  test/data/jiraclientrc-001
+7ec9a9f730ed8839d916e86f3b086006  test/data/project.yaml
+87483b63ff0d14ce80416e9c45f8013c  test/testJiraclient.py
+846c1a0195808ceeee1c93b9809c52ab  usr/share/doc/jiraclient/changelog.Debian.gz
+ee777e7cf660f4ab05110fbe2619d96a  usr/share/doc/jiraclient/copyright
