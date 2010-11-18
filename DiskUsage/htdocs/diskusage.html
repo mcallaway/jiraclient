@@ -73,6 +73,13 @@
               fnCallback(json)
               } );
           },
+          "aoColumns": [
+            null,
+            null,
+            null,
+            null,
+            /* cost */  { "bVisible":    false },
+          ],
           "fnRowCallback": function( nRow, aaData, iDisplayIndex )
           {
             /* append a css class based on cell content */
@@ -204,7 +211,6 @@
 
       <div class="emphasis" id="narrow">
       Groups over 95% capacity are colored red, as is the 'unkown' group.<br/>
-      Cost of disk is based on $2,500 per TB up front cost for HP EVA based storage and 3 years of support.<br/>
       </div>
 
       <div id="group">

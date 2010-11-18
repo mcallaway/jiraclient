@@ -1,3 +1,10 @@
+libdiskusage-perl (0v0.12.0-1) lucid; urgency=low
+
+  * ISSOFT-28 Hide the estimated cost column.
+  * Fix some dependencies in debian packaging.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 18 Nov 2010 10:44:48 -0600
+
 libdiskusage-perl (0v0.11.0-1) unstable; urgency=low
 
   * Add estimated cost column.
