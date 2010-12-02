@@ -1,3 +1,9 @@
+libdiskusage-perl (0v0.12.1-1) lucid; urgency=low
+
+  * ISSOFT-38 Add a RedirectMatch for a shorter URL.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 02 Dec 2010 13:39:59 -0600
+
 libdiskusage-perl (0v0.12.0-1) lucid; urgency=low
 
   * ISSOFT-28 Hide the estimated cost column.
