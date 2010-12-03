@@ -1,4 +1,10 @@
-jiraclient (1.6.7-1) experimental; urgency=low
+jiraclient (1.6.8-1) lucid; urgency=low
+
+  * ISSOFT-12: Support text names for components and fixVersions.
+
+ -- Matt Callaway <mcallawa@buildhost>  Fri, 03 Dec 2010 10:05:42 -0600
+
+jiraclient (1.6.7-1) lucid; urgency=low
 
   * Added Debian packaging
 
