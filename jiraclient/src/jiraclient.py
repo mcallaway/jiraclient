@@ -120,10 +120,12 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.7"
+  version = "1.6.8"
 
   priorities = {}
   typemap = {}
+  versionmap = {}
+  componentmap = {}
 
   def fatal(self,msg=None):
     self.logger.fatal(msg)
@@ -464,6 +466,16 @@ class Jiraclient(object):
     for item in result:
       self.typemap[item['name'].lower()] = item['id']
 
+  def set_project_versions(self,projectName):
+    result = self.proxy.getVersions(self.auth,projectName)
+    for item in result:
+      self.versionmap[item['name'].lower()] = item['id']
+
+  def set_project_components(self,projectName):
+    result = self.proxy.getComponents(self.auth,projectName)
+    for item in result:
+      self.componentmap[item['name'].lower()] = item['id']
+
   def read_password(self):
     if not self.options.password:
       print "Please authenticate."
@@ -529,7 +541,7 @@ class Jiraclient(object):
       'summary'         : True,
       'assignee'        : False,
       'components'      : False,
-      'description'      : False,
+      'description'     : False,
       'fixVersions'     : False,
       'affectsVersions' : False,
       'priority'        : False,
@@ -561,7 +573,10 @@ class Jiraclient(object):
       projectID = self.get_project_id(issue.project)
       if not projectID and self.options.issueID is None:
         self.fatal("Project %s is unknown" % issue.project)
+
       self.set_issue_types(projectID)
+      self.set_project_versions(issue.project)
+      self.set_project_components(issue.project)
 
     # A given type must be known to Jira, convert to numerical form
     if hasattr(issue,'type') and issue.type is not None:
@@ -570,6 +585,35 @@ class Jiraclient(object):
         self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
       issue.type = self.typemap[issue.type]
 
+    # A given fixVersion must be known to Jira, convert to numerical form
+    if hasattr(issue,'fixVersions'):
+      for version in issue.fixVersions:
+        versionid = version['id'].lower()
+        if versionid.isdigit(): continue
+        if versionid not in self.versionmap:
+          print "Known versions :\n%r\n" % self.versionmap
+          self.fatal("Unknown fixVersion: '%s' for Project: '%s'" % (versionid,issue.project))
+
+        idx = issue.fixVersions.index(version)
+        versionname = issue.fixVersions[idx]['id']
+        versionid = self.versionmap[version['id']]
+        print "Version named '%s' is id %s" % (versionname,versionid)
+        issue.fixVersions[idx]['id'] = versionid
+
+    # A given Component must be known to Jira, convert to numerical form
+    if hasattr(issue,'components'):
+      for component in issue.components:
+        componentid = component['id'].lower()
+        if componentid.isdigit(): continue
+        if componentid not in self.componentmap:
+          print "Known components :\n%r\n" % self.componentmap
+          self.fatal("Unknown component: '%s' for Project: '%s'" % (componentid,issue.project))
+
+        idx = issue.components.index(component)
+        componentname = issue.components[idx]['id']
+        componentid = self.componentmap[component['id']]
+        print "Component named '%s' is id %s" % (componentname,componentid)
+        issue.components[idx]['id'] = componentid
 
     # Epic/Theme is a custom field that may or may not be enabled
     # for a given project.  We have the issue_epic_theme which is the desired
@@ -708,7 +752,6 @@ class Jiraclient(object):
     projectID = self.get_project_id(child.project)
     if not projectID:
       self.fatal("Project %s is unknown" % child.project)
-    self.set_issue_types(projectID)
 
     # Set sub-task link
     result = self.proxy.createSubtaskLink(self.auth,parentId,childId,linkType)
