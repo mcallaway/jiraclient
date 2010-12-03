@@ -595,8 +595,8 @@ class Jiraclient(object):
           self.fatal("Unknown fixVersion: '%s' for Project: '%s'" % (versionid,issue.project))
 
         idx = issue.fixVersions.index(version)
-        versionname = issue.fixVersions[idx]['id']
-        versionid = self.versionmap[version['id']]
+        versionname = versionid
+        versionid = self.versionmap[versionid]
         print "Version named '%s' is id %s" % (versionname,versionid)
         issue.fixVersions[idx]['id'] = versionid
 
@@ -610,8 +610,8 @@ class Jiraclient(object):
           self.fatal("Unknown component: '%s' for Project: '%s'" % (componentid,issue.project))
 
         idx = issue.components.index(component)
-        componentname = issue.components[idx]['id']
-        componentid = self.componentmap[component['id']]
+        componentname = componentid
+        componentid = self.componentmap[componentid]
         print "Component named '%s' is id %s" % (componentname,componentid)
         issue.components[idx]['id'] = componentid
 
