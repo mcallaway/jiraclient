@@ -1,7 +1,9 @@
 Source: jiraclient
 Section: devel
 Priority: extra
+Build-Depends: debhelper (>= 7)
 Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
+Standards-Version: 3.8.3
 
 Package: jiraclient
 Architecture: all
