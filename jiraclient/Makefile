@@ -2,7 +2,7 @@
 # $Id: Makefile,v 1.20 2009/10/20 15:05:41 matt Exp $
 #
 
-.PHONY: test src rpm clean distclean
+.PHONY: all build test src rpm clean distclean
 
 NAME = jiraclient
 
@@ -22,7 +22,9 @@ CONFIG = jiraclientrc
 
 ALLSOURCES = $(SOURCES) $(TEST) $(CONFIG) $(RPMSPEC)
 
-all: deb
+notice:
+	@echo Use make [target]
+	@echo make deb
 
 # Make build area
 build:
@@ -32,7 +34,7 @@ test:
 	@VER=`awk '/version =/{print $$3}' src/jiraclient.py | tr -d '"'` ; \
 	if [ "$(VERSION)" != "$${VER}" ]; then \
 	  echo "Version mismatch: $(VERSION) != $${VER}" ; \
-		exit; \
+		exit 1; \
 	fi
 
 tgz: $(NAME)-$(VERSION).tar.gz
@@ -68,8 +70,8 @@ rpm: src
 	@find ./dist -type f
 
 deb: src
-	mkdir -p dist
 	dpkg-buildpackage ||:
+	mkdir -p dist
 	@mv ../jiraclient_$(VERSION)-$(RELEASE).dsc ./dist
 	@mv ../jiraclient_$(VERSION)-$(RELEASE).tar.gz ./dist
 	@mv ../jiraclient_$(VERSION)-$(RELEASE)_all.deb ./dist
