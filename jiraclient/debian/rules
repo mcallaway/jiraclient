@@ -1,54 +1,19 @@
 #!/usr/bin/make -f
-# debian/rules for alien
-
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
 # Use v4 compatability mode, so ldconfig gets added to maint scripts.
-export DH_COMPAT=4
+#export DH_COMPAT=7
 
 PACKAGE=$(shell dh_listpackages)
 
-build:
-	dh_testdir
-
-clean:
-	dh_testdir
-	dh_testroot
-	dh_clean -d
-
-binary-indep: build
+%:
+	dh $@
 
 binary-arch: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k -d
-	dh_installdirs
 
-	dh_installdocs
-	dh_installchangelogs
-
-# Copy the packages's files.
-#	find . -maxdepth 1 -mindepth 1 -not -name debian -print0 | \
+override_dh_install:
+	find . -maxdepth 1 -mindepth 1 -not -name debian -print0 | \
 		xargs -0 -r -i cp -a {} debian/$(PACKAGE)
 	install -D -m 755 src/jiraclient.py debian/$(PACKAGE)/usr/bin/jiraclient
 
-#
-# If you need to move files around in debian/$(PACKAGE) or do some
-# binary patching, do it here
-#
-
-
-# This has been known to break on some wacky binaries.
-#	dh_strip
-	dh_compress
-#	dh_fixperms
-	dh_makeshlibs
-	dh_installdeb
-	-dh_shlibdeps
-	dh_gencontrol
-	dh_md5sums
-	dh_builddeb
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary
