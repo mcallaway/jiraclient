@@ -40,6 +40,7 @@ make \
 * Mon Dec 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.6-1 ]
 - Replace corrupted dsg-homearchive.sh with a version recovered from /gsc/share/scripts.
+- dsg-userdel: removed samba bits, fixed path to dsg-userAD (jhonold).
 
 * Mon Sep 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.5-1 ]
