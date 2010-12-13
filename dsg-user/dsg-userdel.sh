@@ -150,13 +150,6 @@ else
     status=1
 fi
 
-# remove from samba
-samba="ssh -x mercury5 /dsg/share/scripts/dsg-samba -d $login"
-if ! $samba; then
-    echo "$pkg: failed to remove samba account: $login"
-    status=1
-fi
-
 # remove from ldap
 userldap="/dsg/share/scripts/dsg-userldap delete $login"
 if $userldap; then
@@ -167,7 +160,7 @@ else
 fi
 
 # remove from AD
-userAD="/dsg/scripts/sbin/dsg-userAD -d $login"
+userAD="/dsg/share/scripts/dsg-userAD -d $login"
 if $userAD; then
    echo "$pkg: user deleted from AD"
 else
