@@ -2,7 +2,7 @@
 
 Name: dsg-user-scripts
 Summary: Scripts for creation and removal of users.
-Version: 1.5
+Version: 1.6
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
@@ -37,6 +37,10 @@ make \
 %attr(0555,root,root) %{destdir}/*
 
 %changelog
+* Mon Dec 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
+  [ 1.6-1 ]
+- Replace corrupted dsg-homearchive.sh with a version recovered from /gsc/share/scripts.
+
 * Mon Sep 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.5-1 ]
 - Built a template spec file
