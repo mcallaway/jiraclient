@@ -44,8 +44,8 @@ sub new {
     ldap_baseDN => 'ou=People,dc=dsg,dc=wustl,dc=edu',
     ad_principal => 'dsg.local',
     ad_host => 'dvm1.dsg.wustl.edu',
-    ad_username => 'svc_ldap',
-    ad_userDN => 'svc_ldap@dsg.local',
+    ad_username => 'dsgad',
+    ad_userDN => 'dsgad@dsg.local',
     ad_baseDN => "DC=dsg,DC=local",
     ad_container => 'OU=Genetics',
   };
