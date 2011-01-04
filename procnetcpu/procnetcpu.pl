@@ -8,7 +8,7 @@ use Data::Dumper;
 use strict;
 use warnings;
 
-our $VERSION = "0.3";
+our $VERSION = "0.5";
 
 sub new {
   my $class = shift;
