@@ -15,6 +15,8 @@ sub new {
   my $self = {
     'cpu' => '/proc/stat',
     'net' => '/proc/net/dev',
+    'fscache' => '/proc/fs/fscache/stats',
+    'nfsstat' => '/proc/net/rpc/nfs',
     'output' => 'procnetcpu.cache',
   };
   bless $self, $class;
@@ -93,7 +95,7 @@ sub read_cpu {
   chomp $c;
 
   my ($label,$user,$nice,$system,$idle,$iowait,$irq,$softirq) = split(/\s+/,$c);
-  $$this = {
+  $$this->{cpu} = {
     'walltime' => time(),
     'user' => $user,
     'nice' => $nice,
@@ -103,6 +105,71 @@ sub read_cpu {
     'irq' => $irq,
     'softirq' => $softirq,
   };
+}
+
+sub read_fscache {
+  my $self = shift;
+  my $this = shift;
+
+  $self->error("fscache file error: $self->{fscache}: $!")
+    if (! -f $self->{fscache});
+
+  # Read fscache data and add it to our data structure.
+  my $fscache = {};
+  open (FS,"<$self->{fscache}");
+  while (<FS>) {
+    next unless (/:/);
+    chomp;
+    my ($item,$values) = split(/: /);
+    $item =~ s/\s+//g;
+    my @values = split(/\s+/,$values);
+    my $hash;
+    #map { ($a,$b) = split(/=/); $hash->{$a} = int($b); } @values;
+    #$fscache->{$item} = $hash;
+    map { ($a,$b) = split(/=/); $fscache->{"$item.$a"} = int($b); } @values;
+  }
+  close(FS);
+  $$this->{fscache} = $fscache;
+}
+
+sub read_nfsstat {
+  my $self = shift;
+  my $this = shift;
+
+  $self->error("nfsstat file error: $self->{nfsstat}: $!")
+    if (! -f $self->{nfsstat});
+
+  # Read nfsstat data and add it to our data structure.
+  my $nfsstat;
+  open (FS,"<$self->{nfsstat}");
+  while (<FS>) {
+    chomp;
+    next unless (/^proc3/);
+    my @values = split(/\s+/);
+    $nfsstat->{getattr} = $values[3];
+    $nfsstat->{setattr} = $values[4];
+    $nfsstat->{lookup} = $values[5];
+    $nfsstat->{access} = $values[6];
+    $nfsstat->{readlink} = $values[7];
+    $nfsstat->{read} = $values[8];
+    $nfsstat->{write} = $values[9];
+    $nfsstat->{create} = $values[10];
+    $nfsstat->{mkdir} = $values[11];
+    $nfsstat->{symlink} = $values[12];
+    $nfsstat->{mknod} = $values[13];
+    $nfsstat->{remove} = $values[14];
+    $nfsstat->{rmdir} = $values[15];
+    $nfsstat->{rename} = $values[16];
+    $nfsstat->{link} = $values[17];
+    $nfsstat->{readdir} = $values[18];
+    $nfsstat->{readdirplus} = $values[19];
+    $nfsstat->{fsstat} = $values[20];
+    $nfsstat->{fsinfo} = $values[21];
+    $nfsstat->{pathconf} = $values[22];
+    $nfsstat->{commit} = $values[23];
+  }
+  close(FS);
+  $$this->{nfsstat} = $nfsstat;
 }
 
 sub save {
@@ -123,10 +190,14 @@ sub compare {
   my $last = shift;
   my $this = shift;
   return if (! scalar keys %$last);
+
   # Compare this run with last run.
   foreach my $key (keys %{$$this}) {
     my $diff;
-    if (ref($$this->{$key})) {
+
+    if (ref($$this->{$key}) eq "HASH" and
+        $key eq 'interfaces' and
+        exists $last->{'interfaces'}) {
       # This is a ref, and thus the interfaces reference
       foreach my $iface (keys %{ $$this->{$key} } ) {
         foreach my $item (keys %{ $$this->{$key}->{$iface} } ) {
@@ -141,9 +212,45 @@ sub compare {
           $$this->{'interfaces'}->{$iface}->{"d_" . $item} = $diff;
         }
       }
-    } else {
-      $diff = $$this->{$key} - $last->{$key};
-      $$this->{"d_" . $key} = $diff;
+    } elsif (ref($$this->{$key}) eq "HASH" and
+        $key eq 'fscache' and
+        exists $last->{'fscache'}) {
+      foreach my $item (keys %{ $$this->{$key} } ) {
+          if (! exists $last->{$key}->{$item}) {
+            die "no previous record for $item\n";
+          }
+          my $a = $last->{$key}->{$item};
+          my $b = $$this->{$key}->{$item};
+          $self->error("fatal: field is not numeric: $a")
+            if ($a !~ /\d+/);
+          $self->error("fatal: field is not numeric: $b")
+            if ($b !~ /\d+/);
+          $diff = $b - $a;
+          $$this->{$key}->{"d_" . $item} = $diff;
+      }
+    } elsif (ref($$this->{$key}) eq "HASH" and
+        $key eq 'nfsstat' and
+        exists $last->{'nfsstat'}) {
+      foreach my $item (keys %{ $$this->{$key} } ) {
+          if (! exists $last->{$key}->{$item}) {
+            die "no previous record for $item\n";
+          }
+          my $a = $last->{$key}->{$item};
+          my $b = $$this->{$key}->{$item};
+          $self->error("fatal: field is not numeric: $a")
+            if ($a !~ /\d+/);
+          $self->error("fatal: field is not numeric: $b")
+            if ($b !~ /\d+/);
+          $diff = $b - $a;
+          $$this->{$key}->{"d_" . $item} = $diff;
+      }
+    } elsif (ref($$this->{$key}) eq "HASH" and
+        $key eq 'cpu' and
+        exists $last->{'cpu'}) {
+      foreach my $item (keys %{ $$this->{$key} } ) {
+        $diff = $$this->{$key}->{$item} - $last->{$key}->{$item};
+        $$this->{$key}->{"d_" . $item} = $diff;
+      }
     }
   }
 }
@@ -152,24 +259,46 @@ sub report {
   my $self = shift;
   my $result = shift;
 
-  # Display CPU deltas
-  foreach my $item ('d_idle', 'd_iowait', 'd_irq', 'd_nice', 'd_softirq', 'd_system', 'd_user', 'd_walltime' ) {
-    my $name = $item;
-    $name =~ s/^d_//;
-    print "$name=$result->{$item}\n";
+  #print Dumper $result;
+
+  if (exists $result->{cpu}) {
+    foreach my $item ('d_idle', 'd_iowait', 'd_irq', 'd_nice', 'd_softirq', 'd_system', 'd_user', 'd_walltime' ) {
+      my $name = $item;
+      $name =~ s/^d_//;
+      print "$name=$result->{cpu}->{$item}\n" if (exists $result->{cpu}->{$item});
+    }
   }
 
-  # Display only eth0 items, convert to bits
-  my $iface = "eth0";
-  foreach my $item ('d_rbytes','d_tbytes') {
-    my $name = $item;
-    $name =~ s/^d_//;
-    print "$name=" . int($result->{interfaces}->{$iface}->{$item}) * 8 . "\n";
+  if (exists $result->{interfaces}) {
+    my $iface = "eth0";
+    foreach my $item ('d_rbytes','d_tbytes') {
+      my $name = $item;
+      $name =~ s/^d_//;
+      print "$name=" . int($result->{interfaces}->{$iface}->{$item}) * 8 . "\n";
+    }
+    foreach my $item ('d_rpackets','d_tpackets') {
+      my $name = $item;
+      $name =~ s/^d_//;
+      print "$name=" . $result->{interfaces}->{$iface}->{$item} . "\n";
+    }
   }
-  foreach my $item ('d_rpackets','d_tpackets') {
-    my $name = $item;
-    $name =~ s/^d_//;
-    print "$name=" . $result->{interfaces}->{$iface}->{$item} . "\n";
+
+  if (exists $result->{fscache}) {
+    while (my ($k,$v) = each %{$result->{fscache}}) {
+      next unless ($k =~ /^d_/);
+      my $name = $k;
+      $name =~ s/^d_//;
+      print "$name=$v\n";
+    }
+  }
+
+  if (exists $result->{nfsstat}) {
+    while (my ($k,$v) = each %{$result->{nfsstat}}) {
+      next unless ($k =~ /^d_/);
+      my $name = $k;
+      $name =~ s/^d_//;
+      print "$name=$v\n";
+    }
   }
 }
 
@@ -205,9 +334,14 @@ sub run {
   if (-f $self->{output}) {
     $last = $self->get();
   }
+
+  $self->read_nfsstat(\$this);
   $self->read_cpu(\$this);
   $self->read_net(\$this);
+  $self->read_fscache(\$this);
+
   my $result = $self->compare($last,\$this);
+
   $self->save($this);
   if (defined $result) {
     #$self->display($this);
