@@ -2,9 +2,8 @@
 use strict;
 use warnings;
 use Fcntl;
-use Error;
 
-package LSFSpool::BLAST;
+package LSFSpool::NCBIBLASTX;
 
 sub new() {
   my $class = shift;
@@ -40,9 +39,9 @@ sub action {
 
   my $parameters = $self->{parameters};
 
-  throw Error::Simple("'parameters' unspecified")
+  die "'parameters' unspecified"
     if (! defined $parameters);
-  throw Error::Simple("given spool is not a directory: $spooldir")
+  die "given spool is not a directory: $spooldir"
     if (! -d $spooldir);
 
   $self->debug("action($spooldir,$inputfile)\n");
@@ -115,7 +114,7 @@ sub read_output {
   } elsif ($format == 0) {
     return $self->outfmt_0($filename);
   } else {
-    throw Error::Simple("Unsupported blastx output format: $format");
+    die "Unsupported blastx output format: $format";
   }
 }
 
