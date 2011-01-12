@@ -1,0 +1,97 @@
+BLASTX 2.0MP-WashU [04-May-2006] [linux26-x64-I32LPF64 2006-05-10T17:22:28]
+
+Copyright (C) 1996-2006 Washington University, Saint Louis, Missouri USA.
+All Rights Reserved.
+
+Reference:  Gish, W. (1996-2006) http://blast.wustl.edu
+Gish, Warren and David J. States (1993).  Identification of protein coding
+regions by database similarity search.  Nat. Genet. 3:266-72.
+
+Query=  Contig0 length=4327140
+        (4,327,140 letters)
+
+  Translating both strands of query sequence in all 6 reading frames
+
+Database:  nematode_protein_new
+           566,435 sequences; 3079 total letters.
+Searching....10....20....30....40....50....60....70....80....90....100% done
+
+WARNING:  hspmax=100 was exceeded by 24 of the database sequences, causing the
+          associated cutoff score, S2, to be transiently set as high as 39.
+
+                                                                     Smallest
+                                                                       Sum
+                                                              High  Probability
+Sequences producing High-scoring Segment Pairs:              Score  P(N)      N
+
+
+      *** NONE ***
+
+
+
+Parameters:
+  B=10000
+  V=10000
+  E=1e-06
+  wordmask=seg
+  Z=300
+  Y=500000000
+  hspmax=100
+  cpus=4
+  gspmax=100
+  hspsepqmax=10000
+  lcmask
+  gi
+  -o /gscuser/mcallawa/git/systems/LSFSpool/t/data/sample-wublast-1-1-output
+
+  ctxfactor=6.00
+
+  Query                        -----  As Used  -----    -----  Computed  ----
+  Frame  MatID Matrix name     Lambda    K       H      Lambda    K       H
+   +3      0   BLOSUM62        0.318   0.134   0.401    0.352   0.154   0.536  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+   +2      0   BLOSUM62        0.318   0.134   0.401    0.352   0.154   0.538  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+   +1      0   BLOSUM62        0.318   0.134   0.401    0.352   0.154   0.537  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+   -1      0   BLOSUM62        0.318   0.134   0.401    0.353   0.155   0.539  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+   -2      0   BLOSUM62        0.318   0.134   0.401    0.353   0.155   0.540  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+   -3      0   BLOSUM62        0.318   0.134   0.401    0.353   0.155   0.539  
+               Q=9,R=2         0.244   0.0300  0.180     n/a     n/a     n/a
+
+  Query
+  Frame  MatID  Length  Eff.Length     E     S W   T  X   E2     S2
+   +3      0 1,442,379 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+   +2      0 1,442,379 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+   +1      0 1,442,380 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+   -1      0 1,442,380 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+   -2      0 1,442,379 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+   -3      0 1,442,379 166,666,666   9.6e-07  142 3  12 22  0.21    36
+                                                        87  0.21    40
+
+
+Statistics:
+
+  Database:  /gscmnt/temp212/info/annotation/xzhang/blastdb/proteindb/nematode_protein_new
+   Title:  nematode_protein_new
+   Posted:  9:27:49 AM CDT Apr 28, 2010
+   Created:  9:27:48 AM CDT Apr 28, 2010
+   Format:  XDF-1
+   # of letters in database:  3079  (Z = 300)
+   # of sequences in database:  566,435
+   # of database sequences satisfying E:  0
+  No. of states in DFA:  647 (137 KB)
+  Total size of DFA:  267,692 KB (269,098 KB)
+  Time to generate neighborhood:  22.01u 1.76s 23.77t   Elapsed:  00:00:25
+  No. of threads or processors used:  4
+  Search cpu time:  3.24u 0.32s 3.56t   Elapsed:  00:00:01
+  Total cpu time:  25.29u 2.11s 27.40t   Elapsed:  00:00:29
+  Start:  Tue Jan 11 16:59:29 2011   End:  Tue Jan 11 16:59:58 2011
+WARNINGS ISSUED:  1
