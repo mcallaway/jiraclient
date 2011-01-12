@@ -4,28 +4,11 @@ package LSFSpool;
 use strict;
 use warnings;
 
-require Exporter;
-use AutoLoader qw(AUTOLOAD);
-
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration: use LSFSpool ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-) ] );
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-our @EXPORT = qw();
-our $VERSION = '0.4.10';
+our $VERSION = '0.4.11';
 
 use English;
 use Data::Dumper;
 use Carp;
-use Error qw(:try);
 
 # Path handling
 use Cwd 'abs_path';
@@ -82,7 +65,7 @@ sub logger {
   # to either a file handle or STDOUT.
   my $self = shift;
   my $fh = $self->{logfh};
-  throw Error::Simple("no logfile defined, run prepare_logger\n")
+  die "no logfile defined, run prepare_logger"
     if (! defined $fh);
   print $fh localtime() . ": @_";
 }
@@ -110,7 +93,7 @@ sub parsefile {
   if ( $jobname =~ m/^.*-(\d+)$/ ) {
     $number = $1;
   } else {
-    throw Error::Simple("filename does not contain a number\n");
+    die "filename does not contain a number";
   }
 
   my $inputfile = basename $jobname; # query file is the file
@@ -127,14 +110,16 @@ sub parsedir {
   my $self = shift;
   my $jobname = shift;
   $jobname = abs_path($jobname);
-  my $inputfile = basename $jobname . '-\$LSB_JOBINDEX';
+  my $basename = basename $jobname;
+  my $inputfile = $basename . '-\$LSB_JOBINDEX';
   my $spooldir = $jobname;
-
+  $self->debug("parsedir($jobname)\n");
   my @inputfiles = grep(/$jobname/,$self->findfiles($jobname));
+  @inputfiles = grep($basename,@inputfiles);
   my $count = grep(!/-output/,@inputfiles);
   my $jobarray = basename $jobname . "\[1-$count\]";
 
-  throw Error::Simple("spool $jobname contains no files") if ($count == 0);
+  die "spool $jobname contains no files" if ($count == 0);
 
   return ($spooldir,$inputfile,$jobarray);
 }
@@ -166,13 +151,13 @@ sub bsub {
   } elsif (-d $jobname) {
     ($spooldir,$inputfile,$jobarray) = $self->parsedir($jobname);
   } else {
-    throw Error::Simple("argument is not a file or directory: $jobname");
+    die "argument is not a file or directory: $jobname";
   }
 
-  throw Error::Simple("spool contains an invalid file or directory: $jobname\n")
+  die "spool contains an invalid file or directory: $jobname\n"
     if (! defined $spooldir);
 
-  chdir $spooldir or throw Error::Simple("cannot chdir to $spooldir: $!");
+  chdir $spooldir or die "cannot chdir to $spooldir: $!";
 
   # Note here the use of -E for a "pre-exec" job, where we have bsub re-execute
   # our self to check to see if there's already full output for a particular
@@ -214,7 +199,7 @@ sub bsub {
   return 0 if ($self->{dryrun});
 
   # Exec the command and get the jobid.
-  open(COMMAND,"$command 2>&1 |") or throw Error::Simple("failed to run bsub: $!");
+  open(COMMAND,"$command 2>&1 |") or die "failed to run bsub: $!";
   my $output = <COMMAND>;
   close(COMMAND);
   my $rc = $? >> 8;
@@ -242,17 +227,17 @@ sub check_cwd {
   $self->logger("examine spool directory: $jobname\n");
   my @list = map { basename($_) } $self->findfiles($jobname);
   my $dir = basename $jobname;
-  my @oddfiles = grep(!/^(|\w+-)$dir.*(-\d+)+(|-output)$/,@list);
+  my @oddfiles = grep(!/^(|\w+-)$dir.*(-\d+)+(|-output|.cache)$/,@list);
   if (scalar @oddfiles != 0) {
-    throw Error::Simple("spool directory '$dir' has unexpected files: @oddfiles");
+    die "spool directory '$dir' has unexpected files: @oddfiles";
   }
 
   @list = map { basename($_) } $self->finddirs($jobname);
-  my @odddirs = grep(!/^(|\w+-)$dir.*(-\d+)+$/,@list);
+  my @odddirs = grep(!/^(|\w+-)$dir.*(-\d+)+(|.logs)$/,@list);
   if (scalar @odddirs != 0) {
-    throw Error::Simple("spool directory '$dir' has unexpected directories: @odddirs");
+    die "spool directory '$dir' has unexpected directories: @odddirs";
   }
-  return 1;
+  return $#list;
 }
 
 sub check_running {
@@ -281,11 +266,12 @@ sub finddirs {
   # Find directories, but not deeply.
   my $self = shift;
   my $dir = shift;
-  $self->debug("finddirs($dir)\n");
+  my $basename = basename $dir;
+  $self->debug("finddirs($dir) $basename\n");
   my @result = File::Find::Rule->directory()
                   ->mindepth(1)
                   ->maxdepth(1)
-                  ->not_name('.*')
+                  ->name( qr/$basename/ )
                   ->in($dir);
   $self->debug(scalar @result . " directories found\n");
   return @result;
@@ -295,12 +281,13 @@ sub findfiles {
   # Find files, but not deeply.
   my $self = shift;
   my $dir = shift;
-  $self->debug("findfiles($dir)\n");
+  my $basename = basename $dir;
+  $self->debug("findfiles($dir) $basename\n");
   return ($dir) if (-f $dir);
   my @result = File::Find::Rule->file()
                   ->mindepth(1)
                   ->maxdepth(1)
-                  ->not_name('.*')
+                  ->name( qr/$basename/ )
                   ->in($dir);
   $self->debug(scalar @result . " files found\n");
   return @result;
@@ -395,7 +382,7 @@ sub run_bqueues {
 
   $self->debug("run_bqueues($command)\n");
 
-  open(COMMAND,"$command 2>&1 |") or throw Error::Simple("failed to run bqueues: $!");
+  open(COMMAND,"$command 2>&1 |") or die "failed to run bqueues: $!";
   while (<COMMAND>) {
     $line = $_ if (/^$self->{config}->{queue}/);
   }
@@ -421,7 +408,7 @@ sub run_bjobs {
   my $njobs = 0;
 
   $self->debug("run_bjobs($command)\n");
-  open(COMMAND,"$command 2>&1 |") or throw Error::Simple("failed to run bqueues: $!");
+  open(COMMAND,"$command 2>&1 |") or die "failed to run bqueues: $!";
   while (<COMMAND>) {
     # skip the header
     next if (/^JOBID/);
@@ -621,7 +608,7 @@ sub build_cache {
   $self->{logdir} = $spoolname . ".logs";
   if (! -d $self->{logdir}) {
     mkdir $self->{logdir} or
-      throw Error::Simple("cannot create log directory $self->{logdir}: $!");
+      die "cannot create log directory $self->{logdir}: $!";
   }
 
   $self->{cache}->prep();
@@ -753,17 +740,17 @@ sub check_args {
   my $files = 0;
   my $dirs = 0;
 
-  throw Error::Simple("no spool argument given")
+  die "no spool argument given"
     if ($#args == -1);
 
   # Arguments must be either all dirs or all files.
   foreach my $arg (@args) {
-    throw Error::Simple("no such file or directory $arg") if (! -e $arg);
+    die "no such file or directory $arg" if (! -e $arg);
     $files = 1 if (-f $arg);
     $dirs = 1 if (-d $arg);
   }
 
-  throw Error::Simple("arguments must be all files or all directories, not a mix") if ($files and $dirs);
+  die "arguments must be all files or all directories, not a mix" if ($files and $dirs);
 
   my @list = @args;
 
@@ -779,11 +766,11 @@ sub check_args {
 
   # If a starting position (subdir) is given, validate it.
   if (defined $self->{startpos}) {
-    throw Error::Simple("starting position only valid with a single spool dir") 
+    die "starting position only valid with a single spool dir"
       if (scalar @list != 1);
-    throw Error::Simple("starting position only valid with spool dir, not a batch file: $list[0]") 
+    die "starting position only valid with spool dir, not a batch file: $list[0]"
       if (-f $list[0]);
-    throw Error::Simple("starting directory not found in spool: $list[0]/$self->{startpos}") 
+    die "starting directory not found in spool: $list[0]/$self->{startpos}"
       if (! -d "$list[0]/$self->{startpos}");
 
     $self->{startpos} = Cwd::abs_path($list[0] . "/" . $self->{startpos});
@@ -793,11 +780,11 @@ sub check_args {
 
   # If a stopping position (subdir) is given, validate it.
   if (defined $self->{endpos}) {
-    throw Error::Simple("ending position only valid with a single spool dir") 
+    die "ending position only valid with a single spool dir"
       if (scalar @list != 1);
-    throw Error::Simple("ending position only valid with spool dir, not a batch file: $list[0]") 
+    die "ending position only valid with spool dir, not a batch file: $list[0]"
       if (-f $list[0]);
-    throw Error::Simple("ending directory not found in spool: $list[0]/$self->{endpos}") 
+    die "ending directory not found in spool: $list[0]/$self->{endpos}"
       if (! -d "$list[0]/$self->{endpos}");
 
     $self->{endpos} = Cwd::abs_path($list[0] . "/" . $self->{endpos});
@@ -805,7 +792,7 @@ sub check_args {
     $self->debug("End spool $list[0] with sub-directory $self->{endpos}\n");
   }
 
-  throw Error::Simple("empty argument list") if (scalar @list == 0);
+  die "empty argument list" if (scalar @list == 0);
   return @list;
 }
 
@@ -819,16 +806,16 @@ sub read_config {
   # Slurp has read_file
   use File::Slurp;
 
-  throw Error::Simple("please specify a config file with the -C option")
+  die "please specify a config file with the -C option"
     if (! defined $self->{configfile});
 
   my $configfile = abs_path($self->{configfile});
 
-  try {
+  eval {
     $self->{config} = Load scalar read_file($configfile);
-  } catch Error with {
-    my $ex = shift;
-    throw Error::Simple("error loading config file '$configfile': $ex->{-text}");
+  };
+  if ($@) {
+    die "error loading config file '$configfile': $@";
   }
 
   # Validate configuration.
@@ -836,12 +823,12 @@ sub read_config {
                    'queuefloor', 'churnrate', 'lsf_tries', 'db_tries' );
   my $req;
   foreach $req (@required) {
-    throw Error::Simple("configuration is missing required parameter '$req'")
+    die "configuration is missing required parameter '$req'"
       if (! exists $self->{config}->{$req});
   }
   @required = ('name', 'parameters',);
   foreach $req (@required) {
-    throw Error::Simple("configuration is missing required parameter '$req'")
+    die "configuration is missing required parameter '$req'"
       if (! exists $self->{config}->{suite}->{$req});
   }
 }
@@ -854,7 +841,7 @@ sub activate_suite {
   my $suite = LSFSpool::Suite->instantiate($class,$self);
 
   $self->{suite} = $suite;
-  throw Error::Simple("configured suite has no method 'is_complete'")
+  die "configured suite has no method 'is_complete'"
     if ( ! $suite->can( "is_complete" ) );
 }
 
@@ -873,7 +860,7 @@ sub prepare_logger {
   # Open logfile or STDOUT.
   if (defined $self->{logfile}) {
     open(LOGFILE,">>$self->{logfile}") or
-      throw Error::Simple("failed to open log file $self->{logfile}: $!");
+      die "failed to open log file $self->{logfile}: $!";
     $self->{logfh} = \*LOGFILE;
   } else {
     $self->{logfh} = \*STDOUT;
@@ -889,21 +876,21 @@ sub find_progs {
   # We shell out to bsub because LSF::Jobs is insufficient.
   my $bsub = `which bsub 2>/dev/null`;
   chomp $bsub;
-  throw Error::Simple("cannot find bsub in PATH")
+  die "cannot find bsub in PATH"
     if (length "$bsub" == 0);
   $self->{bsub} = $bsub;
 
   # We shell out to bqueues.
   my $bqueues = `which bqueues 2>/dev/null`;
   chomp $bqueues;
-  throw Error::Simple("cannot find bqueues in PATH")
+  die "cannot find bqueues in PATH"
     if (length "$bqueues" == 0);
   $self->{bqueues} = $bqueues;
 
   # We may shell out to bjobs.
   my $bjobs = `which bjobs 2>/dev/null`;
   chomp $bjobs;
-  throw Error::Simple("cannot find bjobs in PATH")
+  die "cannot find bjobs in PATH"
     if (length "$bjobs" == 0);
   $self->{bjobs} = $bjobs;
 
@@ -921,7 +908,7 @@ sub main {
   $| = 1;
 
   getopts("C:bcdE:hi:l:nprsS:vVw",\%opts) or
-    throw Error::Simple("Error parsing options");
+    die "Error parsing options";
 
   if ($opts{'h'}) {
     $self->usage();
@@ -985,7 +972,7 @@ sub main {
     } elsif ($opts{'p'}) {
 
       if (! -d $job) {
-        throw Error::Simple("consider -s option with files, not -p");
+        die "consider -s option with files, not -p";
       }
 
       $self->logger("begin processing $job\n");
@@ -1013,10 +1000,10 @@ sub main {
     } else {
       if (scalar keys %opts) {
         $self->usage();
-        throw Error::Simple("unknown option: " . join(" ", keys %opts));
+        die "unknown option: " . join(" ", keys %opts);
       } else {
         $self->usage();
-        throw Error::Simple("no action specified\n\n");
+        die "no action specified\n\n";
       }
     }
   }
@@ -1082,7 +1069,7 @@ a variety of configuration parameters.
 The configuration file is YAML formatted file containing the table of options.
 
   suite:
-    name: BLAST
+    name: NCBIBLASTX
     parameters: -db /opt/nr/nr-20100424_0235/nr -matrix BLOSUM62 -evalue 100 -word_size 6 -threshold 23 -num_descriptions 10 -num_alignments 10 -lcase_masking -seg yes -soft_masking true -window_size 0
   queue: backfill
   sleepval: 60
@@ -1095,7 +1082,7 @@ The configuration file is YAML formatted file containing the table of options.
   user:  user
 
   - suite
-    + name       : The certified program to run (eg. BLAST)
+    + name       : The certified program to run (eg. NCBIBLASTX)
     + parameters : Parameters for the program
   - queue        : The LSF queue to submit to.
   - user         : The LSF user, only count this user's jobs.
