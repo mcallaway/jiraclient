@@ -1,5 +1,5 @@
 
-.PHONY: test src deb clean distclean
+.PHONY: test tgz deb rpm clean distclean
 
 NAME = gpfs-tools
 # Makefile can't handle parens in version here... use tr to strip.
@@ -8,12 +8,12 @@ RELEASE = $(shell head -n1 debian/changelog | gawk '{match($$2,/v.*-(.*)/,a);pri
 
 MAKEFILE = Makefile
 
-SCRIPTS = scripts/gpfscrfs.sh
+SPEC = rpm/$(NAME).spec
 
-PERL = lib/gpfsmapper.pm \
-scripts/gpfsmapper
+SOURCES = scripts/ debian/ rpm/
 
-SOURCES = $(SCRIPTS) $(PERL)
+SCRIPTS = scripts/gpfscrfs.sh \
+scripts/gpfsmapper.pl
 
 # Override this in the environment if so desired
 INSTALLDIR = /usr/sbin
@@ -25,9 +25,9 @@ all: noop
 noop:
 	@echo noop
 
-install: $(SOURCES)
+install: $(SCRIPTS)
 	install -d $(DESTDIR)$(INSTALLDIR)
-	for FILE in $(SOURCES) ; do \
+	for FILE in $(SCRIPTS) ; do \
 		install -m 0755 $$FILE $(DESTDIR)$(INSTALLDIR) ; \
 	done
 
@@ -40,7 +40,7 @@ $(NAME)-${VERSION}.tar.gz: $(SOURCES)
 	tar czvf $(NAME)-${VERSION}.tar.gz $(NAME)-${VERSION}/
 	rm -rf $(NAME)-${VERSION}/
 
-deb: src
+deb:
 	dpkg-buildpackage ||:
 	mkdir -p dist || exit 1
 	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE).dsc ./dist/
@@ -48,6 +48,9 @@ deb: src
 	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_i386.changes ./dist/
 	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_all.deb ./dist/
 	@find ./dist -type f
+
+rpm: tgz
+	rpmbuild -ta $(NAME)-$(VERSION).tar.gz
 
 clean:
 	rm -rf $(NAME)-${VERSION}/
