@@ -18,7 +18,7 @@
 
 # set up script
 pkg=dsg-mailalias
-version=1.5
+version=1.7
 
 dsg=0
 # loop through positional parameters

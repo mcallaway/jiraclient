@@ -17,7 +17,7 @@
 
 # set up script
 pkg=dsg-homearchive
-version=0.1
+version=1.7
 
 dest=/dsg/share/account-archive/home
 login=

@@ -18,7 +18,7 @@
 
 # set up script
 pkg=dsg-passwd
-version=1.5
+version=1.7
 
 # loop through positional parameters
 oldpass=

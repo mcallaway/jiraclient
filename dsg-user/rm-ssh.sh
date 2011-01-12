@@ -18,7 +18,7 @@
 
 # set up script
 pkg=rm-ssh
-version=1.5
+version=1.7
 
 login=
 # loop through positional parameters

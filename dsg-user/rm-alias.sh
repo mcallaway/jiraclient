@@ -18,7 +18,7 @@
 
 # set up script
 pkg=rm-alias
-version=1.5
+version=1.7
 
 # loop through positional parameters
 prev_arg=

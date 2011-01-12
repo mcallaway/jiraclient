@@ -18,7 +18,7 @@
 
 # set up script
 pkg=dsg-homedir
-version=1.5
+version=1.7
 
 login=
 homevol=

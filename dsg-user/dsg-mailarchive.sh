@@ -17,7 +17,7 @@
 
 # set up script
 pkg=dsg-mailarchive
-version=1.5
+version=1.7
 
 dest=/dsg/share/account-archive/mail
 login=

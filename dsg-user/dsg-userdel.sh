@@ -18,7 +18,7 @@
 
 # set up script
 pkg=dsg-userdel
-version=1.5
+version=1.7
 
 login=
 delete=
