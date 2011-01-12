@@ -1,6 +1,6 @@
 Name: gpfs-tools
 Summary: Scripts for managing GPFS disks
-Version: 0.3.1
+Version: 0.3.2
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University

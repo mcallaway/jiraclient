@@ -3,8 +3,8 @@
 
 NAME = gpfs-tools
 # Makefile can't handle parens in version here... use tr to strip.
-VERSION = $(shell head -n1 debian/changelog | gawk '{match($$2,/v(.*)-/,a);print a[1];}' | tr -d '()')
-RELEASE = $(shell head -n1 debian/changelog | gawk '{match($$2,/v.*-(.*)/,a);print a[1];}' | tr -d '()')
+VERSION = $(shell head -n1 debian/changelog | gawk '{match($$2,/(.*)-/,a);print a[1];}' | tr -d '()')
+RELEASE = $(shell head -n1 debian/changelog | gawk '{match($$2,/.*-(.*)/,a);print a[1];}' | tr -d '()')
 
 MAKEFILE = Makefile
 
@@ -31,26 +31,34 @@ install: $(SCRIPTS)
 		install -m 0755 $$FILE $(DESTDIR)$(INSTALLDIR) ; \
 	done
 
-tgz: $(NAME)-${VERSION}.tar.gz
-$(NAME)-${VERSION}.tar.gz: $(SOURCES)
-	rm -f $(NAME)-${VERSION}.tar.gz
-	mkdir -p $(NAME)-${VERSION}
-	cp -aup $(MAKEFILE) $(NAME)-${VERSION}/
-	cp -aup $(SOURCES) $(NAME)-${VERSION}/
-	tar czvf $(NAME)-${VERSION}.tar.gz $(NAME)-${VERSION}/
-	rm -rf $(NAME)-${VERSION}/
+tgz: $(NAME)-$(VERSION).tar.gz
+$(NAME)-$(VERSION).tar.gz: $(SOURCES)
+	rm -f $(NAME)-$(VERSION).tar.gz
+	mkdir -p $(NAME)-$(VERSION)
+	cp -aup $(MAKEFILE) $(NAME)-$(VERSION)/
+	cp -aup $(SOURCES) $(NAME)-$(VERSION)/
+	tar czvf $(NAME)-$(VERSION).tar.gz $(NAME)-$(VERSION)/
+	rm -rf $(NAME)-$(VERSION)/
 
 deb:
 	dpkg-buildpackage ||:
 	mkdir -p dist || exit 1
-	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE).dsc ./dist/
-	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE).tar.gz ./dist/
-	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_i386.changes ./dist/
-	@mv ../$(NAME)_0v$(VERSION)-$(RELEASE)_all.deb ./dist/
+	@mv ../$(NAME)_$(VERSION)-$(RELEASE).dsc ./dist/
+	@mv ../$(NAME)_$(VERSION)-$(RELEASE).tar.gz ./dist/
+	@mv ../$(NAME)_$(VERSION)-$(RELEASE)_i386.changes ./dist/
+	@mv ../$(NAME)_$(VERSION)-$(RELEASE)_all.deb ./dist/
+	@mv $(NAME)-$(VERSION).tar.gz dist/
 	@find ./dist -type f
 
+RELEASE = $(shell awk '/Release:/ {print $$2}' $(SPEC) )
 rpm: tgz
-	rpmbuild -ta $(NAME)-$(VERSION).tar.gz
+	mkdir -p build dist
+	rpmbuild --define '_topdir $(PWD)/build' \
+	  -ta $(NAME)-$(VERSION).tar.gz
+	@mv ./build/SRPMS/$(NAME)-$(VERSION)-$(RELEASE).src.rpm dist/
+	@mv ./build/RPMS/noarch/$(NAME)-$(VERSION)-$(RELEASE).noarch.rpm dist/
+	@mv $(NAME)-$(VERSION).tar.gz dist/
+	@rm -rf build
 
 clean:
 	rm -rf $(NAME)-${VERSION}/
