@@ -61,7 +61,6 @@ sub test_prepare_logger {
   $obj->{debug} = 0;
   stdout_like { $obj->logger("Test") } qr/^.*: Test/, "logger with debug off ok";
   stdout_unlike { $obj->debug("Test") } qr/^.*: Test/, "debug off ok";
-  $obj->DESTROY();
 }
 
 sub test_read_good_config_1 {
@@ -78,7 +77,6 @@ sub test_read_good_config_1 {
   ok($obj->{config}->{churnrate} == 30);
   ok($obj->{config}->{lsf_tries} == 2);
   ok($obj->{config}->{db_tries} == 5);
-  $obj->DESTROY();
 }
 
 sub test_read_good_config_2 {
@@ -94,7 +92,6 @@ sub test_read_good_config_2 {
   ok($obj->{config}->{churnrate} == 30);
   ok($obj->{config}->{lsf_tries} == 2);
   ok($obj->{config}->{db_tries} == 5);
-  $obj->DESTROY();
 }
 
 sub test_read_bad_config {
@@ -103,7 +100,6 @@ sub test_read_bad_config {
   # Test an invalid config.
   $obj->{configfile} = "$cwd/data/lsf_spool_bad.cfg";
   throws_ok { $obj->read_config } qr/^error loading.*/, "bad config caught ok";
-  $obj->DESTROY();
 }
 
 sub test_parsefile {
@@ -130,7 +126,6 @@ sub test_parsefile {
   $file = "foo";
   $path = $dir . "/" . $file;
   throws_ok { $obj->parsefile($path); } qr/filename does not contain a number/, "bad filename caught ok";
-  $obj->DESTROY();
 }
 
 sub test_parsedir {
@@ -138,14 +133,13 @@ sub test_parsedir {
   my $obj = test_start();
   $obj->{debug} = 0;
 
-  my $dir = $cwd . "/data/spool/sample-fasta-1";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1";
   my @res = $obj->parsedir($dir);
-  ok($res[0] eq $cwd . '/data/spool/sample-fasta-1',"dir ok");
+  ok($res[0] eq $cwd . '/data/sample-fasta/sample-fasta-1',"dir ok");
   ok($res[1] eq 'sample-fasta-1-\\$LSB_JOBINDEX',"query ok");
   ok($res[2] eq 'sample-fasta-1[1-2]',"job array ok");
-  $dir = $cwd . "/data/spool/sample-fasta-2";
-  throws_ok { @res = $obj->parsedir($dir); } qr/spool.*contains no files/, "empty spool caught ok";
-  $obj->DESTROY();
+  $dir = $cwd . "/data/sample-fasta/sample-fasta-2";
+  throws_ok { @res = $obj->parsedir($dir); } qr/sample-fasta.*contains no files/, "empty spool caught ok";
 }
 
 sub test_bsub {
@@ -160,19 +154,19 @@ sub test_bsub {
 
   my $id;
   my $file = "sample-fasta-1-1";
-  my $dir = $cwd . "/data/spool/sample-fasta-1/";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1/";
   $id = $obj->bsub($dir);
   ok($id == 0);
   my $path = $dir . "/" . $file;
   $id = $obj->bsub($path);
   ok($id == 0);
-  $path = $cwd . "/data/spool/sample-fasta-3/oddfile";
+  $path = $cwd . "/data/sample-fasta/sample-fasta-3/oddfile";
   throws_ok { $id = $obj->bsub($path); } qr/filename does not contain a number/, "caught oddfile ok";
 
-  $path = $cwd . "/data/spool/sample-fasta-1/bogus";
+  $path = $cwd . "/data/sample-fasta/sample-fasta-1/bogus";
   throws_ok { $id = $obj->bsub($path); } qr/argument is not a file or directory/, "caught bogus file ok";
 
-  $path = $cwd . "/data/spool/sample-fasta-1";
+  $path = $cwd . "/data/sample-fasta/sample-fasta-1";
   ok($obj->bsub($path,1,0) == 0,"wait set ok");
   ok($obj->bsub($path,0,1) == 0,"prio set ok");
   ok($obj->bsub($path,1,1) == 0,"wait and prio set ok");
@@ -185,8 +179,6 @@ sub test_bsub {
   ok($obj->bsub($path) == 0,"no email set ok");
 
   rmtree("$path.logs");
-
-  $obj->DESTROY();
 }
 
 sub test_live_bsub {
@@ -201,15 +193,13 @@ sub test_live_bsub {
     return;
   }
 
-  $obj->{debug} = 1;
+  $obj->{debug} = 0;
   $obj->{config}->{queue} = "short";
-  my $path = $cwd . "/data/spool/sample-fasta-1";
+  my $path = $cwd . "/data/sample-fasta/sample-fasta-1";
   my $file = "sample-fasta-1-1";
   my $id = $obj->bsub("$path/$file");
   ok($id > 0,"bsub submits job id $id");
   #rmtree("$path.logs");
-
-  $obj->DESTROY();
 }
 
 sub test_process {
@@ -217,7 +207,7 @@ sub test_process {
   my $self = shift;
   my $obj = new LSFSpool;
   $obj->{configfile} = "$cwd/data/lsf_spool_trivial-2.cfg";
-  $obj->{debug} = 1;
+  $obj->{debug} = 0;
   $obj->{dryrun} = 0;
   $obj->read_config();
   $obj->prepare_logger();
@@ -232,10 +222,10 @@ sub test_process {
   }
 
   $obj->{config}->{queue} = "short";
-  $obj->{cachefile} = $cwd . "/data/spool/sample-fasta-7.cache";
+  $obj->{cachefile} = $cwd . "/data/sample-fasta/sample-fasta-7.cache";
   unlink($obj->{cachefile});
 
-  my $dir = $cwd  . "/data/spool/sample-fasta-7";
+  my $dir = $cwd  . "/data/sample-fasta/sample-fasta-7";
   ok($obj->build_cache($dir) == 0);
   ok($obj->process_cache() == 0);
 
@@ -244,7 +234,6 @@ sub test_process {
   unlink("$dir/sample-fasta-7-2-output");
   unlink("$dir/sample-fasta-7-3-output");
   rmtree("$dir.logs");
-  $obj->DESTROY();
 }
 
 sub test_check_queue {
@@ -260,8 +249,8 @@ sub test_check_queue {
   }
 
   $obj->{config}->{queue} = "short";
-  $obj->{debug} = 1;
-  my $path = $cwd . "/data/spool/sample-fasta-1/sample-fasta-1-1";
+  $obj->{debug} = 0;
+  my $path = $cwd . "/data/sample-fasta/sample-fasta-1/sample-fasta-1-1";
   my $full = $obj->check_queue();
   ok($full == -1 or $full == 0 or $full == 1);
 
@@ -276,8 +265,6 @@ sub test_check_queue {
   $obj->{config}->{queue} = "backfill";
   $full = $obj->check_queue();
   ok($full == -1 or $full == 0 or $full == 1);
-
-  $obj->DESTROY();
 }
 
 sub test_waitforjobs {
@@ -285,30 +272,28 @@ sub test_waitforjobs {
   my $self = shift;
   my $obj = $self->test_start();
 
-  $obj->{debug} = 1;
-  my $path = $cwd . "/data/spool/sample-fasta-1/sample-fasta-1-1";
+  $obj->{debug} = 0;
+  my $path = $cwd . "/data/sample-fasta/sample-fasta-1/sample-fasta-1-1";
   lives_ok { $obj->check_running($path); } "check_running ran ok";
   lives_ok { $obj->waitforjobs($path); } "waitforjobs ran ok";
-  $obj->DESTROY();
 }
 
 sub test_check_cwd {
   my $self = shift;
   my $obj = test_start();
-  $obj->{debug} = 0;
+  $obj->{debug} = 1;
   $obj->{dryrun} = 1;
   $obj->{configfile} = "$cwd/data/lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
 
-  my $dir = $cwd . "/data/spool/sample-fasta-1";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1";
   my $res = $obj->check_cwd($dir);
-  ok($res  == 1);
-  $dir = $cwd . "/data/spool";
-  throws_ok { $obj->check_cwd($dir); } qr/spool directory \S+ has unexpected/, "spotted bad spool ok";
-  $dir = $cwd . "/data/spool/sample-fasta-3";
-  throws_ok { $obj->check_cwd($dir); } qr/spool directory \S+ has unexpected/, "spotted bad spool ok";
-  $obj->DESTROY();
+  ok($res == -1);
+  $dir = $cwd . "/data/sample-fasta";
+  ok($obj->check_cwd($dir) == 5);
+  $dir = $cwd . "/data/sample-fasta/sample-fasta-3";
+  ok($obj->findfiles($dir) == 0);
 }
 
 sub test_find_progs {
@@ -318,7 +303,6 @@ sub test_find_progs {
   ok($obj->find_progs() == 0);
   like($obj->{bsub},qr/^.*\/bsub/,"bsub is found");
   like($obj->{bqueues},qr/^.*\/bqueues/,"bqueues is found");
-  $obj->DESTROY();
 }
 
 sub test_finddirs {
@@ -327,7 +311,6 @@ sub test_finddirs {
   my $dir = $cwd . "/data";
   my @res = $obj->finddirs($dir);
   lives_ok { $obj->finddirs($dir); } "finddirs lives ok";
-  $obj->DESTROY();
 }
 
 sub test_findfiles {
@@ -335,10 +318,9 @@ sub test_findfiles {
   my $obj = test_start();
   my $dir = $cwd . "/data";
   lives_ok { $obj->findfiles($dir); } "findfiles lives ok";
-  my $file = $dir . "/spool/sample-fasta-1/sample-fasta-1-1";
+  my $file = $dir . "/sample-fasta/sample-fasta-1/sample-fasta-1-1";
   my @res = $obj->findfiles($file);
   ok($res[0] eq $file,"single file returned ok");
-  $obj->DESTROY();
 }
 
 sub test_build_cache {
@@ -354,7 +336,7 @@ sub test_build_cache {
   $obj->read_config();
   $obj->activate_suite();
 
-  my $dir = $cwd . "/data/spool/sample-fasta-1";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1";
   $obj->build_cache($dir);
 
   @res = $obj->{cache}->fetch($dir,'count');
@@ -365,14 +347,13 @@ sub test_build_cache {
   ok($res[0] eq $dir,"'spoolname' is correct");
   unlink($obj->{cachefile});
   rmtree("$dir.logs");
-  $obj->DESTROY();
 }
 
 sub test_activate_suite {
   my $self = shift;
   # test activate suite, the trivial one.
   my $obj = $self->test_start();
-  my $dir = $cwd . "/data/spool/sample-fasta-1";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1";
   my $file = "sample-fasta-1-1";
   $obj->{configfile} = "$cwd/data/lsf_spool_trivial.cfg";
   $obj->read_config();
@@ -387,7 +368,6 @@ sub test_activate_suite {
   $obj->{suite}->logger("test\n");
   ok($obj->{suite}->is_complete("$dir/$file") == 1,"is_complete returns true");
   ok($obj->{suite}->is_complete("$dir/bogus") == 0,"is_complete returns false");
-  $obj->DESTROY();
 }
 
 sub test_validate {
@@ -398,26 +378,24 @@ sub test_validate {
   $obj->prepare_logger();
   $obj->activate_suite();
 
-  $obj->{debug} = 1;
+  $obj->{debug} = 0;
 
-  my $dir = $cwd . "/data/spool/sample-fasta-2";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-2";
   my ($complete,@files);
   lives_ok { ($complete,@files) = $obj->validate($dir); } "validate runs ok";
   ok($complete == -1,"empty spool spotted ok");
   is_deeply ([sort @files], [],"empty spool spotted ok");
 
-  $dir = $cwd . "/data/spool/sample-fasta-5";
+  $dir = $cwd . "/data/sample-fasta/sample-fasta-5";
   ($complete,@files) = $obj->validate($dir);
   ok($complete == 1,"complete spool spotted ok");
   is_deeply (sort [@files], [],"complete spool spotted ok");
 
-  $dir = $cwd . "/data/spool/sample-fasta-6";
+  $dir = $cwd . "/data/sample-fasta/sample-fasta-6";
   ($complete,@files) = $obj->validate($dir);
   ok($complete == 0,"incomplete spool spotted ok");
   my @expected = ("sample-fasta-6-3");
   is_deeply (sort [@files], sort [@expected],"incomplete spool spotted ok");
-
-  $obj->DESTROY();
 }
 
 sub main {
