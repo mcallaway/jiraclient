@@ -2,11 +2,11 @@
 
 Name: dsg-user-scripts
 Summary: Scripts for creation and removal of users.
-Version: 1.6
+Version: 1.7
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
-Packager:  %{packager}
+Packager:  Matthew Callaway <mcallawa@genome.wustl.edu>
 BuildArch: noarch
 Group: System/Administration
 Source0:   %{name}-%{version}.tar.gz
@@ -19,7 +19,7 @@ This is a set of scripts for managing DSG users.
 %prep
 %setup
 
-%build
+# build
 
 %install
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
@@ -37,6 +37,10 @@ make \
 %attr(0555,root,root) %{destdir}/*
 
 %changelog
+* Wed Jan 12 2011 Matthew Callaway <mcallawa@genome.wustl.edu>
+  [ 1.7-1 ]
+- Fix wrong path to dsg-userAD in dsg-useradd.
+
 * Mon Dec 13 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.6-1 ]
 - Replace corrupted dsg-homearchive.sh with a version recovered from /gsc/share/scripts.
