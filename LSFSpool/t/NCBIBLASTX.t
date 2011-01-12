@@ -49,7 +49,7 @@ sub test_logger {
 }
 
 sub test_count_query {
-  # test activate suite, the BLAST one.
+  # test activate suite, the NCBIBLASTX one.
   my $obj = shift;
   my $dir = $cwd . "/data";
   my $file = $cwd . "/data/blast-spool-1-1";
@@ -67,7 +67,7 @@ sub test_count_query {
 }
 
 sub test_activate_suite {
-  # test activate suite, the BLAST one.
+  # test activate suite, the NCBIBLASTX one.
   my $obj = shift;
   my $dir = $cwd . "/data";
   my $file = "blast-spool-1-1";
@@ -75,7 +75,7 @@ sub test_activate_suite {
   $obj->{configfile} = $cwd . "/data/lsf_spool_good_1.cfg";
   $obj->read_config();
   $obj->activate_suite();
-  is($obj->{config}->{suite}->{name},"BLAST","blast selected ok");
+  is($obj->{config}->{suite}->{name},"NCBIBLASTX","blast selected ok");
   my $res = $obj->{suite}->action($dir,$path);
 
   like($res,qr/blastx/,"program is blastx");
@@ -93,7 +93,7 @@ sub test_output_format_2 {
   $obj->{debug} = 1;
   $obj->read_config();
   $obj->activate_suite();
-  is($obj->{config}->{suite}->{name},"BLAST","blast selected ok");
+  is($obj->{config}->{suite}->{name},"NCBIBLASTX","blast selected ok");
   ok($obj->{suite}->read_output($file) == 10);
 }
 
