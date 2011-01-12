@@ -52,7 +52,7 @@ sub test_activate_suite {
   # test activate suite, the trivial one.
   my $obj = shift;
   my $params = "-f";
-  my $dir = $cwd . "/data/spool/sample-fasta-1";
+  my $dir = $cwd . "/data/sample-fasta/sample-fasta-1";
   my $file = "sample-fasta-1-1";
   $obj->{configfile} = $cwd . "/data/lsf_spool_trivial.cfg";
   $obj->read_config();
