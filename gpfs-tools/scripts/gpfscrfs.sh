@@ -45,7 +45,7 @@ MMLS=$( which mmlsnsd 2>/dev/null )
 MMCR=$( which mmcrfs 2>/dev/null )
 [ -n "$MMLS" ] || die "Cannot find mmcrfs"
 
-ARG=$( mmlsnsd -F | sed -e '1,/^-*$/d' | head -n $NUMBER | awk "/$ARRAY/{print \$3}" | tr '\n' ';' )
+ARG=$( mmlsnsd -F | sed -e '1,/^-*$/d' | awk "/$ARRAY/{print \$3}" | head -n $NUMBER | tr '\n' ';' )
 [ -n "$ARG" ] || die "Error identifying free nsds"
 
 CMD="$MMCR /vol/$NAME $NAME $ARG -A yes"
