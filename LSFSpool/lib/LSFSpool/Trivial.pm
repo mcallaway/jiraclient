@@ -7,7 +7,6 @@ package LSFSpool::Trivial;
 
 use warnings;
 use strict;
-use Error;
 
 sub new() {
   my $class = shift;
@@ -43,9 +42,9 @@ sub action {
 
   $inputfile = $spooldir . "/" . $inputfile;
 
-  throw Error::Simple("'parameters' unspecified")
+  die "'parameters' unspecified"
     if (! defined $parameters);
-  throw Error::Simple("given spool is not a directory: $spooldir")
+  die "given spool is not a directory: $spooldir"
     if (! -d $spooldir);
 
   # This is the action certified for this suite.

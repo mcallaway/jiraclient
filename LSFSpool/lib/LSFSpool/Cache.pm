@@ -56,7 +56,7 @@ sub sql_exec {
 
   $self->debug("sql_exec($sql)\n");
 
-  throw Error::Simple("no database handle, run prep()\n")
+  die "no database handle, run prep()\n"
     if (! defined $dbh);
 
   while (1) {
@@ -64,23 +64,24 @@ sub sql_exec {
     my $result;
     my $max_attempts = 3;
 
-    try {
+    eval {
       $sth = $dbh->prepare($sql);
-    } catch Error with {
-      throw Error::Simple("could not prepare sql " . $DBI::errstr . "\n");
     };
+    if ($@) {
+      die "could not prepare sql " . $DBI::errstr . "\n";
+    }
 
     # The following is funky because for some reason return() does not
     # retrun from within a try {} block.  The code would execute N times
     # even if return $sth->fetchrow_array() was called.
     my @rows;
     my @data;
-    try {
+    eval {
       $sth->execute(@args);
       while (@data = $sth->fetchrow_array()) {
       push @rows, @data;
       }
-    } catch Error with { };
+    };
     if ($sth->err()) {
       $attempts += 1;
       if ($attempts >= $max_attempts) {
@@ -116,7 +117,7 @@ sub prep {
     $self->logger("connecting to existing cache $cachefile\n");
   } else {
     open(DB,">$cachefile") or
-      throw Error::Simple("failed to create new cache $cachefile: $!\n");
+      die "failed to create new cache $cachefile: $!\n";
     close(DB);
     $self->logger("creating new cache $cachefile\n");
   }
@@ -127,25 +128,26 @@ sub prep {
   my $dsn = "DBI:SQLite:dbname=$cachefile";
   while (!$connected and $retries < $max_retries) {
     $self->debug("SQLite trying to connect: $retries: $cachefile\n");
-    try {
+    eval {
       $self->{dbh} = DBI->connect( $dsn,"","",
           {
             PrintError => 0,
             AutoCommit => 1,
             RaiseError => 1,
           }
-        ) or throw Error::Simple("couldn't connect to database: " . $self->{dbh}->errstr);
+        ) or die "couldn't connect to database: " . $self->{dbh}->errstr;
       # Use a sentinel instead of "last" to avoid warnings about,
       # "exited subroutine via last"
       $connected = 1;
-    } catch Error with {
-      $retries += 1;
-      $self->logger("SQLite can't connect, retrying: $cachefile: $!\n");
-      sleep(1);
     };
+    if ($@) {
+      $retries += 1;
+      $self->logger("SQLite can't connect, retrying: $cachefile: $@\n");
+      sleep(1);
+    }
   }
 
-  throw Error::Simple("SQLite can't connect after $max_retries tries, giving up\n")
+  die "SQLite can't connect after $max_retries tries, giving up\n"
     if (!$connected);
 
   $self->debug("Connected to: $cachefile\n");

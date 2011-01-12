@@ -8,7 +8,8 @@
 
 package LSFSpool::Suite;
 
-use LSFSpool::BLAST;
+use LSFSpool::NCBIBLASTX;
+use LSFSpool::WUBLASTX;
 use LSFSpool::Trivial;
 
 sub instantiate() {
@@ -50,7 +51,7 @@ want to.
 =item instantiate("NAME",$self)
 
 Returns an instance of the named class.  The first argument is the name
-of the Suite class to instantiate, eg. BLASTX.  The second argument is
+of the Suite class to instantiate, eg. NCBIBLASTX.  The second argument is
 the caller's $self.  We use $self to be able to refer to configuration items.
 
 =back
