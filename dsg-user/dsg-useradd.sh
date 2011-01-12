@@ -18,7 +18,7 @@
 
 # set up script
 pkg=dsg-useradd
-version=1.5
+version=1.7
 
 login=
 email=
@@ -335,7 +335,7 @@ if ! mailx -s 'Welcome to the DSG' "$login@dsgmail.wustl.edu" <$message; then
 fi
 
 # Add user to gc.local AD, ldap must be done first.
-userAD="/dsg/scripts/sbin/dsg-userAD -a $login"
+userAD="/dsg/share/scripts/dsg-userAD -a $login"
 if [ "$test" ]; then
     userADD="echo $pkg: $userAD"
 fi
