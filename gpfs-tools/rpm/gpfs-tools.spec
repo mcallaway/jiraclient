@@ -32,6 +32,6 @@ make \
 
 %changelog
 * Wed Jan 12 2011 Matthew Callaway <mcallawa@genome.wustl.edu>
-  [ 0.3.1-1 ]
+  [ 0.3.2-1 ]
 - Add rpm packaging.
 - Fix order of head and awk.
