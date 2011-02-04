@@ -9,7 +9,7 @@ my $CLASS = __PACKAGE__;
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 5;
 use Test::Output;
 use Test::Exception;
 
@@ -97,18 +97,6 @@ sub test_snmp_get_serial_request {
   my $obj = $self->test_start();
   # Only use this test during development when you know
   # we can connect to target host;
-  my $host = "nfs21";
-  my $res = $obj->{snmp}->connect_snmp($host);
-  $res = $obj->{snmp}->snmp_get_serial_request( [ '1.3.6.1.4.1.8072.1.3.2.4.1.2.15.100.105.115.107.95.103.114.111.117.112.95.110.97.109.101' ] );
-  print Dumper($res);
-}
-
-sub test_snmp_get_serial_request {
-  my $self = shift;
-  return if (! $self->{live});
-  my $obj = $self->test_start();
-  # Only use this test during development when you know
-  # we can connect to target host;
   my $host = "nfs24";
   my $res = $obj->{snmp}->connect_snmp($host);
   my $oid = '1.3.6.1.2.1.25.2.3.1.3';
@@ -173,6 +161,18 @@ sub test_cache_snmp {
   $obj->{snmp}->connect_snmp($host);
   my $result = $obj->{snmp}->query_snmp($host);
   lives_ok { $obj->cache($host,$result,$err); } "cache_snmp: doesn't crash";
+}
+
+sub test_target {
+  my $self = shift;
+  return if (! $self->{live});
+  my $obj = $self->test_start();
+  # Requires active network access to real host
+  my $host = "ntap9";
+  my $err = 0;
+  $obj->{snmp}->connect_snmp($host);
+  my $result = $obj->{snmp}->query_snmp($host);
+  print Dumper $result;
 }
 
 # -- end test subs

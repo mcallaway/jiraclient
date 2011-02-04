@@ -151,7 +151,7 @@ sub test_add {
   $res = $cache->fetch('mount_path','/gscmnt/sata800');
   ok( $res->[0]->[4] = 999, "update and fetch work ok");
   # compare create vs. last modified
-  ok( $res->[0]->[7] ne $res->[0]->[8], "update trigger works ok");
+  ok( $res->[0]->[6] ne $res->[0]->[7], "update trigger works ok");
 }
 
 sub test_retry {
@@ -172,7 +172,7 @@ sub test_retry {
   open(DB,">$obj->{cachefile}");
   close(DB);
   chmod 0000, $obj->{cachefile};
-  throws_ok { $cache->prep() } qr/failed during execute 3 times, giving up/, "test_retry: fail to connect properly caught";
+  throws_ok { $cache->prep() } qr/can't connect after \d tries, giving up/, "test_retry: fail to connect properly caught";
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
 }
