@@ -2,4 +2,5 @@
 # Every night run disk_usage.pl and write a cache for the diskusage
 # reporting interface.
 #
-1 1 * * * root /usr/bin/disk_usage.pl -i /var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache -D /gsc/scripts/share/automount/gscmnt -H linuscs103,linuscs66,linuscs62,blade7-2-12,blade7-2-13,blade10-1-1,linuscs56,nbmaster >/dev/null 2>&1
+1 1 * * * root /usr/bin/disk_usage.pl -i /var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache -D /gsc/scripts/share/automount/gscmnt -H linuscs103,linuscs66,linuscs62,blade7-2-12,blade7-2-13,blade10-1-1,linuscs56,linuscs55,nbmaster >/dev/null 2>&1
+1 1 * * 1 root /usr/bin/disk_usage.pl -fF -i /var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache -D /gsc/scripts/share/automount/gscmnt -H linuscs103,linuscs66,linuscs62,blade7-2-12,blade7-2-13,blade10-1-1,linuscs56,linuscs55,nbmaster >/dev/null 2>&1
