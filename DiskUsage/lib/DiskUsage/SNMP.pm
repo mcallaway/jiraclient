@@ -389,6 +389,12 @@ sub get_disk_group {
 
   $self->local_debug("no group known for $mount_path\n");
 
+  # Special case of '.snapshot' mounts
+  my $base = basename $physical_path;
+  if ($base eq ".snapshot") {
+    return 'SYSTEMS_SNAPSHOT';
+  }
+
   # Determine the disk group name.
   my $host_type = $self->get_host_type();
   if ($host_type eq 'linux' and ! $self->{no_snmp}) {
