@@ -53,7 +53,6 @@ name: DiskUsage
 provides:
   DiskUsage:
     file: lib/DiskUsage.pm
-    version: v0.12.1
   DiskUsage::Error:
     file: lib/DiskUsage/Error.pm
   DiskUsage::Cache:
@@ -62,4 +61,4 @@ provides:
     file: lib/DiskUsage/SNMP.pm
 resources:
   license: http://dev.perl.org/licenses/
-version: v0.11.0
+version: v0.12.2

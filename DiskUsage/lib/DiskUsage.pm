@@ -20,7 +20,7 @@ use DiskUsage::SNMP;
 # Autoflush
 local $| = 1;
 
-our $VERSION = "0.12.1";
+our $VERSION = "0.12.2";
 
 sub new {
   my $self = {
