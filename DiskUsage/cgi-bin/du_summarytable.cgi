@@ -183,6 +183,7 @@ sub _get_table_content {
 
   my @aaData = ();
   while( my @a = $sth->fetchrow_array() ) {
+    $a[0] = "<a href=\"rrd.html?$a[0]\">$a[0]</a>";
     $a[1] = du_lib::commify($a[1]) . " (" . du_lib::short($a[1]) . ")";
     $a[2] = du_lib::commify($a[2]) . " (" . du_lib::short($a[2]) . ")";
     $a[4] = "\$" . du_lib::commify($a[4]);
