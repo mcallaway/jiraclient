@@ -15,6 +15,7 @@ use Pod::Find qw(pod_where);
 use Pod::Usage;
 
 use DiskUsage::Cache;
+use DiskUsage::RRD;
 use DiskUsage::SNMP;
 
 # Autoflush
@@ -32,6 +33,7 @@ sub new {
     diskconf   => "./disk.conf",
     configfile => undef,
     cachefile  => undef,
+    rrdpath    => undef,
     logdir     => undef,
     logfile    => undef,
     logfh      => undef,
@@ -39,10 +41,12 @@ sub new {
     config     => {},
     cache      => new DiskUsage::Cache,
     snmp       => new DiskUsage::SNMP,
+    rrd        => new DiskUsage::RRD,
   };
   bless $self, 'DiskUsage';
   $self->{cache}->{parent} = $self;
   $self->{snmp}->{parent} = $self;
+  $self->{rrd}->{parent} = $self;
   return $self;
 }
 
@@ -287,7 +291,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:t:",\%opts) or
+  getopts("dfFhVD:H:i:l:r:t:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -309,6 +313,8 @@ sub parse_args {
     if ($opts{'t'});
   $self->{cachefile} = delete $opts{'i'}
     if ($opts{'i'});
+  $self->{rrdpath} = delete $opts{'r'}
+    if ($opts{'r'});
 }
 
 sub build_cache {
@@ -368,6 +374,9 @@ sub main {
 
   $self->logger("queried " . ( scalar keys %$hosts ) . " host(s)\n");
 
+  # Now that the cache is built/updated, create/update RRD files.
+  $self->{rrd}->run();
+
   print "Complete\n";
 
   return 0;
@@ -399,6 +408,7 @@ DiskUsage - Gather disk consumption data
  -D [file]  Specify disk config file.
  -i [file]  Set file path for cache file.
  -l [file]  Set file path for log file.
+ -r [path]  Set path to RRD files.
 
 =head1 DESCRIPTION
 

@@ -2,14 +2,14 @@ Source: libdiskusage-perl
 Section: perl
 Priority: optional
 Build-Depends: debhelper (>= 5.0.0), libmodule-build-perl
-Build-Depends-Indep: perl (>= 5.8.8), libtest-exception-perl, libclass-mop-perl, liberror-perl, libtest-output-perl, libfile-find-rule-perl, libnet-snmp-perl, libexception-class-perl, libdate-manip-perl, libdbi-perl, libdbd-sqlite3-perl,  libcgi-application-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl, libcgi-application-plugins-perl, libcgi-application-extra-plugin-bundle-perl, libjson-any-perl, sqlite3, cron
+Build-Depends-Indep: perl (>= 5.8.8), libtest-exception-perl, libclass-mop-perl, liberror-perl, libtest-output-perl, libfile-find-rule-perl, libnet-snmp-perl, libexception-class-perl, libdate-manip-perl, libdbi-perl, libdbd-sqlite3-perl,  libcgi-application-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl, libcgi-application-plugins-perl, libcgi-application-extra-plugin-bundle-perl, libjson-any-perl, libtime-local-perl, librrdtool-oo-perl, sqlite3, cron
 Maintainer: Matthew Callaway <mcallawa@genome.wustl.edu>
 Standards-Version: 3.7.2
 Homepage: http://search.cpan.org/dist/DiskUsage/
 
 Package: libdiskusage-perl
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends}, libfile-find-rule-perl, libnet-snmp-perl, libexception-class-perl, libdate-manip-perl, libdbi-perl, libdbd-sqlite3-perl, libcgi-application-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl, libcgi-application-plugins-perl, libcgi-application-extra-plugin-bundle-perl, libjson-any-perl, sqlite3, cron
+Depends: ${perl:Depends}, ${misc:Depends}, libfile-find-rule-perl, libnet-snmp-perl, libexception-class-perl, libdate-manip-perl, libdbi-perl, libdbd-sqlite3-perl, libcgi-application-perl, libdbi-perl, libfile-find-rule-perl, libexception-class-perl, libdate-manip-perl, libcgi-application-plugins-perl, libcgi-application-extra-plugin-bundle-perl, libjson-any-perl, libtime-local-perl, librrdtool-oo-perl, sqlite3, cron
 Description: Tools to gather GC disk consumption data.
  Tools to gather GC disk consumption data.
  .

@@ -23,7 +23,9 @@ requires:
   Pod::Usage: 0
   POSIX: 0
   SQL::Abstract::Limit: 0
+  Time::Local: 0
   Time::HiRes: 0
+  RRDTool::OO: 0
 build_requires:
   Class::MOP: 0
   Cwd: 0
@@ -39,6 +41,9 @@ build_requires:
   Test::Exception: 0
   Test::More: 0
   Test::Output: 0
+  Time::Local: 0
+  Time::HiRes: 0
+  RRDTool::OO: 0
 configure_requires:
   Module::Build: 0.36
 dynamic_config: 0
