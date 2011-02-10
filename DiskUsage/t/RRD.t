@@ -90,6 +90,8 @@ sub test_run {
 
   $obj->run();
   lives_ok{ $obj->run() } "test run: runs ok";
+  unlink $obj->{parent}->{cachefile};
+  unlink $rrdfile;
 }
 
 
