@@ -1,6 +1,10 @@
-libdiskusage-perl (0v0.13.0-1) unstable; urgency=low
+libdiskusage-perl (0v0.13.0-1) hardy; urgency=low
 
-  * Support RRD trend information.
+  * Update changelog to note that this is specifically built for hardy, which
+    is the only distro used for our gscweb host.
+  * ISSOFT-48: Support RRD trend information.
+  * ISSOFT-41: Support export to Excel.
+  * ISSOFT-39: Support for .snapshot volumes.
 
  -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 10 Feb 2011 16:59:50 -0600
 
