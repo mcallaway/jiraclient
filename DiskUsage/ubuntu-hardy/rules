@@ -20,7 +20,7 @@ ifndef PERL
 PERL = /usr/bin/perl
 endif
 
-TMP     =$(CURDIR)/debian/$(PACKAGE)
+TMP = $(CURDIR)/debian/$(PACKAGE)
 
 DOCROOT = /var/www/domains/gsc.wustl.edu/diskusage/htdocs
 
@@ -29,29 +29,12 @@ CGIROOT= /var/www/domains/gsc.wustl.edu/diskusage
 CONFIG = etc/diskusage.conf
 
 HTML = ./htdocs/diskusage.html \
+./htdocs/rrd.html \
 ./htdocs/favicon.ico
 
 SCRIPT = ./bin/disk_usage.pl
 
 CRON = ./cron/diskusage.cron
-
-JS = media/js/jquery.js \
-media/js/jquery.dataTables.js \
-media/js/jquery.dataTables.min.js.gz \
-media/js/jquery.dataTables.min.js
-
-CSS = media/css/diskusage_table.css \
-media/css/diskusage_page.css
-
-IMAGES = media/images/forward_enabled.jpg \
-media/images/back_enabled.jpg \
-media/images/back_disabled.jpg \
-media/images/sort_both.png \
-media/images/forward_disabled.jpg \
-media/images/sort_asc.png \
-media/images/sort_desc.png \
-media/images/sort_both.png \
-media/images/underconstruction-small.png
 
 PERLMODS = lib/DiskUsage.pm \
 lib/DiskUsage/SNMP.pm \
@@ -64,23 +47,13 @@ cgi-bin/du_total.cgi \
 cgi-bin/du_hosttable.cgi \
 cgi-bin/du_volumetable.cgi
 
-.PHONY: images
-images: $(IMAGES)
-	for ITEM in $(IMAGES); do \
-		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/$${ITEM} ; \
-	done
-
-.PHONY: css
-css: $(CSS)
-	for ITEM in $(CSS); do \
-		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/$${ITEM} ; \
-	done
-
-.PHONY: js
-js: $(JS)
-	for ITEM in $(JS); do \
-		install -D -m 0644 $${ITEM} $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/$${ITEM} ; \
-	done
+.PHONY: media
+media: ./media
+	if [ -d $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ] ; then \
+	  rm -rf $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ; \
+	fi
+	mkdir -p $(CURDIR)/debian/libdiskusage-perl$(DOCROOT) ;
+	cp -a ./media $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/ ;
 
 .PHONY: cgi
 cgi: $(CGI)
@@ -102,7 +75,7 @@ config: $(CONFIG)
 cron: $(CRON)
 	install -D -m 0644 $(CRON) $(CURDIR)/debian/libdiskusage-perl/etc/cron.d/diskusage
 
-local_install: config htdocs cgi js css images cron
+local_install: config htdocs cgi media cron
 
 build: build-stamp
 build-stamp:
@@ -129,7 +102,7 @@ install-stamp: build-stamp
 	dh_testroot
 	dh_clean -k
 
-	# Add commands to install the package into debian/$PACKAGE_NAME here
+	# Add commands to install the package into debian/$(PACKAGE_NAME) here
 	$(PERL) Build install destdir=$(TMP) create_packlist=0
 
 	touch $@
