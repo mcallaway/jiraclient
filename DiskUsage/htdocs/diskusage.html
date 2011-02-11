@@ -11,10 +11,17 @@
     <link rel="shortcut icon" href="favicon.ico" />
     <script type="text/javascript" language="javascript" src="media/js/jquery.js"></script>
     <script type="text/javascript" language="javascript" src="media/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf-8" src="media/js/TableTools/media/ZeroClipboard/ZeroClipboard.js"></script>
+    <script type="text/javascript" charset="utf-8" src="media/js/TableTools/media/js/TableTools.js"></script>
+    <style type="text/css">
+      @import "media/js/TableTools/media/css/TableTools.css";
+    </style>
     <script type="text/javascript" charset="utf-8">
       $(document).ready(function() {
-        /* volume summary table */
+        TableToolsInit.sSwfPath = "media/js/TableTools/media/swf/ZeroClipboard.swf";
+        /* volume table */
         $('#volume').dataTable( {
+          "sDom": 'T<"clear">lfrtip',
           "bProcessing": true,
           "bServerSide": true,
           "iDisplayLength": 25,
@@ -60,6 +67,7 @@
 
         /* summary table */
         $('#group').dataTable( {
+          "sDom": 'T<"clear">lfrtip',
           "bProcessing": true,
           "bServerSide": true,
           "iDisplayLength": 25,
