@@ -1,0 +1,14 @@
+This is the debian package for the DiskUsage module.
+It was created by Matthew Callaway <mcallawa@genome.wustl.edu> using dh-make-perl.
+
+It was downloaded from http://search.cpan.org/dist/DiskUsage/
+
+This copyright info was automatically extracted from the perl module.
+It may not be accurate, so you better check the module sources
+if don't want to get into legal troubles.
+
+The upstream author is: Matthew Callaway <mcallawa@genome.wustl.edu>.
+
+
+The Debian packaging is (C) 2010, Matthew Callaway <mcallawa@genome.wustl.edu> and
+is licensed under the same terms as the software itself (see above).

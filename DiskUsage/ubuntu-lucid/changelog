@@ -1,0 +1,74 @@
+libdiskusage-perl (0v0.13.0-1) hardy; urgency=low
+
+  * Update changelog to note that this is specifically built for hardy, which
+    is the only distro used for our gscweb host.
+  * ISSOFT-48: Support RRD trend information.
+  * ISSOFT-41: Support export to Excel.
+  * ISSOFT-39: Support for .snapshot volumes.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 10 Feb 2011 16:59:50 -0600
+
+libdiskusage-perl (0v0.12.1-1) unstable; urgency=low
+
+  * ISSOFT-38 Add a RedirectMatch for a shorter URL.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 02 Dec 2010 13:39:59 -0600
+
+libdiskusage-perl (0v0.12.0-1) unstable; urgency=low
+
+  * ISSOFT-28 Hide the estimated cost column.
+  * Fix some dependencies in debian packaging.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 18 Nov 2010 10:44:48 -0600
+
+libdiskusage-perl (0v0.11.0-1) unstable; urgency=low
+
+  * Add estimated cost column.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 09 Sep 2010 08:53:42 -0500
+
+libdiskusage-perl (0v0.10.0-1) unstable; urgency=low
+
+  * Return 'unknown' for empty group name in snmp.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 26 Aug 2010 17:00:00 -0500
+
+libdiskusage-perl (0v0.9.0-1) unstable; urgency=low
+
+  * Update SNMP to query extension for GPFS.
+  * Improve disk group caching.
+  * Add mount_to_disk table.
+  * Add SNMP debugging.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 26 Aug 2010 13:45:00 -0500
+
+libdiskusage-perl (0v0.8.0-1) unstable; urgency=low
+
+  * Update SNMP to use nsExtendOutput2Table
+  * Update SNMP max message size to 15000
+  * Add -H option to append list of hosts to targets
+  * Update cron job to support a list of hosts to append to gscmnt config
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 25 Aug 2010 17:30:00 -0500
+
+libdiskusage-perl (0v0.7.0-1) unstable; urgency=low
+
+  * Fixed paging in all three tables.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 25 Aug 2010 13:24:00 -0500
+
+libdiskusage-perl (0v0.6.0-1) unstable; urgency=low
+
+  * Updated unit tests.
+  * Removed total space served for hosts page.
+  * Removed use of TryCatch in favor of eval {}; if ($@) {};
+  * Support SNMP 32 bit integer correction.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Wed, 18 Aug 2010 13:55:29 -0500
+
+libdiskusage-perl (0v0.5.0-1) unstable; urgency=low
+
+  * Updated SNMP support to handle NetApp, Linux, GPFS Linux.
+  * Cache disk group name and reuse until forced to recache with -F.
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 17 Aug 2010 10:16:48 -0500
