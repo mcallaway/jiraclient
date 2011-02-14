@@ -32,8 +32,8 @@ sub new {
     maxage     => 3600, # seconds : FIXME, add to config file?
     diskconf   => "./disk.conf",
     configfile => undef,
-    cachefile  => undef,
-    rrdpath    => undef,
+    cachefile  => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache",
+    rrdpath    => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/rrd",
     logdir     => undef,
     logfile    => undef,
     logfh      => undef,
