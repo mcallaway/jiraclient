@@ -33,22 +33,15 @@ function update_plot_handler(bf) {
 
 // This function updates the Web Page with the data from the RRD
 function update_plot() {
-  //var gtype_DS=new Array('avail','used');
 
   var gtype_format={
-    'avail':{
-      title:'avail',label:'avail',color:"#00ff00",lines: {show:true}
+    'total':{
+      title:'total',label:'total',color:"#00ff00",lines: {show:true}
     },
     'used':{
       title:'used',label:'used',color:"#aa0000",checked:true
     },
   };
 
-  // From rrdFilter.js
-  // select only a subset of DSs to plot
-  //var rrd_data1=new RRDFilterDS(rrd_data,gtype_DS);
-
-  // the rrdFlot object creates and handles the graph
-  //var f=new rrdFlot("rrdgraph",rrd_data1,null,gtype_format);
   var f=new rrdFlot("rrdgraph",rrd_data,null,gtype_format);
 }
