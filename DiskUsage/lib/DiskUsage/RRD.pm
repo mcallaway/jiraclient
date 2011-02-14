@@ -52,7 +52,7 @@ sub prep_fake_rrd {
     $date = $date + 86400;
     $total += 1000000000;
     $used += 900000000;
-    $rrd->update( time => $date, values => { avail => $total, used => $used } );
+    $rrd->update( time => $date, values => { total => $total, used => $used } );
   }
 }
 
@@ -73,7 +73,7 @@ sub create_rrd {
       start       => $start,
 
       data_source => {
-        name      => "avail",
+        name      => "total",
         type      => "GAUGE",
       },
       data_source => {
@@ -116,7 +116,7 @@ sub create_or_update {
     $self->create_rrd($rrd);
   }
 
-  $rrd->update( values => { avail => $total, used => $used } );
+  $rrd->update( values => { total => $total, used => $used } );
 }
 
 sub run {
