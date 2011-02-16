@@ -85,7 +85,7 @@ sub sql_exec {
       if ($attempts >= $max_attempts) {
         $self->error("failed during execute $attempts times, giving up: $@\n");
       } else {
-        $self->logger_debug("failed during execute $attempts times, retrying: $@\n");
+        $self->local_debug("failed during execute $attempts times, retrying: $@\n");
       }
       usleep(10000);
     } else {
@@ -105,12 +105,12 @@ sub prep {
   $self->error("cachefile is undefined, use -i\n")
     if (! defined $cachefile);
   if (-f $cachefile) {
-    $self->logger_debug("using existing cache $cachefile\n");
+    $self->local_debug("using existing cache $cachefile\n");
   } else {
     open(DB,">$cachefile") or
       $self->error("failed to create new cache $cachefile: $!\n");
     close(DB);
-    $self->logger_debug("creating new cache $cachefile\n");
+    $self->local_debug("creating new cache $cachefile\n");
   }
 
   my $connected = 0;
@@ -120,7 +120,7 @@ sub prep {
 
   while (!$connected and $retries < $max_retries) {
 
-    $self->logger_debug("SQLite trying to connect: $retries: $cachefile\n");
+    $self->local_debug("SQLite trying to connect: $retries: $cachefile\n");
 
     eval {
       $self->{dbh} = DBI->connect( $dsn,"","",
@@ -134,7 +134,7 @@ sub prep {
     };
     if ( $@ ) {
       $retries += 1;
-      $self->logger_debug("SQLite can't connect, retrying: $cachefile: $@\n");
+      $self->local_debug("SQLite can't connect, retrying: $cachefile: $@\n");
       sleep(1);
     };
 
