@@ -22,7 +22,7 @@ use Pod::Usage;
 # for debugging
 use Data::Dumper;
 
-our $VERSION = "0.2";
+our $VERSION = "0.3.3";
 
 sub new {
   my $class = shift;
@@ -188,7 +188,7 @@ sub read_mmlscluster {
   close(MM);
 
   foreach my $dmid (sort keys %{ $self->{dm_map} }) {
-    print "$dmid:" . join(',',@hosts) . "::dataAndMetadata::$self->{dm_map}->{$dmid}\n";
+    print "$self->{dm_map}->{$dmid}:" . join(',',@hosts) . "::dataAndMetadata::$self->{dm_map}->{$dmid}\n";
     push @hosts, (shift @hosts);
   }
 }
