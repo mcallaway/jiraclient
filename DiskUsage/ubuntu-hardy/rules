@@ -64,6 +64,7 @@ cgi: $(CGI)
 .PHONY: htdocs
 htdocs: $(HTML)
 	install -D -m 0644 htdocs/diskusage.html $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/diskusage.html
+	install -D -m 0644 htdocs/rrd.html $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/rrd.html
 	install -D -m 0644 htdocs/favicon.ico $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/favicon.ico
 
 .PHONY: config
