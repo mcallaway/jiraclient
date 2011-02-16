@@ -52,7 +52,7 @@ media: ./media
 	if [ -d $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ] ; then \
 	  rm -rf $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ; \
 	fi
-	mkdir -p $(CURDIR)/debian/libdiskusage-perl$(DOCROOT) ;
+	mkdir -p $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/rrd ;
 	cp -a ./media $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/ ;
 
 .PHONY: cgi
@@ -64,6 +64,7 @@ cgi: $(CGI)
 .PHONY: htdocs
 htdocs: $(HTML)
 	install -D -m 0644 htdocs/diskusage.html $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/diskusage.html
+	install -D -m 0644 htdocs/rrd.html $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/rrd.html
 	install -D -m 0644 htdocs/favicon.ico $(CURDIR)/debian/libdiskusage-perl/$(DOCROOT)/favicon.ico
 
 .PHONY: config
