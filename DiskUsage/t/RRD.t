@@ -34,7 +34,7 @@ sub new {
   # Determine if we're 'live' and can connect over the network.
   my $self = {
     live => 0,
-    debug => 0,
+    debug => 1,
   };
   return bless $self, $class;
 }
@@ -58,13 +58,12 @@ sub test_start {
 sub test_fake_rrd {
   my $self = shift;
   my $obj = $self->test_start();
-  $obj->{debug} = 1;
   my $rrdfile = "./t/data/fake.rrd";
   my $rrd = RRDTool::OO->new(
     file => $rrdfile,
   );
   $obj->prep_fake_rrd($rrd);
-  ok( $rrd->last() == 1297404000, "fake rrd creation ok");
+  ok( $rrd->last() == 1297490400, "fake rrd creation ok");
   unlink $rrdfile;
 }
 
@@ -77,16 +76,24 @@ sub test_run {
   );
 
   # Duplicate insert
-  my $params = {
-    'physical_path' => "/vol/sata800",
-    'mount_path' => "/gscmnt/sata800",
+  my $params1 = {
+    'physical_path' => "/vol/sata801",
+    'mount_path' => "/gscmnt/sata801",
     'total_kb' => 1000,
     'used_kb' => 900,
-    'group_name' => 'DISK_TEST',
+    'group_name' => 'DISK_TEST1',
+  };
+  my $params2 = {
+    'physical_path' => "/vol/sata802",
+    'mount_path' => "/gscmnt/sata802",
+    'total_kb' => 21000,
+    'used_kb' => 2900,
+    'group_name' => 'DISK_TEST2',
   };
   # Prepare cache
   my $res = $obj->{parent}->{cache}->prep();
-  $res = $obj->{parent}->{cache}->disk_df_add($params);
+  $res = $obj->{parent}->{cache}->disk_df_add($params1);
+  $res = $obj->{parent}->{cache}->disk_df_add($params2);
 
   $obj->run();
   lives_ok{ $obj->run() } "test run: runs ok";
