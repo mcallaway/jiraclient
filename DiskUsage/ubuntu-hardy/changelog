@@ -2,9 +2,13 @@ libdiskusage-perl (0v0.13.0-1) hardy; urgency=low
 
   * Update changelog to note that this is specifically built for hardy, which
     is the only distro used for our gscweb host.
+  * ISSOFT-52: Provide graphs for totals.
+  * ISSOFT-51: Add a link to rrd file
   * ISSOFT-48: Support RRD trend information.
+  * ISSOFT-43: Periodically rebuild the cache.
   * ISSOFT-41: Support export to Excel.
   * ISSOFT-39: Support for .snapshot volumes.
+  * ISSOFT-31: Fix typos.
 
  -- Matthew Callaway <mcallawa@genome.wustl.edu>  Thu, 10 Feb 2011 16:59:50 -0600
 
