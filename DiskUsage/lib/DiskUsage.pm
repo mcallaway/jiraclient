@@ -8,7 +8,7 @@ use warnings;
 use Data::Dumper;
 # Parse CLI options
 use Getopt::Std;
-# Checking currentness in is_current()
+# Checking currentness in host_is_current()
 use Date::Manip;
 # Usage function
 use Pod::Find qw(pod_where);
@@ -29,7 +29,8 @@ sub new {
     force      => 0,
     db_tries   => 5,
     timeout    => 15,
-    maxage     => 3600, # seconds : FIXME, add to config file?
+    host_maxage => 86400, # seconds since last check
+    vol_maxage => 30, # days since last update
     diskconf   => "./disk.conf",
     configfile => undef,
     cachefile  => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache",
@@ -157,7 +158,7 @@ sub parse_disk_conf {
   $self->local_debug("parse_disk_conf()\n");
   $self->error("disk configuration file is undefined, use -D\n")
     if (! -f $self->{diskconf});
-  $self->logger("using disk config file: $self->{diskconf}\n");
+  $self->logger_debug("using disk config file: $self->{diskconf}\n");
 
   # Parse config file for disk definitions.
   open FH, "<", $self->{diskconf} or
@@ -246,15 +247,17 @@ sub cache {
   }
 
   $self->{cache}->disk_hosts_add($host,$result,$err);
+
+  $self->{cache}->validate_volumes();
 }
 
-sub is_current {
+sub host_is_current {
   # Look in the cache at last_modified and check if the
   # delta between now and then is less than max age.
   my $self = shift;
   my $host = shift;
 
-  $self->local_debug("is_current()\n");
+  $self->local_debug("host_is_current()\n");
 
   return 0 if ($self->{force});
 
@@ -281,7 +284,7 @@ sub is_current {
 
   $self->local_debug("hrs delta: $calc => $delta sec\n");
   return 1
-    if $delta < $self->{maxage};
+    if $delta < $self->{host_maxage};
 
   return 0;
 }
@@ -329,7 +332,7 @@ sub build_cache {
 
   foreach my $host (keys %$hosts) {
     # Have to queried this host recently?
-    if (! $self->is_current($host) ) {
+    if (! $self->host_is_current($host) ) {
       print "Querying host $host\n";
       # Query the host and cache the result
       my $result = {};
@@ -338,6 +341,7 @@ sub build_cache {
         $result = $self->{snmp}->query_snmp($host);
       };
       if ($@) {
+        # log here, but not fatally
         $self->logger("snmp error: $host: $@\n");
         $error = 1;
       }

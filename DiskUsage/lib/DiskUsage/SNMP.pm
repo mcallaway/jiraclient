@@ -324,20 +324,20 @@ sub get_disk_groups_via_snmp {
     if ($@ or length($self->{snmp_session}->error())) {
       my $msg = $self->{snmp_session}->error();
       if ($msg =~ /No response/) {
-        $self->logger("took too long looking for groups via snmp...proceeding\n");
+        $self->logger_debug("took too long looking for groups via snmp...proceeding\n");
       } elsif ($msg =~ /table is empty/) {
-        $self->logger("this host doesn't serve groups via snmp...proceeding\n");
+        $self->logger_debug("this host doesn't serve groups via snmp...proceeding\n");
         $self->{no_snmp} = 1;
       } elsif ($msg =~ /Message size exceeded/) {
         my $size = $self->{snmp_session}->max_msg_size();
         return if ($size == 12000); # don't do this twice
-        $self->logger("query snmp again with larger message size...\n");
+        $self->logger_debug("query snmp again with larger message size...\n");
         $self->{snmp_session}->max_msg_size(12000); # try larger size
         return $self->get_disk_groups_via_snmp($physical_path,$mount_path);
       } elsif ($msg =~ /Unexpected end of/) {
         my $size = $self->{snmp_session}->max_msg_size();
         return if ($size == 12000); # don't do this twice
-        $self->logger("query snmp again with larger message size...\n");
+        $self->logger_debug("query snmp again with larger message size...\n");
         $self->{snmp_session}->max_msg_size(12000); # try larger size
         return $self->get_disk_groups_via_snmp($physical_path,$mount_path);
       } else {
