@@ -100,6 +100,7 @@ sub read_config {
 }
 
 sub run_multipath {
+  # Build the mapping of dm and wwid to array + lun
 
   my $self = shift;
 
