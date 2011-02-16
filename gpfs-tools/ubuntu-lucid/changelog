@@ -1,3 +1,7 @@
+gpfs-tools (0.3.3-1.10) lucid; urgency=low
+
+  * ISSOFT-50: Change dm- name to friendly name
+
 gpfs-tools (0.3.2-1.10) lucid; urgency=low
 
   * Add rpm packaging
