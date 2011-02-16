@@ -43,12 +43,13 @@ sub prep_fake_rrd {
   my $total = 0;
   my $used  = 0;
 
-  my $today =  timelocal(0,0,0,(localtime(time))[3,4,5]);
-  my $date =  1234245600;
+  my $date = 1234245600;
+  my $end  = 1297404000; # Arbitrary date bounds
 
-  $self->create_rrd($rrd,$date);
+  $self->create_rrd($rrd,$date) or
+    $self->error("failed during create rrd: $@\n");;
 
-  until ($date > $today) {
+  until ($date > $end) {
     $date = $date + 86400;
     $total += 1000000000;
     $used += 900000000;
@@ -58,9 +59,9 @@ sub prep_fake_rrd {
 
 sub create_rrd {
   my $self = shift;
-  $self->local_debug("create_rrd\n");
   my $rrd = shift;
   my $start = shift;
+  $self->local_debug("create_rrd\n");
 
   if (! defined $start) {
     # beginning of today
@@ -129,15 +130,24 @@ sub run {
   my $dbargs = {AutoCommit => 0, PrintError => 1};
   my $dbh = DBI->connect("dbi:SQLite:dbname=$cache","","",$dbargs);
 
+  # First update per disk group rrd...
   # select
   my $sql = "SELECT group_name, SUM(total_kb) as tkb, SUM(used_kb) as ukb, ROUND((CAST(SUM(used_kb) AS REAL)/SUM(total_kb) * 100),2) as capacity, (SUM(total_kb)*2500/1000000000) as cost FROM disk_df GROUP BY group_name";
   my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
   my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
-  $self->local_debug("Found $sth->rows disk groups");
-
-  # update
+  $self->local_debug("Found $sth->rows disk groups\n");
   while (my @a = $sth->fetchrow_array() ) {
     $self->create_or_update(@a);
+  }
+  $sth->finish(); # clean up
+
+  # Now update the totals
+  $sql = "SELECT SUM(total_kb),SUM(used_kb) FROM disk_df";
+  $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+  $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
+  $self->local_debug("Found $sth->rows disk groups\n");
+  while (my @a = $sth->fetchrow_array() ) {
+    $self->create_or_update("total",@a,undef,undef,undef);
   }
   $sth->finish(); # clean up
 }
