@@ -25,6 +25,9 @@ all: noop
 noop:
 	@echo noop
 
+test:
+	prove -I scripts/ t/gpfsmapper.t
+
 install: $(SCRIPTS)
 	install -d $(DESTDIR)$(INSTALLDIR)
 	for FILE in $(SCRIPTS) ; do \
