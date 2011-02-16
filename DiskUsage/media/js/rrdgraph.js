@@ -1,9 +1,10 @@
 
 function draw() {
-  document.write('<div id="rrdgraph"></div>');
   var group_name = unescape(location.search.substr(1)).toLowerCase();
-
   fname="rrd/" + group_name + ".rrd";
+
+  document.write('<div id="rrdgraph"></div>');
+  document.write('<div id="rrdgraph"><p>RRD Datafile: <a href="'+fname+'"</a>'+fname+'</p></div>');
 
   try {
     // From binaryXHR.js
