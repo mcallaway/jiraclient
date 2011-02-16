@@ -214,6 +214,40 @@ sub test_validate_volumes {
   stdout_like { $cache->validate_volumes() } qr/Aging volume/, "aging volume correct";
 }
 
+sub test_purge_volumes {
+  my $self = shift;
+  my $cache = $self->test_start();
+  my $obj = $cache->{parent};
+
+  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
+  $obj->{cachefile} = "$cwd/data/test.cache";
+  $obj->{debug} = 0;
+  #$obj->read_config();
+  $obj->prepare_logger();
+
+  my $params1 = {
+    'physical_path' => "/vol/sata801",
+    'mount_path' => "/gscmnt/sata801",
+    'total_kb' => 1000,
+    'used_kb' => 900,
+    'group_name' => 'DISK_TEST',
+  };
+  my $params2 = {
+    'physical_path' => "/vol/sata802",
+    'mount_path' => "/gscmnt/sata802",
+    'total_kb' => 11000,
+    'used_kb' => 1900,
+    'group_name' => 'DISK_TEST',
+  };
+  $cache->prep();
+  my $res = $cache->disk_df_add($params1);
+  $res = $cache->disk_df_add($params2);
+  $cache->sql_exec("DROP TRIGGER IF EXISTS disk_df_update_last_modified");
+  $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata801'");
+  $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata802'");
+  $cache->purge_volumes();
+}
+
 sub main {
   my $self = shift;
   my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');

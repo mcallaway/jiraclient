@@ -90,13 +90,13 @@ sub test_define_hosts {
   ok(scalar keys %$hosts == 35);
 }
 
-sub test_build_cache {
+sub test_update_cache {
   my $self = shift;
   return if (! $self->{live});
   my $obj = $self->test_start();
   $obj->{force} = 1;
   my $hosts = { 'nfs17'=>{} };
-  lives_ok { $obj->build_cache($hosts); } "build_cache runs ok";
+  lives_ok { $obj->update_cache($hosts); } "update_cache runs ok";
 }
 
 sub test_query_snmp {
