@@ -148,7 +148,7 @@
         /* Top of page total host summary */
         $.getJSON('../cgi-bin/du_total.cgi', function(result) {
           $("div#total").html(
-            '<h2>Cumulative Disk Usage</h2>'
+            '<h2><a href="rrd.html?total">Cumulative Disk Usage</a></h2>'
             + '<h3>Disk usage added over all reporting NFS servers</h3>'
             + 'Total KB: ' + result.total_kb + '<br/>'
             + 'Used KB: ' + result.used_kb + '<br/>'
