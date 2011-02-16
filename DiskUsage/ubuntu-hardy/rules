@@ -52,7 +52,7 @@ media: ./media
 	if [ -d $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ] ; then \
 	  rm -rf $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/media ; \
 	fi
-	mkdir -p $(CURDIR)/debian/libdiskusage-perl$(DOCROOT) ;
+	mkdir -p $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/rrd ;
 	cp -a ./media $(CURDIR)/debian/libdiskusage-perl$(DOCROOT)/ ;
 
 .PHONY: cgi
