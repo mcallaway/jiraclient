@@ -39,6 +39,7 @@ sub new {
     logfile    => undef,
     logfh      => undef,
     dbh        => undef,
+    purge      => undef,
     config     => {},
     cache      => new DiskUsage::Cache,
     snmp       => new DiskUsage::SNMP,
@@ -294,7 +295,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:r:t:",\%opts) or
+  getopts("dfFhVD:H:i:l:pr:t:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -309,6 +310,7 @@ sub parse_args {
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{recache} = delete $opts{'F'} ? 1 : 0;
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
+  $self->{purge} = delete $opts{'p'} ? 1 : 0;
   $self->{diskconf} = delete $opts{'D'};
   $self->{hosts} = delete $opts{'H'};
   $self->{logfile} = delete $opts{'l'};
@@ -320,15 +322,21 @@ sub parse_args {
     if ($opts{'r'});
 }
 
-sub build_cache {
+sub update_cache {
   # Build the sqlite cache for every host found.
 
   my $self = shift;
   my $hosts = shift;
 
-  $self->local_debug("build_cache()\n");
+  $self->local_debug("update_cache()\n");
 
   $self->{cache}->prep();
+
+  # Purge aging cache data
+  if ($self->{purge}) {
+    $self->{cache}->purge();
+    return 0;
+  }
 
   foreach my $host (keys %$hosts) {
     # Have to queried this host recently?
@@ -373,8 +381,8 @@ sub main {
   # Define list of hosts to query
   my $hosts = $self->define_hosts(@ARGV);
 
-  # Build the cache of data
-  $self->build_cache($hosts);
+  # Build/update the cache of data
+  $self->update_cache($hosts);
 
   $self->logger("queried " . ( scalar keys %$hosts ) . " host(s)\n");
 
@@ -407,6 +415,7 @@ DiskUsage - Gather disk consumption data
  -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
+ -p         Purge cache data that is older than maximum age ($vol_maxage).
  -t [num]   Set SNMP timeout (default 15 seconds).
  -H [LIST]  Set comma separated list of hosts to add to disk config file.
  -D [file]  Specify disk config file.

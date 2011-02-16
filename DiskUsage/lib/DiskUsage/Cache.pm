@@ -320,18 +320,34 @@ sub fetch {
   return $self->sql_exec($sql,$value);
 }
 
+sub fetch_aging_volumes {
+  my $self = shift;
+  $self->local_debug("fetch_aging_volumes()\n");
+  my $vol_maxage = $self->{parent}->{vol_maxage};
+  my $sql = "SELECT physical_path, mount_path, last_modified FROM disk_df WHERE last_modified < date(\"now\",\"-$vol_maxage days\") ORDER BY last_modified";
+  $self->local_debug("fetch($sql)\n");
+  return $self->sql_exec($sql);
+}
+
 sub validate_volumes {
   # See if we have volumes that haven't been updated since maxage.
   my $self = shift;
   $self->local_debug("validate_volumes()\n");
-  my $vol_maxage = $self->{parent}->{vol_maxage};
-  my $sql = "SELECT physical_path, mount_path, last_modified FROM disk_df WHERE last_modified < date(\"now\",\"-$vol_maxage days\") ORDER BY last_modified";
-  $self->local_debug("fetch($sql)\n");
-  my $result = $self->sql_exec($sql);
-  foreach my $row (@$result) {
+  foreach my $row (@{ $self->fetch_aging_volumes() }) {
     $self->logger("Aging volume: " . join(' ',@$row) . "\n");
   }
-  return;
+}
+
+sub purge_volumes {
+  my $self = shift;
+  $self->local_debug("purge_volumes()\n");
+  foreach my $row (@{ $self->fetch_aging_volumes() }) {
+    $self->logger("Delete volume: " . join(' ',@$row) . "\n");
+    my $sql = "DELETE FROM disk_df WHERE physical_path = ? AND mount_path = ?";
+    my $physical_path = $row->[0];
+    my $mount_path = $row->[1];
+    $self->sql_exec($sql,($physical_path,$mount_path));
+  }
 }
 
 1;
