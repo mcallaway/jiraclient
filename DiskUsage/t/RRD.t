@@ -43,14 +43,14 @@ sub new {
 sub test_start {
   my $self = shift;
   my $obj = new DiskUsage;
-  $obj->{configfile} = $cwd . "/data/disk_usage_good_001.cfg";
-  $obj->{cachefile} = $cwd . "/data/test.cache";
+  $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
+  $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
+  $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{debug} = $self->{debug};
+  $obj->{rrdpath} = "$cwd/data";
   #$obj->read_config();
-  $obj->{diskconf} = "./t/data/good_disk_conf_001";
-  $obj->{cachefile} = "./t/data/test.cache";
-  $obj->{rrdpath} = "./t/data";
-  $obj->prepare_logger();  unlink($obj->{cachefile});
+  $obj->prepare_logger();
+  unlink($obj->{cachefile});
   $obj->{cache}->prep();
   return $obj->{rrd};
 }
@@ -65,15 +65,12 @@ sub test_fake_rrd {
   $obj->prep_fake_rrd($rrd);
   ok( $rrd->last() == 1297490400, "fake rrd creation ok");
   unlink $rrdfile;
+  unlink $obj->{parent}->{cachefile};
 }
 
 sub test_run {
   my $self = shift;
   my $obj = $self->test_start();
-  my $rrdfile = "./t/data/fake.rrd";
-  my $rrd = RRDTool::OO->new(
-    file => $rrdfile,
-  );
 
   # Duplicate insert
   my $params1 = {
@@ -98,7 +95,9 @@ sub test_run {
   $obj->run();
   lives_ok{ $obj->run() } "test run: runs ok";
   unlink $obj->{parent}->{cachefile};
-  unlink $rrdfile;
+  unlink("t/data/disk_test1.rrd");
+  unlink("t/data/disk_test2.rrd");
+  unlink("t/data/total.rrd");
 }
 
 

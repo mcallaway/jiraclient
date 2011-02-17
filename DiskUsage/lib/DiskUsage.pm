@@ -85,7 +85,14 @@ sub prepare_logger {
   #  $self->{logfile} = $self->{config}->{logfile};
   #}
   # Command line overrides config file
-  Log::Log4perl->easy_init( { level => $self->{loglevel}, file => $self->{logfile} } );
+  # RRDTool::OO is strange in that its INFO level is really DEBUG stuff.
+  # Set it to WARN unless we set debug
+  my $rlogger = 'WARN';
+  $rlogger = 'DEBUG' if ($self->{loglevel} eq 'DEBUG');
+  Log::Log4perl->easy_init(
+   { level => $rlogger, category => 'rrdtool', file => $self->{logfile} },
+   { level => $self->{loglevel}, category => __PACKAGE__, file => $self->{logfile} }
+  );
   $self->{logger} = Log::Log4perl->get_logger();
 }
 
