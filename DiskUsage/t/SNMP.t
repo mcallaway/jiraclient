@@ -42,7 +42,6 @@ sub test_start {
   $obj->{debug} = $self->{debug};
   $obj->prepare_logger();
   $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
-  $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{cache}->prep();
   return $obj;
 }
@@ -55,6 +54,7 @@ sub test_logger {
   stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug on ok";
   $obj->{logger}->level($WARN);
   stderr_isnt { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug off ok";
+  unlink $obj->{cachefile};
   $count+=2;
 }
 
@@ -64,6 +64,7 @@ sub test_connect {
   my $result = {};
   my $host = "foo";
   throws_ok { $obj->{snmp}->connect_snmp($host); } qr/SNMP failed/, "test_connect: fails ok on bad host";
+  unlink $obj->{cachefile};
   $count+=1;
 }
 
@@ -76,7 +77,8 @@ sub test_snmp_get_table {
   my $host = "gpfs";
   my $res = $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->snmp_get_table('1.3.6.1.2.1.25.4.2.1.2');
-  ok( scalar @{ [ keys %$res ] } > 1 );
+  ok( scalar @{ [ keys %$res ] } > 1, "test snmp_get_table" );
+  unlink $obj->{cachefile};
   $count+=1;
 }
 
@@ -91,6 +93,7 @@ sub test_snmp_get_request {
   $res = $obj->{snmp}->snmp_get_request( ['1.3.6.1.2.1.1.1.0', '1.3.6.1.2.1.1.5.0']);
   ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
   ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: sysDesc is linuxcs84");
+  unlink $obj->{cachefile};
   $count+=2;
 }
 
@@ -106,6 +109,7 @@ sub test_snmp_get_serial_request {
   $res = $obj->{snmp}->snmp_get_serial_request( $oid );
   #print scalar @{ [ keys %$res ] } . "\n";
   ok( scalar @{ [ keys %$res ] } == 98, "test_snmp_get_serial_request: ok");
+  unlink $obj->{cachefile};
   $count+=1;
 }
 
@@ -117,6 +121,7 @@ sub test_type_mapper {
   $string = "NetApp Release 7.3.2: Thu Oct 15 04:12:15 PDT 2009";
   my $res = $obj->{snmp}->type_string_to_type($string);
   ok($res = 'linux',"test_type_mapper: sees netapp ok");
+  unlink $obj->{cachefile};
   $count+=2;
 }
 
@@ -136,6 +141,7 @@ sub test_get_host_type {
   $res = $obj->{snmp}->get_host_type($host);
   #print Dumper($res);
   ok( $res eq 'netapp', "test_get_host_type: ntap8 detected" );
+  unlink $obj->{cachefile};
   $count+=2;
 }
 
@@ -148,6 +154,7 @@ sub test_get_snmp_disk_usage {
   $obj->{snmp}->connect_snmp($host);
   $obj->{snmp}->get_snmp_disk_usage($result);
   #print Dumper($result);
+  unlink $obj->{cachefile};
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: nfs11 ok");
 
   $host = "ntap8";
@@ -155,6 +162,7 @@ sub test_get_snmp_disk_usage {
   $obj->{snmp}->get_snmp_disk_usage($result);
   #print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
+  unlink $obj->{cachefile};
   $count+=2;
 }
 
@@ -183,6 +191,7 @@ sub test_target {
   my $result = $obj->{snmp}->query_snmp($host);
   #print Dumper $result;
   ok( ref $result eq 'HASH', "test target" );
+  unlink $obj->{cachefile};
   $count+=1;
 }
 
