@@ -143,7 +143,7 @@ sub parse_disk_conf {
 
   $self->{logger}->debug("parse_disk_conf()\n");
   if (! defined $self->{diskconf} or ! -f $self->{diskconf}) {
-    $self->{logger}->debug("disk configuration file is undefined, use -D\n")
+    $self->{logger}->debug("disk configuration file is undefined, use -D\n");
     return;
   }
   $self->{logger}->debug("using disk config file: $self->{diskconf}\n");
