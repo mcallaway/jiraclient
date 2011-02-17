@@ -30,7 +30,6 @@ sub new {
     db_tries   => 5,
     timeout    => 15,
     host_maxage => 86400, # seconds since last check
-    vol_maxage => 30, # days since last update
     diskconf   => "./disk.conf",
     configfile => undef,
     cachefile  => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache",
@@ -295,7 +294,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:pr:t:",\%opts) or
+  getopts("dfFhVD:H:i:l:p:r:t:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -310,7 +309,6 @@ sub parse_args {
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{recache} = delete $opts{'F'} ? 1 : 0;
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
-  $self->{purge} = delete $opts{'p'} ? 1 : 0;
   $self->{diskconf} = delete $opts{'D'};
   $self->{hosts} = delete $opts{'H'};
   $self->{logfile} = delete $opts{'l'};
@@ -320,6 +318,8 @@ sub parse_args {
     if ($opts{'i'});
   $self->{rrdpath} = delete $opts{'r'}
     if ($opts{'r'});
+  $self->{purge} = delete $opts{'p'}
+    if ($opts{'p'});
 }
 
 sub update_cache {
@@ -333,7 +333,7 @@ sub update_cache {
   $self->{cache}->prep();
 
   # Purge aging cache data
-  if ($self->{purge}) {
+  if (defined $self->{purge}) {
     $self->{cache}->purge();
     return 0;
   }
@@ -415,7 +415,7 @@ DiskUsage - Gather disk consumption data
  -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
- -p         Purge cache data that is older than maximum age ($vol_maxage).
+ -p [days]  Purge cache data that is older [days].
  -t [num]   Set SNMP timeout (default 15 seconds).
  -H [LIST]  Set comma separated list of hosts to add to disk config file.
  -D [file]  Specify disk config file.
