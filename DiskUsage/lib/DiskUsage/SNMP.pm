@@ -60,7 +60,6 @@ sub new {
 }
 
 sub error {
-  # Raise an Exception object.
   my $self = shift;
   die "@_";
 }
@@ -75,7 +74,7 @@ sub snmp_get_request {
     $result = $self->{snmp_session}->get_request(-varbindlist => $args );
   };
   if ($@ or length($self->{snmp_session}->error())) {
-    $self->error("SNMP error in request: $@: " . $self->{snmp_session}->error() . "\n");
+    $self->error("SNMP error in request: $@: " . $self->{snmp_session}->error());
   }
   return $result;
 }
@@ -99,7 +98,7 @@ sub snmp_get_serial_request {
       $res = $self->{snmp_session}->get_request(-varbindlist => [ $baseoid . ".$idx" ]);
     };
     if ($@ or length($self->{snmp_session}->error())) {
-      $self->error("SNMP error in request: $@: " . $self->{snmp_session}->error() . "\n");
+      $self->error("SNMP error in serial request: " . $self->{snmp_session}->error());
     }
     # Get a single value and if it isn't noSuchInstance, merge it
     # into the result hash.
@@ -121,7 +120,7 @@ sub snmp_get_table {
     $result = $self->{snmp_session}->get_table(-baseoid => $baseoid);
   };
   if ($@ or length($self->{snmp_session}->error())) {
-    $self->error("SNMP error in request: $@: " . $self->{snmp_session}->error() . "\n");
+    $self->error("SNMP error in table request: " . $self->{snmp_session}->error());
   }
   return $result;
 }
@@ -425,7 +424,7 @@ sub connect_snmp {
      -version => '2c',
      -timeout => $timeout,
      -retries => 1,
-     -debug => 0x20,
+     -debug => 0x0,
     );
   };
 
@@ -434,7 +433,7 @@ sub connect_snmp {
     if ($self->{parent}->{debug});
 
   if ($@ or ! defined $sess) {
-    $self->error("SNMP failed to connect to host: $host: $err\n");
+    $self->error("SNMP failed to connect to host: $host: $err");
   }
 
   if (defined $self->{snmp_session}) {
