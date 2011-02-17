@@ -158,7 +158,6 @@ sub test_add {
   ok( $res->[0]->[4] = 999, "update and fetch work ok");
   # compare create vs. last modified
   ok( $res->[0]->[6] ne $res->[0]->[7], "update trigger works ok");
-  unlink $cache->{cachefile};
 }
 
 sub test_retry {
@@ -193,6 +192,7 @@ sub test_validate_volumes {
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{debug} = 0;
+  $obj->{purge} = 30;
   #$obj->read_config();
   $obj->prepare_logger();
 
@@ -220,7 +220,7 @@ sub test_validate_volumes {
   unlink "$cwd/data/disk_test.rrd";
   unlink "$cwd/data/disk_test1.rrd";
   unlink "$cwd/data/disk_test2.rrd";
-  unlink $cache->{cachefile};
+  unlink $obj->{cachefile};
 }
 
 sub test_purge_volumes {
@@ -231,6 +231,7 @@ sub test_purge_volumes {
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{debug} = 0;
+  $obj->{purge} = 30;
   #$obj->read_config();
   $obj->prepare_logger();
 
@@ -258,7 +259,7 @@ sub test_purge_volumes {
   unlink "$cwd/data/disk_test.rrd";
   unlink "$cwd/data/disk_test1.rrd";
   unlink "$cwd/data/disk_test2.rrd";
-  unlink $cache->{cachefile};
+  unlink $obj->{cachefile};
 }
 
 sub main {
