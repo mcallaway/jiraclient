@@ -88,6 +88,8 @@ sub test_sql_exec {
   $res = $res->[0]->[0];
   #print Dumper($res);
   lives_and { is $res, 6438993376 } 'test_sql_exec: select ok';
+  unlink "$cwd/data/test.cache";
+  unlink "$cwd/data/total.rrd";
 }
 
 sub test_prep_bad_db_path {
@@ -128,6 +130,7 @@ sub test_prep_good {
   stdout_like { $cache->prep() } qr/creating new cache/, "new cache file correct";
   stdout_like { $cache->prep() } qr/using existing cache/, "existing cache file correct";
   ok(-f $cache->{parent}->{cachefile} == 1,"cache file present ok");
+  unlink $cachefile;
 }
 
 sub test_add {
@@ -155,6 +158,7 @@ sub test_add {
   ok( $res->[0]->[4] = 999, "update and fetch work ok");
   # compare create vs. last modified
   ok( $res->[0]->[6] ne $res->[0]->[7], "update trigger works ok");
+  unlink $cache->{cachefile};
 }
 
 sub test_retry {
@@ -178,6 +182,7 @@ sub test_retry {
   throws_ok { $cache->prep() } qr/can't connect after \d tries, giving up/, "test_retry: fail to connect properly caught";
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
+  unlink $obj->{cachefile};
 }
 
 sub test_validate_volumes {
@@ -212,6 +217,10 @@ sub test_validate_volumes {
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata801'");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata802'");
   stdout_like { $cache->validate_volumes() } qr/Aging volume/, "aging volume correct";
+  unlink "$cwd/data/disk_test.rrd";
+  unlink "$cwd/data/disk_test1.rrd";
+  unlink "$cwd/data/disk_test2.rrd";
+  unlink $cache->{cachefile};
 }
 
 sub test_purge_volumes {
@@ -246,6 +255,10 @@ sub test_purge_volumes {
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata801'");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata802'");
   $cache->purge_volumes();
+  unlink "$cwd/data/disk_test.rrd";
+  unlink "$cwd/data/disk_test1.rrd";
+  unlink "$cwd/data/disk_test2.rrd";
+  unlink $cache->{cachefile};
 }
 
 sub main {
