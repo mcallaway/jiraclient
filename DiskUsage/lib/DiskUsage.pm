@@ -142,8 +142,10 @@ sub parse_disk_conf {
   my $self = shift;
 
   $self->{logger}->debug("parse_disk_conf()\n");
-  $self->error("disk configuration file is undefined, use -D\n")
-    if (! defined $self->{diskconf} or ! -f $self->{diskconf});
+  if (! defined $self->{diskconf} or ! -f $self->{diskconf}) {
+    $self->{logger}->debug("disk configuration file is undefined, use -D\n")
+    return;
+  }
   $self->{logger}->debug("using disk config file: $self->{diskconf}\n");
 
   # Parse config file for disk definitions.
@@ -211,7 +213,6 @@ sub define_hosts {
       }
     }
   }
-
 
   return $hosts;
 }
