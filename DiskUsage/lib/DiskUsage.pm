@@ -157,8 +157,8 @@ sub parse_disk_conf {
 
   $self->local_debug("parse_disk_conf()\n");
   $self->error("disk configuration file is undefined, use -D\n")
-    if (! -f $self->{diskconf});
-  $self->logger_debug("using disk config file: $self->{diskconf}\n");
+    if (! defined $self->{diskconf} or ! -f $self->{diskconf});
+  $self->local_debug("using disk config file: $self->{diskconf}\n");
 
   # Parse config file for disk definitions.
   open FH, "<", $self->{diskconf} or
