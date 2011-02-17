@@ -29,7 +29,8 @@ sub new {
     force      => 0,
     db_tries   => 5,
     timeout    => 15,
-    host_maxage => 86400, # seconds since last check
+    host_maxage => 86400, # max seconds since last check
+    vol_maxage => 15, # max days since last check
     diskconf   => "./disk.conf",
     configfile => undef,
     cachefile  => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache",
@@ -38,7 +39,7 @@ sub new {
     logfile    => undef,
     logfh      => undef,
     dbh        => undef,
-    purge      => undef,
+    purge      => undef, # max days since last volume update are "aged"
     config     => {},
     cache      => new DiskUsage::Cache,
     snmp       => new DiskUsage::SNMP,
@@ -294,7 +295,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:p:r:t:",\%opts) or
+  getopts("dfFhVD:H:i:l:pr:t:v:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -309,6 +310,7 @@ sub parse_args {
   $self->{force} = delete $opts{'f'} ? 1 : 0;
   $self->{recache} = delete $opts{'F'} ? 1 : 0;
   $self->{debug} = delete $opts{'d'} ? 1 : 0;
+  $self->{purge} = delete $opts{'p'} ? 1 : 0;
   $self->{diskconf} = delete $opts{'D'};
   $self->{hosts} = delete $opts{'H'};
   $self->{logfile} = delete $opts{'l'};
@@ -318,8 +320,8 @@ sub parse_args {
     if ($opts{'i'});
   $self->{rrdpath} = delete $opts{'r'}
     if ($opts{'r'});
-  $self->{purge} = delete $opts{'p'}
-    if ($opts{'p'});
+  $self->{vol_maxage} = delete $opts{'v'}
+    if ($opts{'v'});
 }
 
 sub update_cache {
@@ -415,7 +417,8 @@ DiskUsage - Gather disk consumption data
  -F         Refresh disk group name even if cached (mounts over NFS).
  -h         This useful documentation.
  -V         Display version.
- -p [days]  Purge cache data that is older [days].
+ -p         Purge cache data that is older than -v [days].
+ -v [days]  Set max age in days of volume data (default 15 days).
  -t [num]   Set SNMP timeout (default 15 seconds).
  -H [LIST]  Set comma separated list of hosts to add to disk config file.
  -D [file]  Specify disk config file.

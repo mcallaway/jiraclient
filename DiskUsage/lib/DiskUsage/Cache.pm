@@ -323,10 +323,10 @@ sub fetch {
 sub fetch_aging_volumes {
   my $self = shift;
   $self->local_debug("fetch_aging_volumes()\n");
-  my $maxage = $self->{parent}->{purge};
+  my $maxage = $self->{parent}->{vol_maxage};
   $self->error("max age has not been specified\n")
     if (! defined $maxage);
-  $self->error("purge age makes no sense: $maxage\n")
+  $self->error("max age makes no sense: $maxage\n")
     if ($maxage < 0 or $maxage !~ /\d+/);
   my $sql = "SELECT physical_path, mount_path, last_modified FROM disk_df WHERE last_modified < date(\"now\",\"-$maxage days\") ORDER BY last_modified";
   $self->local_debug("fetch($sql)\n");
