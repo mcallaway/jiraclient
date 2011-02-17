@@ -41,9 +41,8 @@ sub test_start {
   $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{debug} = $self->{debug};
   $obj->prepare_logger();
-  $obj->{diskconf} = "./t/data/good_disk_conf_001";
-  $obj->{cachefile} = "./t/data/test.cache";
-  unlink($obj->{cachefile});
+  $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
+  $obj->{cachefile} = "$cwd/data/test.cache";
   $obj->{cache}->prep();
   return $obj;
 }
@@ -169,6 +168,7 @@ sub test_cache_snmp {
   $obj->{snmp}->connect_snmp($host);
   my $result = $obj->{snmp}->query_snmp($host);
   lives_ok { $obj->cache($host,$result,$err); } "cache_snmp: doesn't crash";
+  unlink $obj->{cachefile};
   $count+=1;
 }
 
