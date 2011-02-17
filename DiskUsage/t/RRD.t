@@ -1,8 +1,6 @@
 
 package DiskUsage::RRD::TestSuite;
 
-my $CLASS = __PACKAGE__;
-
 # Standard modules for my unit test suites
 use base 'Test::Builder::Module';
 
@@ -11,21 +9,19 @@ use warnings;
 
 # Modules for calling this unit test script
 use Class::MOP;
-use Getopt::Std;
-use Error;
 use Data::Dumper;
-use Cwd;
-use File::Basename;
-use File::Path;
+use Cwd qw/abs_path/;
+use File::Basename qw/dirname/;
 
 # Unit test modules
-use Test::More tests => 2;
+use Test::More;
 use Test::Output;
 use Test::Exception;
 
 # The module to test
 use DiskUsage;
 
+my $count = 0;
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
 
@@ -66,6 +62,7 @@ sub test_fake_rrd {
   ok( $rrd->last() == 1297490400, "fake rrd creation ok");
   unlink $rrdfile;
   unlink $obj->{parent}->{cachefile};
+  $count+=1;
 }
 
 sub test_run {
@@ -92,12 +89,12 @@ sub test_run {
   $res = $obj->{parent}->{cache}->disk_df_add($params1);
   $res = $obj->{parent}->{cache}->disk_df_add($params2);
 
-  $obj->run();
   lives_ok{ $obj->run() } "test run: runs ok";
   unlink $obj->{parent}->{cachefile};
   unlink("t/data/disk_test1.rrd");
   unlink("t/data/disk_test2.rrd");
   unlink("t/data/total.rrd");
+  $count+=1;
 }
 
 
@@ -105,12 +102,19 @@ sub test_run {
 
 sub main {
   my $self = shift;
-  my $meta = Class::MOP::Class->initialize('DiskUsage::RRD::TestSuite');
-  foreach my $method ($meta->get_method_list()) {
-    if ($method =~ m/^test_/) {
-      $self->$method();
+  my $test = shift;
+  if (defined $test) {
+    print "Run $test\n";
+    $self->$test();
+  } else {
+    my $meta = Class::MOP::Class->initialize('DiskUsage::RRD::TestSuite');
+    foreach my $method ($meta->get_method_list()) {
+      if ($method =~ m/^test_/) {
+        $self->$method();
+      }
     }
   }
+  done_testing($count);
 }
 
 1;
@@ -123,9 +127,9 @@ use Class::MOP;
 # MAIN
 my $opts = {};
 getopts("dlL",$opts) or
-  throw Error::Simple("failure parsing options: $!");
+  die "failure parsing options: $!";
 
-my $Test = $CLASS->new();
+my $Test = DiskUsage::RRD::TestSuite->new();
 
 if ($opts->{'L'}) {
   $Test->{live} = 1;
@@ -149,8 +153,7 @@ if ($opts->{'l'}) {
 if (@ARGV) {
   my $test = $ARGV[0];
   if ($Test->can($test)) {
-    print "Run $test\n";
-    $Test->$test();
+    $Test->main($test);
   } else {
     print "No test $test known\n";
   }

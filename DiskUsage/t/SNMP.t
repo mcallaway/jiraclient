@@ -1,27 +1,26 @@
 
 package DiskUsage::SNMP::TestSuite;
 
-my $CLASS = __PACKAGE__;
-
 # Standard modules for my unit test suites
 # use base 'Test::Builder::Module';
 
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More;
 use Test::Output;
 use Test::Exception;
 
 use Class::MOP;
 use Data::Dumper;
-use Cwd;
-use File::Basename;
+use Cwd qw/abs_path/;
+use File::Basename qw/dirname/;
 use Log::Log4perl qw/:levels/;
 
 use DiskUsage;
 use DiskUsage::SNMP;
 
+my $count = 0;
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
 
@@ -57,6 +56,7 @@ sub test_logger {
   stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug on ok";
   $obj->{logger}->level($WARN);
   stderr_isnt { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug off ok";
+  $count+=2;
 }
 
 sub test_connect {
@@ -65,6 +65,7 @@ sub test_connect {
   my $result = {};
   my $host = "foo";
   throws_ok { $obj->{snmp}->connect_snmp($host); } qr/SNMP failed/, "test_connect: fails ok on bad host";
+  $count+=1;
 }
 
 sub test_snmp_get_table {
@@ -73,10 +74,11 @@ sub test_snmp_get_table {
   my $obj = $self->test_start();
   # Only use this test during development when you know
   # we can connect to target host;
-  my $host = "gpfs1";
+  my $host = "gpfs";
   my $res = $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->snmp_get_table('1.3.6.1.2.1.25.4.2.1.2');
   ok( scalar @{ [ keys %$res ] } > 1 );
+  $count+=1;
 }
 
 sub test_snmp_get_request {
@@ -90,6 +92,7 @@ sub test_snmp_get_request {
   $res = $obj->{snmp}->snmp_get_request( ['1.3.6.1.2.1.1.1.0', '1.3.6.1.2.1.1.5.0']);
   ok( $res->{ '1.3.6.1.2.1.1.1.0' } =~ /^Linux/, "test_snmp_get_request: nfs17 is linux");
   ok( $res->{ '1.3.6.1.2.1.1.5.0' } eq 'linuscs84', "test_snmp_get_request: sysDesc is linuxcs84");
+  $count+=2;
 }
 
 sub test_snmp_get_serial_request {
@@ -103,7 +106,8 @@ sub test_snmp_get_serial_request {
   my $oid = '1.3.6.1.2.1.25.2.3.1.3';
   $res = $obj->{snmp}->snmp_get_serial_request( $oid );
   #print scalar @{ [ keys %$res ] } . "\n";
-  ok( scalar @{ [ keys %$res ] } == 107, "test_snmp_get_serial_request: ok");
+  ok( scalar @{ [ keys %$res ] } == 98, "test_snmp_get_serial_request: ok");
+  $count+=1;
 }
 
 sub test_type_mapper {
@@ -114,6 +118,7 @@ sub test_type_mapper {
   $string = "NetApp Release 7.3.2: Thu Oct 15 04:12:15 PDT 2009";
   my $res = $obj->{snmp}->type_string_to_type($string);
   ok($res = 'linux',"test_type_mapper: sees netapp ok");
+  $count+=2;
 }
 
 sub test_get_host_type {
@@ -130,8 +135,9 @@ sub test_get_host_type {
   $host = "ntap8";
   $obj->{snmp}->connect_snmp($host);
   $res = $obj->{snmp}->get_host_type($host);
-  print Dumper($res);
+  #print Dumper($res);
   ok( $res eq 'netapp', "test_get_host_type: ntap8 detected" );
+  $count+=2;
 }
 
 sub test_get_snmp_disk_usage {
@@ -150,6 +156,7 @@ sub test_get_snmp_disk_usage {
   $obj->{snmp}->get_snmp_disk_usage($result);
   #print Dumper($result);
   ok( scalar keys %$result > 1, "test_get_snmp_disk_usage: ntap8 ok");
+  $count+=2;
 }
 
 sub test_cache_snmp {
@@ -162,6 +169,7 @@ sub test_cache_snmp {
   $obj->{snmp}->connect_snmp($host);
   my $result = $obj->{snmp}->query_snmp($host);
   lives_ok { $obj->cache($host,$result,$err); } "cache_snmp: doesn't crash";
+  $count+=1;
 }
 
 sub test_target {
@@ -173,19 +181,28 @@ sub test_target {
   my $err = 0;
   $obj->{snmp}->connect_snmp($host);
   my $result = $obj->{snmp}->query_snmp($host);
-  print Dumper $result;
+  #print Dumper $result;
+  ok( ref $result eq 'HASH', "test target" );
+  $count+=1;
 }
 
 # -- end test subs
 
 sub main {
   my $self = shift;
-  my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
-  foreach my $method ($meta->get_method_list()) {
-    if ($method =~ m/^test_/) {
-      $self->$method();
+  my $test = shift;
+  if (defined $test) {
+    print "Run $test\n";
+    $self->$test();
+  } else {
+    my $meta = Class::MOP::Class->initialize('DiskUsage::SNMP::TestSuite');
+    foreach my $method ($meta->get_method_list()) {
+      if ($method =~ m/^test_/) {
+        $self->$method();
+      }
     }
   }
+  done_testing($count);
 }
 
 1;
@@ -200,7 +217,7 @@ my $opts = {};
 getopts("dlL",$opts) or
   die("failure parsing options: $!");
 
-my $Test = $CLASS->new();
+my $Test = DiskUsage::SNMP::TestSuite->new();
 
 if ($opts->{'d'}) {
   $Test->{debug} = 1;
@@ -225,8 +242,7 @@ if ($opts->{'l'}) {
 if (@ARGV) {
   my $test = $ARGV[0];
   if ($Test->can($test)) {
-    print "Run $test\n";
-    $Test->$test();
+    $Test->main($test);
   } else {
     print "No test $test known\n";
   }
