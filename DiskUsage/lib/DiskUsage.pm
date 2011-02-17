@@ -234,8 +234,6 @@ sub cache {
   }
 
   $self->{cache}->disk_hosts_add($host,$result,$err);
-
-  $self->{cache}->validate_volumes();
 }
 
 sub host_is_current {
@@ -350,6 +348,8 @@ sub update_cache {
       $self->{logger}->info("host $host is current\n");
     }
   } # end foreach my $host
+
+  $self->{cache}->validate_volumes();
 }
 
 sub main {
