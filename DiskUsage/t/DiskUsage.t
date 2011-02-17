@@ -1,8 +1,6 @@
 
 package DiskUsage::TestSuite;
 
-my $CLASS = __PACKAGE__;
-
 # Standard modules for my unit test suites
 use base 'Test::Builder::Module';
 
@@ -11,16 +9,13 @@ use warnings;
 
 # Modules for calling this unit test script
 use Class::MOP;
-use Getopt::Std;
-use Error;
 use Data::Dumper;
-use Cwd;
-use File::Basename;
-use File::Path;
+use Cwd qw/abs_path/;
+use File::Basename qw/dirname/;
 use Log::Log4perl qw/:levels/;
 
 # Unit test modules
-use Test::More tests => 8;
+use Test::More;
 use Test::Output;
 use Test::Exception;
 
@@ -29,6 +24,7 @@ use DiskUsage;
 
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
+my $count = 0;
 
 sub new {
   my $class = shift;
@@ -68,6 +64,7 @@ sub test_prepare_logger {
   $obj->{logger}->level($WARN);
   stderr_like { $obj->{logger}->error("Test") } qr/^.* Test/, "logger with debug off ok";
   stderr_unlike { $obj->{logger}->debug("Test") } qr/^.* Test/, "debug off ok";
+  $count+=5;
 }
 
 sub test_parse_disk_conf {
@@ -75,11 +72,12 @@ sub test_parse_disk_conf {
   my $obj = $self->test_start();
   $obj->{diskconf} = "$cwd/data/good_disk_conf_001";
   my $hosts = $obj->parse_disk_conf();
-  ok(scalar keys %$hosts == 36);
+  ok(scalar keys %$hosts == 36,"test good disk conf");
 
   $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
   $hosts = $obj->parse_disk_conf();
-  ok(scalar keys %$hosts == 33);
+  ok(scalar keys %$hosts == 33,"test good gscmnt");
+  $count+=2;
 }
 
 sub test_define_hosts {
@@ -88,7 +86,8 @@ sub test_define_hosts {
   $obj->{diskconf} = "$cwd/data/good_gscmnt_001";
   $obj->{hosts} = "host1,host2";
   my $hosts = $obj->define_hosts();
-  ok(scalar keys %$hosts == 35);
+  ok(scalar keys %$hosts == 35,"test define hosts");
+  $count+=1;
 }
 
 sub test_update_cache {
@@ -98,6 +97,9 @@ sub test_update_cache {
   $obj->{force} = 1;
   my $hosts = { 'nfs17'=>{} };
   lives_ok { $obj->update_cache($hosts); } "update_cache runs ok";
+  print "cache: " .  $obj->{cachefile} . "\n";
+  unlink $obj->{cachefile};
+  $count+=1;
 }
 
 sub test_query_snmp {
@@ -107,7 +109,9 @@ sub test_query_snmp {
   $obj->{cache}->prep();
   my $host = "nfs24";
   my $result = $obj->{snmp}->query_snmp($host);
-  ok(scalar keys %$result > 1);
+  ok(scalar keys %$result > 1,"test query snmp");
+  unlink $obj->{cachefile};
+  $count+=1;
 }
 
 sub test_cache_result {
@@ -117,12 +121,14 @@ sub test_cache_result {
   $obj->{cache}->prep();
   my $host = "nfs17";
   my $result = $obj->{snmp}->query_snmp($host);
-  ok(scalar keys %$result > 1);
+  ok(scalar keys %$result > 1,"test cache result");
   my $error = 0;
   my $res = $obj->cache($host,$result,$error);
+  unlink $obj->{cachefile};
+  $count+=1;
 }
 
-sub test_is_current {
+sub test_host_is_current {
   my $self = shift;
   return if (! $self->{live});
   my $obj = $self->test_start();
@@ -131,20 +137,30 @@ sub test_is_current {
   $obj->{cache}->prep();
   $result = $obj->{snmp}->query_snmp($host);
   $result = $obj->cache($host,$result,0);
-  $result = $obj->is_current($host);
-  ok($result == 1);
+  $result = $obj->host_is_current($host);
+  ok($result == 1,"test is current");
+  unlink $obj->{cachefile};
+  $count+=1;
 }
 
 # --- end of test subs
 
 sub main {
   my $self = shift;
-  my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
-  foreach my $method ($meta->get_method_list()) {
-    if ($method =~ m/^test_/) {
-      $self->$method();
+  my $test = shift;
+
+  if (defined $test) {
+    print "Run test $test\n";
+    $self->$test();
+  } else {
+    my $meta = Class::MOP::Class->initialize('DiskUsage::TestSuite');
+    foreach my $method ($meta->get_method_list()) {
+      if ($method =~ m/^test_/) {
+        $self->$method();
+      }
     }
   }
+  done_testing($count);
 }
 
 1;
@@ -157,9 +173,9 @@ use Class::MOP;
 # MAIN
 my $opts = {};
 getopts("dlL",$opts) or
-  throw Error::Simple("failure parsing options: $!");
+  die("failure parsing options: $!");
 
-my $Test = $CLASS->new();
+my $Test = DiskUsage::TestSuite->new();
 
 if ($opts->{'L'}) {
   $Test->{live} = 1;
@@ -183,8 +199,7 @@ if ($opts->{'l'}) {
 if (@ARGV) {
   my $test = $ARGV[0];
   if ($Test->can($test)) {
-    print "Run $test\n";
-    $Test->$test();
+    $Test->main($test);
   } else {
     print "No test $test known\n";
   }
@@ -192,5 +207,3 @@ if (@ARGV) {
   print "run all tests\n";
   $Test->main();
 }
-
-1;
