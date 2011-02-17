@@ -17,6 +17,7 @@ use Class::MOP;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
+use Log::Log4perl qw/:levels/;
 
 use DiskUsage;
 use DiskUsage::SNMP;
@@ -49,13 +50,13 @@ sub test_start {
 }
 
 sub test_logger {
-  # Test logging to stdout.
+  # Test logging to stderr.
   my $self = shift;
   my $obj = $self->test_start();
-  $obj->{debug} = 1;
-  stdout_like { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug on ok";
-  $obj->{debug} = 0;
-  stdout_isnt { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug off ok";
+  $obj->{logger}->level($DEBUG);
+  stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug on ok";
+  $obj->{logger}->level($WARN);
+  stderr_isnt { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug off ok";
 }
 
 sub test_connect {

@@ -7,11 +7,13 @@ use warnings;
 use DBI;
 use RRDTool::OO;
 use Time::Local;
+use Log::Log4perl qw/:levels/;
 
 sub new {
   my $class = shift;
   my $self = {
     parent => shift,
+    logger => Log::Log4perl->get_logger(__PACKAGE__),
   };
   bless $self,$class;
   return $self;
@@ -23,22 +25,10 @@ sub error {
   $self->{parent}->error(@_);
 }
 
-sub logger {
-  # Raise an Exception object.
-  my $self = shift;
-  $self->{parent}->logger(@_);
-}
-
-sub local_debug {
-  my $self = shift;
-  $self->{parent}->logger("DEBUG: @_")
-    if ($self->{parent}->{debug});
-}
-
 sub prep_fake_rrd {
   my $self = shift;
   my $rrd = shift;
-  $self->local_debug("prep_fake_rrd\n");
+  $self->{logger}->debug("prep_fake_rrd\n");
 
   my $total = 0;
   my $used  = 0;
@@ -61,7 +51,7 @@ sub create_rrd {
   my $self = shift;
   my $rrd = shift;
   my $start = shift;
-  $self->local_debug("create_rrd\n");
+  $self->{logger}->debug("create_rrd\n");
 
   if (! defined $start) {
     # beginning of today
@@ -102,7 +92,7 @@ sub create_rrd {
 
 sub create_or_update {
   my ($self,$group,$total,$used,$cap,$cost) = @_;
-  $self->local_debug("create_or_update($group,$total,$used)\n");
+  $self->{logger}->debug("create_or_update($group,$total,$used)\n");
 
   my $rrdpath = $self->{parent}->{rrdpath};
   die "RRD path is unset" if (! defined $rrdpath);
@@ -135,7 +125,7 @@ sub run {
   my $sql = "SELECT group_name, SUM(total_kb) as tkb, SUM(used_kb) as ukb, ROUND((CAST(SUM(used_kb) AS REAL)/SUM(total_kb) * 100),2) as capacity, (SUM(total_kb)*2500/1000000000) as cost FROM disk_df GROUP BY group_name";
   my $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
   my $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
-  $self->local_debug("Found $sth->rows disk groups\n");
+  $self->{logger}->debug("Found $sth->rows disk groups\n");
   while (my @a = $sth->fetchrow_array() ) {
     $self->create_or_update(@a);
   }
@@ -145,7 +135,7 @@ sub run {
   $sql = "SELECT SUM(total_kb),SUM(used_kb) FROM disk_df";
   $sth = $dbh->prepare($sql) or die("Error preparing sql: " . DBI->errstr() . "\nSQL: $sql\n");
   $rv = $sth->execute() or die("Error executing sql: " . DBI->errstr() . "\nSQL: $sql\n");
-  $self->local_debug("Found $sth->rows disk groups\n");
+  $self->{logger}->debug("Found $sth->rows disk groups\n");
   while (my @a = $sth->fetchrow_array() ) {
     $self->create_or_update("total",@a,undef,undef,undef);
   }

@@ -17,6 +17,7 @@ use Data::Dumper;
 use Cwd;
 use File::Basename;
 use File::Path;
+use Log::Log4perl qw/:levels/;
 
 # Unit test modules
 use Test::More tests => 8;
@@ -57,16 +58,16 @@ sub test_start {
 sub test_prepare_logger {
   my $self = shift;
   my $obj = new DiskUsage;
-  $obj->{debug} = 1;
-  throws_ok { $obj->logger("Test\n"); } qr/no logfile defined/, "missing log check ok";
+  throws_ok { $obj->{logger}->warn("Test\n"); } qr/Can't call method/, "missing log check ok";
   $obj->prepare_logger();
+
   # Test prepare_logger, printing to STDOUT.
-  $obj->{debug} = 1;
-  stdout_like { $obj->logger("Test") } qr/^.*: Test/, "logger with debug on ok";
-  stdout_like { $obj->local_debug("Test") } qr/^.*: Test/, "debug on ok";
-  $obj->{debug} = 0;
-  stdout_like { $obj->logger("Test") } qr/^.*: Test/, "logger with debug off ok";
-  stdout_unlike { $obj->local_debug("Test") } qr/^.*: Test/, "debug off ok";
+  $obj->{logger}->level($DEBUG);
+  stderr_like { $obj->{logger}->error("Test") } qr/^.* Test/, "properly see error";
+  stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "properly see debug";
+  $obj->{logger}->level($WARN);
+  stderr_like { $obj->{logger}->error("Test") } qr/^.* Test/, "logger with debug off ok";
+  stderr_unlike { $obj->{logger}->debug("Test") } qr/^.* Test/, "debug off ok";
 }
 
 sub test_parse_disk_conf {

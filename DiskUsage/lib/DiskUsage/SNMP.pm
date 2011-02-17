@@ -8,6 +8,7 @@ use File::Basename;
 use POSIX;
 use Net::SNMP;
 use Data::Dumper;
+use Log::Log4perl qw/:levels/;
 
 # Autoflush
 local $| = 1;
@@ -53,6 +54,7 @@ sub new {
     no_snmp => 0,
     hosttype => undef,
     groups => undef,
+    logger => Log::Log4perl->get_logger(__PACKAGE__),
   };  bless $self, $class;
   return $self;
 }
@@ -63,25 +65,12 @@ sub error {
   die "@_";
 }
 
-sub logger {
-  my $self = shift;
-  my $fh = $self->{parent}->{logfh};
-  $fh = \*STDERR if (! defined $fh);
-  print $fh localtime() . ": @_";
-}
-
-sub local_debug {
-  my $self = shift;
-  $self->logger("DEBUG: @_")
-    if ($self->{parent}->{debug});
-}
-
 sub snmp_get_request {
   my $self = shift;
   my $args = shift;
   my $result = {};
 
-  $self->local_debug("snmp_get_request( " . Dumper($args) . ")\n");
+  $self->{logger}->debug("snmp_get_request( " . Dumper($args) . ")\n");
   eval {
     $result = $self->{snmp_session}->get_request(-varbindlist => $args );
   };
@@ -103,7 +92,7 @@ sub snmp_get_serial_request {
   my $result = {};
   my $res = {};
 
-  $self->local_debug("snmp_get_serial_request( " . Dumper($baseoid) . ")\n");
+  $self->{logger}->debug("snmp_get_serial_request( " . Dumper($baseoid) . ")\n");
   my $idx = 1;
   while (1) {
     eval {
@@ -127,7 +116,7 @@ sub snmp_get_table {
   my $self = shift;
   my $baseoid = shift;
   my $result = {};
-  $self->local_debug("snmp_get_table($baseoid)\n");
+  $self->{logger}->debug("snmp_get_table($baseoid)\n");
   eval {
     $result = $self->{snmp_session}->get_table(-baseoid => $baseoid);
   };
@@ -141,7 +130,7 @@ sub type_string_to_type {
   my $self = shift;
   my $typestr = shift;
 
-  $self->local_debug("type_string_to_type($typestr)\n");
+  $self->{logger}->debug("type_string_to_type($typestr)\n");
 
   # List of regexes that map sysDescr to a system type
   my %dispatcher = (
@@ -162,7 +151,7 @@ sub get_host_type {
   my $self = shift;
   my $sess = $self->{snmp_session};
 
-  $self->local_debug("get_host_type()\n");
+  $self->{logger}->debug("get_host_type()\n");
 
   return $self->{hosttype}
     if (defined $self->{hosttype});
@@ -171,7 +160,7 @@ sub get_host_type {
   my $typestr = pop @{ [ values %$res ] };
 
   $self->{hosttype} = $self->type_string_to_type($typestr);
-  $self->local_debug("host is type: $self->{hosttype}\n");
+  $self->{logger}->debug("host is type: $self->{hosttype}\n");
   return $self->{hosttype};
 }
 
@@ -191,13 +180,13 @@ sub get_snmp_disk_usage {
   my $self = shift;
   my $result = shift;
 
-  $self->local_debug("get_snmp_disk_usage()\n");
+  $self->{logger}->debug("get_snmp_disk_usage()\n");
 
   # Need to know what sort of host this is to see what SNMP tables to ask for.
   my $host_type = $self->get_host_type();
 
   # Fetch all volumes on target host
-  $self->local_debug("fetch list of volumes...\n");
+  $self->{logger}->debug("fetch list of volumes...\n");
   my $ref;
   if ($host_type eq 'netapp') {
     # NetApp is different than Linux
@@ -209,7 +198,7 @@ sub get_snmp_disk_usage {
   }
 
   # Iterate over all volumes and get consumption info.
-  $self->local_debug("get consumption of each volume...\n");
+  $self->{logger}->debug("get consumption of each volume...\n");
   foreach my $volume_path_oid (keys %$ref) {
     # Iterate over subset of volumes that we export, based on
     # a naming convention adopted by Systems team.
@@ -264,9 +253,9 @@ sub get_snmp_disk_usage {
         $result->{$ref->{$volume_path_oid}} = {} if (! defined $result->{$ref->{$volume_path_oid}} );
 
         # Add mount point
-        $self->local_debug("get mount point of volume " . $ref->{$volume_path_oid} . "\n");
+        $self->{logger}->debug("get mount point of volume " . $ref->{$volume_path_oid} . "\n");
         $result->{$ref->{$volume_path_oid}}->{'mount_path'} = $self->get_mount_point($ref->{$volume_path_oid});
-        $self->local_debug($result->{$ref->{$volume_path_oid}}->{'mount_path'} . "\n");
+        $self->{logger}->debug($result->{$ref->{$volume_path_oid}}->{'mount_path'} . "\n");
 
         # The last digit in the OID is the volume we want
 
@@ -287,7 +276,7 @@ sub get_mount_point {
   my $volume = shift;
 
   # This is noisy
-  #$self->local_debug("get_mount_point\n");
+  #$self->{logger}->debug("get_mount_point\n");
 
   # These mount points are agreed upon by convention.
   # Return empty if the $volume is shorter than the
@@ -311,7 +300,7 @@ sub get_disk_groups_via_snmp {
   my $physical_path = shift;
   my $mount_path = shift;
 
-  $self->local_debug("get_disk_groups_via_snmp\n");
+  $self->{logger}->debug("get_disk_groups_via_snmp\n");
 
   # Try SNMP for linux hosts, which may have been configured to
   # report disk group touch files via SNMP.  Save the result so
@@ -324,20 +313,20 @@ sub get_disk_groups_via_snmp {
     if ($@ or length($self->{snmp_session}->error())) {
       my $msg = $self->{snmp_session}->error();
       if ($msg =~ /No response/) {
-        $self->local_debug("took too long looking for groups via snmp...proceeding\n");
+        $self->{logger}->debug("took too long looking for groups via snmp...proceeding\n");
       } elsif ($msg =~ /table is empty/) {
-        $self->local_debug("this host doesn't serve groups via snmp...proceeding\n");
+        $self->{logger}->debug("this host doesn't serve groups via snmp...proceeding\n");
         $self->{no_snmp} = 1;
       } elsif ($msg =~ /Message size exceeded/) {
         my $size = $self->{snmp_session}->max_msg_size();
         return if ($size == 12000); # don't do this twice
-        $self->local_debug("query snmp again with larger message size...\n");
+        $self->{logger}->debug("query snmp again with larger message size...\n");
         $self->{snmp_session}->max_msg_size(12000); # try larger size
         return $self->get_disk_groups_via_snmp($physical_path,$mount_path);
       } elsif ($msg =~ /Unexpected end of/) {
         my $size = $self->{snmp_session}->max_msg_size();
         return if ($size == 12000); # don't do this twice
-        $self->local_debug("query snmp again with larger message size...\n");
+        $self->{logger}->debug("query snmp again with larger message size...\n");
         $self->{snmp_session}->max_msg_size(12000); # try larger size
         return $self->get_disk_groups_via_snmp($physical_path,$mount_path);
       } else {
@@ -352,7 +341,7 @@ sub lookup_disk_group_via_snmp {
   my $physical_path = shift;
   my $mount_path = shift;
 
-  $self->local_debug("lookup_disk_group_via_snmp($physical_path,$mount_path)\n");
+  $self->{logger}->debug("lookup_disk_group_via_snmp($physical_path,$mount_path)\n");
 
   $self->get_disk_groups_via_snmp($physical_path,$mount_path)
     if (! defined $self->{groups});
@@ -362,7 +351,7 @@ sub lookup_disk_group_via_snmp {
     my $dirname = $1;
     my $group_name = $2;
     if ($dirname eq $physical_path) {
-      $self->local_debug("snmp says $mount_path belongs to $group_name\n");
+      $self->{logger}->debug("snmp says $mount_path belongs to $group_name\n");
       return $group_name;
     }
   }
@@ -377,17 +366,17 @@ sub get_disk_group {
   my $mount_path = shift;
   my $group_name;
 
-  $self->local_debug("get_disk_group($physical_path,$mount_path)\n");
+  $self->{logger}->debug("get_disk_group($physical_path,$mount_path)\n");
 
   # Does the cache already have the disk group name?
   my $res = $self->{parent}->{cache}->fetch_disk_group($mount_path);
   if (defined $res and scalar @$res > 0 and ! $self->{parent}->{recache}) {
     $group_name = pop @{ pop @$res };
-    $self->local_debug("$mount_path is cached for: $group_name\n");
+    $self->{logger}->debug("$mount_path is cached for: $group_name\n");
     return $group_name;
   }
 
-  $self->local_debug("no group known for $mount_path\n");
+  $self->{logger}->debug("no group known for $mount_path\n");
 
   # Special case of '.snapshot' mounts
   my $base = basename $physical_path;
@@ -403,7 +392,7 @@ sub get_disk_group {
     return $group_name if (defined $group_name and $group_name ne '');
   }
 
-  $self->local_debug("mount $mount_path and look for touchfile\n");
+  $self->{logger}->debug("mount $mount_path and look for touchfile\n");
 
   # This will actually mount a mount point via automounter.
   # Be careful to not overwhelm NFS servers.
@@ -415,7 +404,7 @@ sub get_disk_group {
     $group_name = 'unknown';
   }
 
-  $self->local_debug("$mount_path is group: $group_name\n");
+  $self->{logger}->debug("$mount_path is group: $group_name\n");
 
   return $group_name;
 }
@@ -426,7 +415,7 @@ sub connect_snmp {
   my $host = shift;
   my $timeout = int($self->{parent}->{timeout});
 
-  $self->local_debug("connect_snmp($host)\n");
+  $self->{logger}->debug("connect_snmp($host)\n");
 
   my ($sess,$err);
   eval {

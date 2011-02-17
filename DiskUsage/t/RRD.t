@@ -34,7 +34,7 @@ sub new {
   # Determine if we're 'live' and can connect over the network.
   my $self = {
     live => 0,
-    debug => 1,
+    debug => 0,
   };
   return bless $self, $class;
 }

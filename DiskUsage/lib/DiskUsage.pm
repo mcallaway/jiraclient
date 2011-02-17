@@ -13,6 +13,7 @@ use Date::Manip;
 # Usage function
 use Pod::Find qw(pod_where);
 use Pod::Usage;
+use Log::Log4perl qw(:easy);
 
 use DiskUsage::Cache;
 use DiskUsage::RRD;
@@ -36,7 +37,8 @@ sub new {
     cachefile  => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/du.cache",
     rrdpath    => "/var/www/domains/gsc.wustl.edu/diskusage/cgi-bin/rrd",
     logdir     => undef,
-    logfile    => undef,
+    logfile    => 'STDERR',
+    loglevel   => 'INFO',
     logfh      => undef,
     dbh        => undef,
     purge      => undef, # max days since last volume update are "aged"
@@ -65,24 +67,6 @@ sub error {
   die "@_";
 }
 
-sub logger {
-  # Simple logging where logfile is set during startup
-  # to either a file handle or STDOUT.
-  my $self = shift;
-  my $fh = $self->{logfh};
-  die "no logfile defined, run prepare_logger"
-    if (! defined $fh);
-  print $fh localtime() . ": @_";
-}
-
-sub local_debug {
-  # Simple debugging.
-  my $self = shift;
-  if ($self->{debug}) {
-    $self->logger("DEBUG: @_");
-  }
-}
-
 sub version {
   my $self = shift;
   print "disk_usage $VERSION\n";
@@ -93,22 +77,16 @@ sub prepare_logger {
   # Set the file handle for the log.
   # Use logfile in .cfg if not given on CLI.
   my $self = shift;
+  $self->{loglevel} = 'DEBUG' if $self->{debug};
+
+  # FIXME: We may start using a config file some time.
   # Config file may specify a logfile
-  if (defined $self->{config}->{logfile}) {
-    $self->{logfile} = $self->{config}->{logfile};
-  }
+  #if (defined $self->{config}->{logfile}) {
+  #  $self->{logfile} = $self->{config}->{logfile};
+  #}
   # Command line overrides config file
-  if (defined $self->{logfile}) {
-    $self->{logfile} = $self->{logfile};
-  }
-  # Open logfile or STDOUT.
-  if (defined $self->{logfile}) {
-    open(LOGFILE,">>$self->{logfile}") or
-      $self->error("failed to open log file $self->{logfile}: $!\n");
-    $self->{logfh} = \*LOGFILE;
-  } else {
-    $self->{logfh} = \*STDOUT;
-  }
+  Log::Log4perl->easy_init( { level => $self->{loglevel}, file => $self->{logfile} } );
+  $self->{logger} = Log::Log4perl->get_logger();
 }
 
 # FIXME: Avoiding the use of a configuration file for now.
@@ -125,7 +103,7 @@ sub prepare_logger {
 #  # Slurp has read_file
 #  use File::Slurp qw/read_file/;
 #
-#  $self->local_debug("read_config()\n");
+#  $self->{logger}->debug("read_config()\n");
 #
 #  return
 #    if (! defined $self->{configfile});
@@ -156,10 +134,10 @@ sub parse_disk_conf {
 
   my $self = shift;
 
-  $self->local_debug("parse_disk_conf()\n");
+  $self->{logger}->debug("parse_disk_conf()\n");
   $self->error("disk configuration file is undefined, use -D\n")
     if (! defined $self->{diskconf} or ! -f $self->{diskconf});
-  $self->local_debug("using disk config file: $self->{diskconf}\n");
+  $self->{logger}->debug("using disk config file: $self->{diskconf}\n");
 
   # Parse config file for disk definitions.
   open FH, "<", $self->{diskconf} or
@@ -199,7 +177,7 @@ sub parse_disk_conf {
   }
   close(FH);
 
-  $self->local_debug("found " . scalar(keys %$result). " host(s)\n");
+  $self->{logger}->debug("found " . scalar(keys %$result). " host(s)\n");
   return $result;
 }
 
@@ -210,7 +188,7 @@ sub define_hosts {
   my @argv = @_;
   my $hosts;
 
-  $self->local_debug("define_hosts()\n");
+  $self->{logger}->debug("define_hosts()\n");
 
   if ($#argv > -1) {
     my $type = undef;
@@ -241,7 +219,7 @@ sub cache {
   return if (! defined $host);
   return if (! defined $result);
 
-  $self->local_debug("cache($host,$result,$err)\n");
+  $self->{logger}->debug("cache($host,$result,$err)\n");
 
   foreach my $key (keys %$result) {
     $self->{cache}->disk_df_add($result->{$key});
@@ -258,7 +236,7 @@ sub host_is_current {
   my $self = shift;
   my $host = shift;
 
-  $self->local_debug("host_is_current()\n");
+  $self->{logger}->debug("host_is_current()\n");
 
   return 0 if ($self->{force});
 
@@ -283,7 +261,7 @@ sub host_is_current {
   my $delta = Delta_Format($calc,0,'%st');
   return 0 if (! defined $delta);
 
-  $self->local_debug("hrs delta: $calc => $delta sec\n");
+  $self->{logger}->debug("hrs delta: $calc => $delta sec\n");
   return 1
     if $delta < $self->{host_maxage};
 
@@ -295,7 +273,7 @@ sub parse_args {
   my $self = shift;
   my %opts;
 
-  getopts("dfFhVD:H:i:l:pr:t:v:",\%opts) or
+  getopts("dfFhVD:H:i:l:L:pr:t:v:",\%opts) or
     $self->error("Error parsing options\n");
 
   if ($opts{'h'}) {
@@ -313,7 +291,11 @@ sub parse_args {
   $self->{purge} = delete $opts{'p'} ? 1 : 0;
   $self->{diskconf} = delete $opts{'D'};
   $self->{hosts} = delete $opts{'H'};
-  $self->{logfile} = delete $opts{'l'};
+  # Update values if specified, but preserve defaults:
+  $self->{logfile} = delete $opts{'l'}
+    if ($opts{'l'});
+  $self->{loglevel} = delete $opts{'L'}
+    if ($opts{'L'});
   $self->{timeout} = delete $opts{'t'}
     if ($opts{'t'});
   $self->{cachefile} = delete $opts{'i'}
@@ -330,7 +312,7 @@ sub update_cache {
   my $self = shift;
   my $hosts = shift;
 
-  $self->local_debug("update_cache()\n");
+  $self->{logger}->debug("update_cache()\n");
 
   $self->{cache}->prep();
 
@@ -343,21 +325,21 @@ sub update_cache {
   foreach my $host (keys %$hosts) {
     # Have to queried this host recently?
     if (! $self->host_is_current($host) ) {
-      print "Querying host $host\n";
+      $self->{logger}->info("Querying host $host\n");
       # Query the host and cache the result
       my $result = {};
-      my $error = 0;
+      my $snmperror = 0;
       eval {
         $result = $self->{snmp}->query_snmp($host);
       };
       if ($@) {
-        # log here, but not fatally
-        $self->logger("snmp error: $host: $@\n");
-        $error = 1;
+        # log here, but not high priority, it's common
+        $self->{logger}->info("snmp error: $host: $@\n");
+        $snmperror = 1;
       }
-      $self->cache($host,$result,$error);
+      $self->cache($host,$result,$snmperror);
     } else {
-      print "host $host is current\n";
+      $self->{logger}->info("host $host is current\n");
     }
   } # end foreach my $host
 }
@@ -386,12 +368,12 @@ sub main {
   # Build/update the cache of data
   $self->update_cache($hosts);
 
-  $self->logger("queried " . ( scalar keys %$hosts ) . " host(s)\n");
+  $self->{logger}->info("queried " . ( scalar keys %$hosts ) . " host(s)\n");
 
   # Now that the cache is built/updated, create/update RRD files.
   $self->{rrd}->run();
 
-  print "Complete\n";
+  $self->{logger}->info("Complete\n");
 
   return 0;
 }

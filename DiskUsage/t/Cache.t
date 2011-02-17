@@ -17,6 +17,7 @@ use Class::MOP;
 use Data::Dumper;
 use Cwd;
 use File::Basename;
+use Log::Log4perl qw/:levels/;
 
 use DiskUsage;
 use DiskUsage::Cache;
@@ -51,12 +52,12 @@ sub test_start {
 
 sub test_logger {
   my $self = shift;
-  # Test logging to stdout.
+  # Test logging to stderr.
   my $obj = $self->test_start();
-  $obj->{parent}->{debug} = 1;
-  stdout_like { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug on ok";
-  $obj->{parent}->{debug} = 0;
-  stdout_isnt { $obj->local_debug("Test") } qr/^.*: Test/, "test_logger: debug off ok";
+  $obj->{logger}->level($DEBUG);
+  stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug on ok";
+  $obj->{logger}->level($ERROR);
+  stderr_isnt { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug off ok";
 }
 
 sub test_sql_exec {
@@ -118,8 +119,8 @@ sub test_prep_good {
   my $self = shift;
   my $cache = $self->test_start();
   my $obj = $cache->{parent};
-  # Enable debugging for this test to catch stdout
-  $obj->{debug} = 1;
+  # Enable debugging for this test to catch stderr
+  $obj->{logger}->level($DEBUG);
   my $cachefile;
 
   # Now do it right
@@ -127,8 +128,8 @@ sub test_prep_good {
   $cachefile = $cache->{parent}->{cachefile};
   unlink($cachefile) if (-f $cachefile);
 
-  stdout_like { $cache->prep() } qr/creating new cache/, "new cache file correct";
-  stdout_like { $cache->prep() } qr/using existing cache/, "existing cache file correct";
+  stderr_like { $cache->prep() } qr/creating new cache/, "new cache file correct";
+  stderr_like { $cache->prep() } qr/using existing cache/, "existing cache file correct";
   ok(-f $cache->{parent}->{cachefile} == 1,"cache file present ok");
   unlink $cachefile;
 }
@@ -191,9 +192,9 @@ sub test_validate_volumes {
 
   $obj->{configfile} = "$cwd/data/disk_usage_good_001.cfg";
   $obj->{cachefile} = "$cwd/data/test.cache";
-  $obj->{debug} = 0;
   $obj->{purge} = 30;
   #$obj->read_config();
+  $obj->{loglevel} = "WARN";
   $obj->prepare_logger();
 
   my $params1 = {
@@ -216,7 +217,7 @@ sub test_validate_volumes {
   $cache->sql_exec("DROP TRIGGER IF EXISTS disk_df_update_last_modified");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata801'");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata802'");
-  stdout_like { $cache->validate_volumes() } qr/Aging volume/, "aging volume correct";
+  stderr_like { $cache->validate_volumes() } qr/Aging volume/, "aging volume correct";
   unlink "$cwd/data/disk_test.rrd";
   unlink "$cwd/data/disk_test1.rrd";
   unlink "$cwd/data/disk_test2.rrd";

@@ -12,6 +12,7 @@ use DBI;
 use Time::HiRes qw(usleep);
 use File::Basename;
 use File::Find::Rule;
+use Log::Log4perl qw(:levels);
 
 # -- Subroutines
 #
@@ -19,6 +20,7 @@ sub new {
   my $class = shift;
   my $self = {
     parent => shift,
+    logger => Log::Log4perl->get_logger(__PACKAGE__),
   };
   bless $self, $class;
   return $self;
@@ -28,18 +30,6 @@ sub error {
   # Raise an Exception object.
   my $self = shift;
   $self->{parent}->error(@_);
-}
-
-sub logger {
-  # Raise an Exception object.
-  my $self = shift;
-  $self->{parent}->logger(@_);
-}
-
-sub local_debug {
-  my $self = shift;
-  $self->{parent}->logger("DEBUG: @_")
-    if ($self->{parent}->{debug});
 }
 
 sub sql_exec {
@@ -66,7 +56,7 @@ sub sql_exec {
     my $result;
     my $max_attempts = 3;
 
-    $self->local_debug("sql_exec($sql) with args " . Dumper(@args) . "\n");
+    $self->{logger}->debug("sql_exec($sql) with args " . Dumper(@args) . "\n");
 
     eval {
       $sth = $dbh->prepare($sql);
@@ -85,11 +75,11 @@ sub sql_exec {
       if ($attempts >= $max_attempts) {
         $self->error("failed during execute $attempts times, giving up: $@\n");
       } else {
-        $self->local_debug("failed during execute $attempts times, retrying: $@\n");
+        $self->{logger}->debug("failed during execute $attempts times, retrying: $@\n");
       }
       usleep(10000);
     } else {
-      $self->local_debug("success: " . $sth->rows . ": " . Dumper($rows) . "\n");
+      $self->{logger}->debug("success: " . $sth->rows . ": " . Dumper($rows) . "\n");
       return $rows;
     }
   }
@@ -100,17 +90,17 @@ sub prep {
   my $self = shift;
   my $cachefile = $self->{parent}->{cachefile};
 
-  $self->local_debug("prep()\n");
+  $self->{logger}->debug("prep()\n");
 
   $self->error("cachefile is undefined, use -i\n")
     if (! defined $cachefile);
   if (-f $cachefile) {
-    $self->local_debug("using existing cache $cachefile\n");
+    $self->{logger}->debug("using existing cache $cachefile\n");
   } else {
     open(DB,">$cachefile") or
       $self->error("failed to create new cache $cachefile: $!\n");
     close(DB);
-    $self->local_debug("creating new cache $cachefile\n");
+    $self->{logger}->debug("creating new cache $cachefile\n");
   }
 
   my $connected = 0;
@@ -120,7 +110,7 @@ sub prep {
 
   while (!$connected and $retries < $max_retries) {
 
-    $self->local_debug("SQLite trying to connect: $retries: $cachefile\n");
+    $self->{logger}->debug("SQLite trying to connect: $retries: $cachefile\n");
 
     eval {
       $self->{dbh} = DBI->connect( $dsn,"","",
@@ -134,7 +124,7 @@ sub prep {
     };
     if ( $@ ) {
       $retries += 1;
-      $self->local_debug("SQLite can't connect, retrying: $cachefile: $@\n");
+      $self->{logger}->debug("SQLite can't connect, retrying: $cachefile: $@\n");
       sleep(1);
     };
 
@@ -143,7 +133,7 @@ sub prep {
   $self->error("SQLite can't connect after $max_retries tries, giving up\n")
     if (!$connected);
 
-  $self->local_debug("Connected to: $cachefile\n");
+  $self->{logger}->debug("Connected to: $cachefile\n");
 
   # disk_df table and triggers
   my $sql = "CREATE TABLE IF NOT EXISTS disk_df (df_id INTEGER PRIMARY KEY AUTOINCREMENT, mount_path VARCHAR(255), physical_path VARCHAR(255), total_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, used_kb UNSIGNED INTEGER NOT NULL DEFAULT 0, group_name VARCHAR(255), created DATE, last_modified DATE)";
@@ -184,7 +174,7 @@ sub link_volumes_to_host {
   my $host_id = shift;
   my $result = shift;
 
-  $self->local_debug("link_volumes_to_hosts($host_id,\$result)\n");
+  $self->{logger}->debug("link_volumes_to_hosts($host_id,\$result)\n");
 
   # Get host_id of this host.
   #my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
@@ -222,7 +212,7 @@ sub disk_hosts_add {
     $snmp_ok = scalar keys %$result ? 1 : 0;
   }
 
-  $self->local_debug("disk_hosts_add($host,result,$err)\n");
+  $self->{logger}->debug("disk_hosts_add($host,result,$err)\n");
 
   my $sql = "SELECT host_id FROM disk_hosts where hostname = ?";
   my $res = $self->sql_exec($sql,($host) );
@@ -262,7 +252,7 @@ sub disk_df_add {
   my $self = shift;
   my $params = shift;
 
-  $self->local_debug("disk_df_add( " . Dumper($params) . ")\n");
+  $self->{logger}->debug("disk_df_add( " . Dumper($params) . ")\n");
 
   foreach my $key ( 'mount_path', 'physical_path', 'total_kb', 'used_kb', 'group_name' ) {
     $self->error("params is missing key: $key\n")
@@ -305,7 +295,7 @@ sub fetch_disk_group {
   my $mount_path = shift;
 
   my $sql = "SELECT group_name FROM disk_df WHERE mount_path = ?";
-  $self->local_debug("fetch_disk_group($mount_path)\n");
+  $self->{logger}->debug("fetch_disk_group($mount_path)\n");
   return $self->sql_exec($sql,($mount_path));
 }
 
@@ -316,37 +306,37 @@ sub fetch {
   my $value = shift;
 
   my $sql = "SELECT * FROM disk_df WHERE $key = ?";
-  $self->local_debug("fetch($sql)\n");
+  $self->{logger}->debug("fetch($sql)\n");
   return $self->sql_exec($sql,$value);
 }
 
 sub fetch_aging_volumes {
   my $self = shift;
-  $self->local_debug("fetch_aging_volumes()\n");
+  $self->{logger}->debug("fetch_aging_volumes()\n");
   my $maxage = $self->{parent}->{vol_maxage};
   $self->error("max age has not been specified\n")
     if (! defined $maxage);
   $self->error("max age makes no sense: $maxage\n")
     if ($maxage < 0 or $maxage !~ /\d+/);
   my $sql = "SELECT physical_path, mount_path, last_modified FROM disk_df WHERE last_modified < date(\"now\",\"-$maxage days\") ORDER BY last_modified";
-  $self->local_debug("fetch($sql)\n");
+  $self->{logger}->debug("fetch($sql)\n");
   return $self->sql_exec($sql);
 }
 
 sub validate_volumes {
   # See if we have volumes that haven't been updated since maxage.
   my $self = shift;
-  $self->local_debug("validate_volumes()\n");
+  $self->{logger}->debug("validate_volumes()\n");
   foreach my $row (@{ $self->fetch_aging_volumes() }) {
-    $self->logger("Aging volume: " . join(' ',@$row) . "\n");
+    $self->{logger}->warn("Aging volume: " . join(' ',@$row) . "\n");
   }
 }
 
 sub purge_volumes {
   my $self = shift;
-  $self->local_debug("purge_volumes()\n");
+  $self->{logger}->debug("purge_volumes()\n");
   foreach my $row (@{ $self->fetch_aging_volumes() }) {
-    $self->logger("Delete volume: " . join(' ',@$row) . "\n");
+    $self->{logger}->warn("Delete volume: " . join(' ',@$row) . "\n");
     my $sql = "DELETE FROM disk_df WHERE physical_path = ? AND mount_path = ?";
     my $physical_path = $row->[0];
     my $mount_path = $row->[1];
