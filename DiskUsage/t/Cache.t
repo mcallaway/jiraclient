@@ -1,27 +1,26 @@
 
 package DiskUsage::Cache::TestSuite;
 
-my $CLASS = __PACKAGE__;
-
 # Standard modules for my unit test suites
 # use base 'Test::Builder::Module';
 
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More;
 use Test::Output;
 use Test::Exception;
 
 use Class::MOP;
 use Data::Dumper;
-use Cwd;
-use File::Basename;
+use Cwd qw/abs_path/;
+use File::Basename qw/dirname/;
 use Log::Log4perl qw/:levels/;
 
 use DiskUsage;
 use DiskUsage::Cache;
 
+my $count = 0;
 my $thisfile = Cwd::abs_path(__FILE__);
 my $cwd = dirname $thisfile;
 
@@ -58,6 +57,7 @@ sub test_logger {
   stderr_like { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug on ok";
   $obj->{logger}->level($ERROR);
   stderr_isnt { $obj->{logger}->debug("Test") } qr/^.* Test/, "test_logger: debug off ok";
+  $count+=2;
 }
 
 sub test_sql_exec {
@@ -80,8 +80,8 @@ sub test_sql_exec {
   my $insert = "INSERT INTO disk_df (mount_path,physical_path,total_kb,used_kb) VALUES (?,?,?,?)";
   lives_ok { $cache->sql_exec($insert,@args) } 'test_sql_exec: insert ok';
 
-  my $count = "SELECT df_id from disk_df";
-  lives_ok { $cache->sql_exec($count) } 'test_sql_exec: select ok';
+  my $sql = "SELECT df_id from disk_df";
+  lives_ok { $cache->sql_exec($sql) } 'test_sql_exec: select ok';
 
   my $select = "SELECT total_kb FROM disk_df WHERE mount_path = ?";
   my $res = $cache->sql_exec($select,('/gscmnt/sata920'));
@@ -91,6 +91,7 @@ sub test_sql_exec {
   lives_and { is $res, 6438993376 } 'test_sql_exec: select ok';
   unlink "$cwd/data/test.cache";
   unlink "$cwd/data/total.rrd";
+  $count+=5;
 }
 
 sub test_prep_bad_db_path {
@@ -101,6 +102,7 @@ sub test_prep_bad_db_path {
   # First ensure failure is caught
   $cache->{parent}->{cachefile} = "$cwd/bogus/path/foo";
   throws_ok { $cache->prep() } qr/failed to create/, "test_prep_bad_db_path: failure to connect caught";
+  $count+=1;
 }
 
 sub test_prep_no_db {
@@ -112,6 +114,7 @@ sub test_prep_no_db {
   $cache->{dbh}->disconnect();
   $cache->{dbh} = undef;
   throws_ok { $cache->fetch('fake','fake') } qr/no database handle/, "test_prep_no_db: no database handle properly caught";
+  $count+=1;
 }
 
 sub test_prep_good {
@@ -132,6 +135,7 @@ sub test_prep_good {
   stderr_like { $cache->prep() } qr/using existing cache/, "existing cache file correct";
   ok(-f $cache->{parent}->{cachefile} == 1,"cache file present ok");
   unlink $cachefile;
+  $count+=3;
 }
 
 sub test_add {
@@ -159,6 +163,7 @@ sub test_add {
   ok( $res->[0]->[4] = 999, "update and fetch work ok");
   # compare create vs. last modified
   ok( $res->[0]->[6] ne $res->[0]->[7], "update trigger works ok");
+  $count+=2;
 }
 
 sub test_retry {
@@ -183,6 +188,7 @@ sub test_retry {
   chmod 0644, $obj->{cachefile};
   lives_ok { $cache->prep() } "test_retry: connect properly";
   unlink $obj->{cachefile};
+  $count+=2;
 }
 
 sub test_validate_volumes {
@@ -222,6 +228,7 @@ sub test_validate_volumes {
   unlink "$cwd/data/disk_test1.rrd";
   unlink "$cwd/data/disk_test2.rrd";
   unlink $obj->{cachefile};
+  $count+=1;
 }
 
 sub test_purge_volumes {
@@ -256,21 +263,29 @@ sub test_purge_volumes {
   $cache->sql_exec("DROP TRIGGER IF EXISTS disk_df_update_last_modified");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata801'");
   $cache->sql_exec("UPDATE disk_df SET last_modified = date('NOW','-40 days') WHERE physical_path = '/vol/sata802'");
-  $cache->purge_volumes();
+  stderr_like { $cache->purge_volumes() } qr/Delete volume/, "aging volume correct";
   unlink "$cwd/data/disk_test.rrd";
   unlink "$cwd/data/disk_test1.rrd";
   unlink "$cwd/data/disk_test2.rrd";
   unlink $obj->{cachefile};
+  $count+=1;
 }
 
 sub main {
   my $self = shift;
-  my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
-  foreach my $method ($meta->get_method_list()) {
-    if ($method =~ m/^test_/) {
-      $self->$method();
+  my $test = shift;
+  if (defined $test) {
+    print "Run test $test\n";
+    $self->$test();
+  } else {
+    my $meta = Class::MOP::Class->initialize('DiskUsage::Cache::TestSuite');
+    foreach my $method ($meta->get_method_list()) {
+      if ($method =~ m/^test_/) {
+        $self->$method();
+      }
     }
   }
+  done_testing($count);
 }
 
 1;
@@ -284,7 +299,7 @@ my $opts = {};
 getopts("dlL",$opts) or
   die("failure parsing options: $!");
 
-my $Test = $CLASS->new();
+my $Test = DiskUsage::Cache::TestSuite->new();
 
 if ($opts->{'L'}) {
   $Test->{live} = 1;
@@ -308,8 +323,7 @@ if ($opts->{'l'}) {
 if (@ARGV) {
   my $test = $ARGV[0];
   if ($Test->can($test)) {
-    print "Run $test\n";
-    $Test->$test();
+    $Test->main($test);
   } else {
     print "No test $test known\n";
   }
