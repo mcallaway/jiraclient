@@ -335,7 +335,7 @@ sub update_cache {
   $self->{cache}->prep();
 
   # Purge aging cache data
-  if (defined $self->{purge}) {
+  if ($self->{purge}) {
     $self->{cache}->purge_volumes();
     return 0;
   }
