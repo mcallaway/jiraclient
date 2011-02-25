@@ -1,6 +1,0 @@
-
-
-Thu Aug 12 14:07:26 CDT 2010
-
-This is a tool requested by Eric Becker for use with his process profiling needs.  This script reads /proc/stat and /proc/net/dev and calculates the changes between runs.
-
