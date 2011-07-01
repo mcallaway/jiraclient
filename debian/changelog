@@ -1,8 +1,26 @@
+jiraclient (2-3-4-asdf) lucid; urgency=low
+
+  * baz
+  * foo bar baz
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 31 May 2011 14:49:07 -0500
+
+jiraclient (2) lucid; urgency=low
+
+  * baz
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 31 May 2011 11:40:10 -0500
+
 jiraclient (1.6.8-1) lucid; urgency=low
 
+  [ Matt Callaway ]
   * ISSOFT-12: Support text names for components and fixVersions.
 
- -- Matt Callaway <mcallawa@buildhost>  Fri, 03 Dec 2010 10:05:42 -0600
+  [ Matthew Callaway ]
+  * foo
+  * bar
+
+ -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 31 May 2011 11:39:36 -0500
 
 jiraclient (1.6.7-1) lucid; urgency=low
 
