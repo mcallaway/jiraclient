@@ -1,0 +1,4 @@
+h2. Introduction
+==<hr />==
+
+p. Jiraclient is a python command line client for Atlassian's Jira issue tracker.  It allows for some basic issue creation and editing, as well as the creation of batches of issues based on a YAML template file.  I wrote the tool for use at my place of employment, so there are some assumptions that may make it strange for general use, but some might find it a useful starting point for their own use.

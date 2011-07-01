@@ -1,0 +1,16 @@
+---
+layout: sub
+menu: 
+    - text: Overview
+      href: index.html
+    - text: Documentation
+      href: documentation.html
+    - text: Install
+      href: install.html
+
+module_details:
+    name: jiraclient
+    icon: res/images/icon_48.png
+
+download_link: install.html
+github_url: https://github.com/genome/jiraclient

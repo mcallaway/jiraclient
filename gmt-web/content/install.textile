@@ -1,0 +1,5 @@
+h2. Installation
+==<hr />==
+
+p. I have produced .deb and .rpm files of jiraclient, but there are some dependencies that are not generally available in those formats.  This leaves re-packaging into those formats as an exercise for the reader.  Otherwise, you can just download the code and run it from a home directory.
+
