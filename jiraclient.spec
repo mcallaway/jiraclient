@@ -2,7 +2,7 @@
 Name: jiraclient
 Summary: A command line client for Jira.
 BuildArch: noarch
-Version: 1.6.8
+Version: 1.6.9
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
@@ -34,6 +34,12 @@ install -D -m 0755 jiraclient.py %{buildroot}/bin/jiraclient
 /bin/jiraclient
 
 %changelog
+* Thu Dec 15 2011 Matthew Callaway <mcallawa@genome.wustl.edu>
+  [ 1.6.9-1 ]
+- Add --resolve action
+- Support resolve upon create.
+- Fix addComment.
+
 * Fri Dec  3 2010 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.6.8-1 ]
 - ISSOFT-12: Support text names for components and fixVersions

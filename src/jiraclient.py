@@ -120,12 +120,13 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.8"
+  version = "1.6.9"
 
   priorities = {}
   typemap = {}
   versionmap = {}
   componentmap = {}
+  resolutions = {}
 
   def fatal(self,msg=None):
     self.logger.fatal(msg)
@@ -249,6 +250,13 @@ class Jiraclient(object):
       action="store",
       dest="remaining",
       help="Jira issue time 'remaining estimate'",
+      default=None,
+    )
+    optParser.add_option(
+      "-R","--resolve",
+      action="store",
+      dest="resolve",
+      help="Resolve issue with the given resolution, eg: 'fixed','incomplete',etc.",
       default=None,
     )
     optParser.add_option(
@@ -466,6 +474,11 @@ class Jiraclient(object):
     for item in result:
       self.typemap[item['name'].lower()] = item['id']
 
+  def set_resolutions(self):
+    result = self.proxy.getResolutions(self.auth)
+    for item in result:
+      self.resolutions[item['name'].lower()] = item['id']
+
   def set_project_versions(self,projectName):
     result = self.proxy.getVersions(self.auth,projectName)
     for item in result:
@@ -645,9 +658,29 @@ class Jiraclient(object):
     return result
 
   def add_comment(self,issueID,comment):
-    result = self.proxy.addComment(self.auth,issueID,comment)
+    result = self.proxy.addComment(self.auth,issueID,{'body': comment})
     print "Modified %s/browse/%s" % \
      (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
+
+  def resolve_issue(self,issueID,resolution):
+    self.set_resolutions()
+    rid = None
+    rname = None
+    # Caller can ask for either the resolution name or its id
+    for k,v in self.resolutions.items():
+      if resolution == k or resolution == v:
+        rid = v
+        rname = k
+        break
+    # Here '2' means workflow action "closed"
+    # Here '5' means workflow action "resolved"
+    # FIXME: Use getAvailableActions, issueID to get the map of actions
+    result = self.proxy.progressWorkflowAction(self.auth, issueID, '5',
+                 [ {"id": "resolution", "values": rid } ]
+                )
+    print "Resolved %s/browse/%s" % \
+     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
+    return result
 
   def update_estimate(self,estimate,issueID):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
@@ -1012,6 +1045,14 @@ class Jiraclient(object):
         self.add_comment(self.options.issueID,self.options.comment)
         return
 
+    # Resolve a given existing issue ID
+    if self.options.issueID is not None and self.options.resolve is not None:
+      if self.options.noop:
+        print "Resolve %s %s" % (self.options.issueID,self.options.resolve)
+        return
+      self.resolve_issue(self.options.issueID,self.options.resolve)
+      return
+
     # Display a specified issue ID
     if self.options.display:
 
@@ -1074,6 +1115,10 @@ class Jiraclient(object):
       tt = Issue()
       tt.timetracking = self.options.timetracking
       self.modify_issue(issueID,tt)
+
+    # Immediately resolve it if specified
+    if self.options.resolve is not None:
+      self.resolve_issue(issueID,self.options.resolve)
 
 def main():
   A = Jiraclient()

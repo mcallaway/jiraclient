@@ -1,15 +1,10 @@
-jiraclient (2-3-4-asdf) lucid; urgency=low
+jiraclient (1.6.9-1) lucid; urgency=low
 
-  * baz
-  * foo bar baz
+  * Add --resolve action
+  * Be able to resolve immediately after create.
+  * Fix addComment.
 
- -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 31 May 2011 14:49:07 -0500
-
-jiraclient (2) lucid; urgency=low
-
-  * baz
-
- -- Matthew Callaway <mcallawa@genome.wustl.edu>  Tue, 31 May 2011 11:40:10 -0500
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Thu, 15 Dec 2011 23:54:44 -0600
 
 jiraclient (1.6.8-1) lucid; urgency=low
 
