@@ -1,6 +1,9 @@
 jiraclient (1.6.10-1) lucid; urgency=low
 
   * Add --spent option
+  * Add --remaining option
+  * Add --delete option
+  * Add --worklog option
   * Allow work log comment on create/resolve and specification of time spent
     and time remaning.
 
