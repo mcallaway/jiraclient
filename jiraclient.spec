@@ -2,7 +2,7 @@
 Name: jiraclient
 Summary: A command line client for Jira.
 BuildArch: noarch
-Version: 1.6.9
+Version: 1.6.10
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
