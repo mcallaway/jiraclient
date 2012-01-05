@@ -34,6 +34,11 @@ install -D -m 0755 jiraclient.py %{buildroot}/bin/jiraclient
 /bin/jiraclient
 
 %changelog
+* Wed Jan 4 2012 Matthew Callaway <mcallawa@genome.wustl.edu>
+  [ 1.6.10-1 ]
+- Add --spent option
+- Support work log comment on resolution.
+
 * Thu Dec 15 2011 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.6.9-1 ]
 - Add --resolve action

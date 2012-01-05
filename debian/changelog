@@ -1,3 +1,11 @@
+jiraclient (1.6.10-1) lucid; urgency=low
+
+  * Add --spent option
+  * Allow work log comment on create/resolve and specification of time spent
+    and time remaning.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Wed, 04 Jan 2012 22:55:11 -0600
+
 jiraclient (1.6.9-1) lucid; urgency=low
 
   * Add --resolve action

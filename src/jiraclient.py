@@ -120,7 +120,7 @@ class Issue(object):
 
 class Jiraclient(object):
 
-  version = "1.6.9"
+  version = "1.6.10"
 
   priorities = {}
   typemap = {}
