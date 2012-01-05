@@ -392,6 +392,20 @@ class Jiraclient(object):
       help="Version information",
       default=False,
     )
+    optParser.add_option(
+      "-w","--worklog",
+      action="store",
+      dest="worklog",
+      help="Log work with this given text string, use this in conjunction with --spent and --remaining",
+      default=None,
+    )
+    optParser.add_option(
+      "--delete",
+      action="store",
+      dest="delete",
+      help="Delete the specified issue key",
+      default=None,
+    )
     (self.options, self.args) = optParser.parse_args()
 
   def prepare_logger(self):
@@ -657,6 +671,10 @@ class Jiraclient(object):
     result = self.proxy.getIssue(self.auth,issueID)
     return result
 
+  def delete_issue(self,issueID):
+    result = self.proxy.deleteIssue(self.auth,issueID)
+    return result
+
   def get_issue_links(self,issueID,type=None):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.fatal("Only the SOAP client can link issues")
@@ -689,32 +707,43 @@ class Jiraclient(object):
      (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
     return result
 
-  def update_estimate(self,estimate,issueID):
+  def log_work(self,issueID):
     if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
       self.logger.error("Only the SOAP interface supports this operation")
       return
 
-    comment = self.options.comment
-    if comment is None:
-      comment = 'jiraclient updates remaining estimate to %s' % estimate
+    comment = self.options.worklog
 
-    timeSpent = self.options.timespent
-    if timeSpent is None:
-      timeSpent = '1m'
+    spent = self.options.timespent
+    if spent is not None:
+      m = time_rx.match(spent)
+      if not m:
+        self.logger.warning("Time spent has dubious format: %s: no action taken" % (spent))
+        return
 
-    m = time_rx.match(estimate)
-    if not m:
-      self.logger.warning("Time estimate has dubious format: %s: no action taken" % (estimate))
-      return
+    remaining = self.options.remaining
+    if remaining is not None:
+      m = time_rx.match(remaining)
+      if not m:
+        self.logger.warning("Time remaining has dubious format: %s: no action taken" % (remaining))
+        return
 
-    # Note timeSpent must be set, and cannot be less than 1m
+    # Note time spent must be set, and cannot be less than 1m
     dt_today = SOAPpy.dateTimeType(time.gmtime(time.time())[:6])
-    worklog = {'startDate':dt_today,'timeSpent':timeSpent,'comment':comment}
-    if self.options.noop:
-      self.logger.info("Would update time remaining: %s: %s" % (issueID,estimate))
-      return
-    self.logger.info("Update time remaining: %s: %s" % (issueID,estimate))
-    self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, estimate)
+
+    self.logger.info("Update work log for %s: %s" % (issueID,comment))
+    if spent is None and remaining is None:
+      worklog = {'startDate':dt_today,'timeSpent':'1m','comment':comment}
+      self.proxy.addWorklogAndRetainRemainingEstimate(self.auth, issueID, worklog)
+    elif spent is None:
+      worklog = {'startDate':dt_today,'timeSpent':'1m','comment':comment}
+      self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, remaining)
+    elif remaining is None:
+      worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
+      self.proxy.addWorklogAndAutoAdjustRemainingEstimate(self.auth, issueID, worklog)
+    else:
+      worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
+      self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, remaining)
 
   def modify_issue(self,issueID,issue):
 
@@ -1023,6 +1052,15 @@ class Jiraclient(object):
         self.fatal("API error: bad method or args: %s" % details)
       return
 
+    if self.options.delete is not None:
+      try:
+        result = self.delete_issue(self.options.delete)
+        print "Issue deleted: %s" % self.options.delete
+        return
+      except Exception, details:
+        print "There was an error deleting %s: %r" % (self.options.delete,details)
+        return
+
     # Create a set of Issues based on a YAML project file
     if self.options.template is not None:
       self.create_issues_from_template()
@@ -1053,9 +1091,15 @@ class Jiraclient(object):
     if self.options.comment is not None and self.options.issueID is not None:
       if self.options.noop:
         print "Add comment to %s: %s" % (self.options.issueID,self.options.comment)
-        return
-      self.add_comment(self.options.issueID,self.options.comment)
-      return
+      else:
+        self.add_comment(self.options.issueID,self.options.comment)
+
+    # Update time remaining of given issue
+    if self.options.worklog is not None and self.options.issueID is not None:
+      if self.options.noop:
+        print "Update time estimate for %s: %s" % (self.options.issueID,self.options.remaining)
+      else:
+        self.log_work(self.options.issueID)
 
     # Resolve a given existing issue ID
     if self.options.issueID is not None and self.options.resolve is not None:
@@ -1069,7 +1113,7 @@ class Jiraclient(object):
     if self.options.display:
 
       if self.options.issueID is None:
-        self.logger.error("Please specify an issue ID")
+        self.logger.error("Please specify an issue ID with -i")
         return
 
       # Get the issue to display
@@ -1098,10 +1142,9 @@ class Jiraclient(object):
 
       return
 
-    # Update time remaining of given issue
-    if self.options.remaining is not None and self.options.issueID is not None:
-      self.update_estimate(self.options.remaining,self.options.issueID)
-      return
+    # We've done all we're allowed to do with a given existing issueID
+    if self.options.issueID is not None:
+        return
 
     # Create an issue object
     issue = self.create_issue_obj()
@@ -1122,15 +1165,15 @@ class Jiraclient(object):
     if self.options.subtask_of:
       self.subtask_link(self.options.subtask_of,issueID)
 
-    # Set timetracking if present
+    # Set timetracking if present, sets original estimate
     if self.options.timetracking is not None:
       tt = Issue()
       tt.timetracking = self.options.timetracking
       self.modify_issue(issueID,tt)
 
-    # Update remaining estimate if present
-    if self.options.remaining is not None:
-      self.update_estimate(self.options.remaining,issueID)
+    # Add a work log, possibly updating remaining estimate
+    if self.options.worklog is not None:
+      self.log_work(issueID)
 
     # Immediately resolve it if specified
     if self.options.resolve is not None:
