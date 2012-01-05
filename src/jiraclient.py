@@ -253,6 +253,13 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
+      "-s","--spent",
+      action="store",
+      dest="timespent",
+      help="Jira issue 'time spent'",
+      default=None,
+    )
+    optParser.add_option(
       "-R","--resolve",
       action="store",
       dest="resolve",
@@ -687,6 +694,14 @@ class Jiraclient(object):
       self.logger.error("Only the SOAP interface supports this operation")
       return
 
+    comment = self.options.comment
+    if comment is None:
+      comment = 'jiraclient updates remaining estimate to %s' % estimate
+
+    timeSpent = self.options.timespent
+    if timeSpent is None:
+      timeSpent = '1m'
+
     m = time_rx.match(estimate)
     if not m:
       self.logger.warning("Time estimate has dubious format: %s: no action taken" % (estimate))
@@ -694,7 +709,7 @@ class Jiraclient(object):
 
     # Note timeSpent must be set, and cannot be less than 1m
     dt_today = SOAPpy.dateTimeType(time.gmtime(time.time())[:6])
-    worklog = {'startDate':dt_today,'timeSpent':'1m','comment':'jiraclient updates remaining estimate to %s' % estimate}
+    worklog = {'startDate':dt_today,'timeSpent':timeSpent,'comment':comment}
     if self.options.noop:
       self.logger.info("Would update time remaining: %s: %s" % (issueID,estimate))
       return
@@ -1035,15 +1050,12 @@ class Jiraclient(object):
       return
 
     # Comment on an existing issue ID
-    if self.options.comment is not None:
-      if self.options.issueID is None:
-        self.fatal("Specify an issue ID to comment on")
-      else:
-        if self.options.noop:
-          print "Add comment to %s: %s" % (self.options.issueID,self.options.comment)
-          return
-        self.add_comment(self.options.issueID,self.options.comment)
+    if self.options.comment is not None and self.options.issueID is not None:
+      if self.options.noop:
+        print "Add comment to %s: %s" % (self.options.issueID,self.options.comment)
         return
+      self.add_comment(self.options.issueID,self.options.comment)
+      return
 
     # Resolve a given existing issue ID
     if self.options.issueID is not None and self.options.resolve is not None:
@@ -1087,7 +1099,7 @@ class Jiraclient(object):
       return
 
     # Update time remaining of given issue
-    if self.options.remaining is not None:
+    if self.options.remaining is not None and self.options.issueID is not None:
       self.update_estimate(self.options.remaining,self.options.issueID)
       return
 
@@ -1115,6 +1127,10 @@ class Jiraclient(object):
       tt = Issue()
       tt.timetracking = self.options.timetracking
       self.modify_issue(issueID,tt)
+
+    # Update remaining estimate if present
+    if self.options.remaining is not None:
+      self.update_estimate(self.options.remaining,issueID)
 
     # Immediately resolve it if specified
     if self.options.resolve is not None:
