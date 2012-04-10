@@ -34,7 +34,7 @@ import SOAPpy
 import types
 
 pp = pprint.PrettyPrinter(indent=4)
-time_rx = re.compile('^\d+[mhdw]$')
+time_rx = re.compile('^\d(|\.\d+)+[mhdw]$')
 session_rx = re.compile("session timed out")
 
 def time_is_valid(value):
