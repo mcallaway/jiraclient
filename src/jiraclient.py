@@ -2,9 +2,9 @@
 #
 # jiraclient.py
 #
-# A Python Jira XML-RPC/SOAP Client
+# A Python Jira REST Client
 #
-# (C) 2007,2008,2009,2010: Matthew Callaway
+# (C) 2007,2008,2009,2010,2011,2012: Matthew Callaway
 #
 # jiraclient is free software; you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -24,22 +24,23 @@ import os
 import pprint
 import re
 import sys
-import time
 import logging, logging.handlers
 from stat import *
 from optparse import OptionParser,OptionValueError
 import ConfigParser
-import xmlrpclib
-import SOAPpy
 import types
+import json
+import base64
+import datetime
+from restkit import Resource, BasicAuth, request
+from restkit import TConnectionManager
+from restkit.errors import Unauthorized
 
 pp = pprint.PrettyPrinter(indent=4)
-time_rx = re.compile('^\d(|\.\d+)+[mhdw]$')
+time_rx = re.compile('^\d+[mhdw]$')
 session_rx = re.compile("session timed out")
 
 def time_is_valid(value):
-  def repl(m): return ''
-  time = None
   m = time_rx.search(value)
   if not m:
     return False
@@ -58,34 +59,35 @@ def inspect(obj,padding=None):
       if attr.startswith('_'): continue
       a = getattr(obj,attr)
       if callable(a): continue
-      if a.__class__ is SOAPpy.Types.structType:
-        inspect(a,padding+5)
-      if a.__class__ is SOAPpy.Types.typedArrayType:
-        print "%s%s:" % (' ' * padding, attr)
-        for x in a:
-          inspect(x,padding+5)
-      else:
-        print "%s%s: %s" % (' ' * padding,attr,a)
+      print "%s%s: %s" % (' ' * padding,attr,a)
+
+class Attribute(object):
+  required = False
+  name = None
+  value = None
+  def __init__(self,name=None,value=None,required=False):
+    self.name = name
+    self.value = value
+    self.required = required
+  def __repr__(self):
+    return self.value
 
 class Issue(object):
 
-  project = None
-  type = None
-  summary = None
-  description = None
-  assignee = None
-  components = []
-  fixVersions = []
-  affectsVersions = []
-  priority = None
-  environment = None
-  timetracking = None
-
-  # This Issue class exists so that we can easily convert an
-  # issue instance into a dictionary later.
-  def __getitem__(self,key):
-    item = getattr(self,key)
-    if item is not None: return item
+  def __init__(self):
+    self.summary      = ''
+    self.environment  = ''
+    self.description  = ''
+    self.duedate      = ''
+    self.project      = { 'id': None }
+    self.issuetype    = { 'id': None }
+    self.assignee     = { 'name': None }
+    self.priority     = { 'id': None }
+    self.timetracking = { }
+    self.labels       = []
+    self.versions     = [ { 'id': None } ]
+    self.fixVersions  = [ { 'id': None } ]
+    self.components   = [ { 'id': None } ]
 
   def __repr__(self):
     text = "%s(" % (self.__class__.__name__)
@@ -98,35 +100,36 @@ class Issue(object):
     return text
 
   def update(self,key,value):
-    if key == 'timetracking':
-      if not time_is_valid(value):
-        raise Exception("Illegal time value: %s" % value)
+    # FIXME: remove unless this expands to handle complex data type attributes
+    setattr(self,key,value)
 
-    if key == 'summary' and getattr(self,key) is not None:
-      # Concatenate existing text, supports self.options.prefix
-      newvalue = self.summary + value
-      self.summary = newvalue
-      return
-
-    if type(getattr(self,key)) is list:
-      if type(value) is list:
-        setattr(self,key,value)
-      else:
-        # List types support split on comma
-        value = "%s" % value
-        setattr(self,key,[{'id':x} for x in value.split(',')])
-    else:
-      setattr(self,key,value)
+class SearchableDict(dict):
+  def find_key(self,val):
+      """return the key of dictionary dic given the value"""
+      return [k for k, v in self.iteritems() if v == val].pop()
+  def find_value(self,key):
+      """return the value of dictionary dic given the key"""
+      return self[key]
 
 class Jiraclient(object):
 
-  version = "1.6.10"
+  version = "2.0.0"
 
-  priorities = {}
-  typemap = {}
-  versionmap = {}
-  componentmap = {}
-  resolutions = {}
+  def __init__(self):
+    self.pool    = TConnectionManager()
+    self.proxy   = Resource('', pool_instance=self.pool, filters=[])
+    self.pool    = None
+    self.restapi = None
+    self.token   = None
+    self.maps    = {
+      'project'    : SearchableDict(),
+      'priority'   : SearchableDict(),
+      'issuetype'  : SearchableDict(),
+      'versions'   : SearchableDict(),
+      'fixversions': SearchableDict(),
+      'components' : SearchableDict(),
+      'resolutions': SearchableDict()
+    }
 
   def fatal(self,msg=None):
     self.logger.fatal(msg)
@@ -161,6 +164,13 @@ class Jiraclient(object):
       default=os.path.join(os.environ["HOME"],'.jiraclientrc'),
     )
     optParser.add_option(
+      "--sessionfile",
+      action="store",
+      dest="sessionfile",
+      help="Store authentication token in this file",
+      default=os.path.join(os.environ["HOME"],'.jira-session'),
+    )
+    optParser.add_option(
       "-a","--api",
       action="store",
       dest="api",
@@ -186,16 +196,16 @@ class Jiraclient(object):
       "--link",
       action="store",
       dest="link",
-      help="Given link=A,B link issues A and B",
+      help="Given link=A,Depends,B links issues A and B with linktype Depends",
       default=None,
     )
-    optParser.add_option(
-      "--unlink",
-      action="store",
-      dest="unlink",
-      help="Given unlink=A,B unlink issues A and B",
-      default=None,
-    )
+    #optParser.add_option(
+    #  "--unlink",
+    #  action="store",
+    #  dest="unlink",
+    #  help="Given unlink=A,B unlink issues A and B",
+    #  default=None,
+    #)
     optParser.add_option(
       "--subtask",
       action="store",
@@ -309,9 +319,9 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-H","--epic",
+      "-H","--epic","--epic-theme",
       action="store",
-      dest="issue_epic_theme",
+      dest="epic_theme",
       help="Set the epic/theme for the issue",
       default=None,
     )
@@ -337,9 +347,9 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-T","--type",
+      "-T","--issuetype",
       action="store",
-      dest="type",
+      dest="issuetype",
       help="Issue type",
       default=None,
     )
@@ -365,11 +375,11 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "--epic_theme",
+      "--epic-theme-id",
       action="store",
-      dest="epic_theme",
+      dest="epic_theme_id",
       help="Jira project 'Epic/Theme', custom field ID for the project (eg. customfield_10010)",
-      default=None,
+      default="customfield_10010",
     )
     optParser.add_option(
       "--prefix",
@@ -401,10 +411,10 @@ class Jiraclient(object):
     )
     optParser.add_option(
       "--delete",
-      action="store",
+      action="store_true",
       dest="delete",
-      help="Delete the specified issue key",
-      default=None,
+      help="Delete the issue specified by --issue",
+      default=False,
     )
     (self.options, self.args) = optParser.parse_args()
 
@@ -428,7 +438,7 @@ class Jiraclient(object):
     self.logger = logger
 
   def read_config(self):
-
+    self.logger.debug("read config %s" % self.options.config)
     parser = ConfigParser.ConfigParser()
     parser.optionxform = str
 
@@ -452,7 +462,6 @@ class Jiraclient(object):
         fd.close()
         os.chmod(self.options.config,int("600",8))
 
-      stat = os.stat(self.options.config)
       if S_IMODE(os.stat(self.options.config).st_mode) != int("600",8):
         self.logger.warning("Config file %s is not mode 600" % (self.options.config))
       try:
@@ -466,49 +475,165 @@ class Jiraclient(object):
       if not hasattr(self.options,k) or getattr(self.options,k) is None:
         setattr(self.options,k,v)
 
-    # Map the items in the rc file to options, but only for issue *creation*
-    if self.options.issueID is None:
-      for (k,v) in (parser.items('issues')):
-        if not hasattr(self.options,k):
-          # You can't set in rcfile something that isn't also an option.
-          self.fatal("Unknown issue attribute: %s" % k)
-        if getattr(self.options,k) is None:
-          # Take the rc file value if not given on CLI
-          setattr(self.options,k,v)
+  def read_issue_defaults(self):
 
-  def get_project_id(self,project):
-    result = self.proxy.getProjectsNoSchemes(self.auth)
-    if result.__class__ is SOAPpy.Types.typedArrayType:
-      for item in result:
-        if hasattr(item,'key') and getattr(item,'key') == project:
-          return item['id']
-    else:
-      for hash in result:
-        if hash.has_key('key') and hash['key'] == project:
-          return hash['id']
+    self.logger.debug("read config %s" % self.options.config)
+    parser = ConfigParser.ConfigParser()
+    parser.optionxform = str
+    try:
+      parser.readfp(file(self.options.config,'r'))
+    except ConfigParser.ParsingError:
+      self.logger.warning("Body has multiple lines, truncating...")
+    except Exception, details:
+      self.fatal("Unable to parse file at %r: %s" % (self.options.config,details))
 
-  def set_issue_types(self,projectID):
-    result = self.proxy.getIssueTypesForProject(self.auth,projectID)
-    for item in result:
-      self.typemap[item['name'].lower()] = item['id']
-    result = self.proxy.getSubTaskIssueTypesForProject(self.auth,projectID)
-    for item in result:
-      self.typemap[item['name'].lower()] = item['id']
+    for (k,v) in (parser.items('issues')):
+      if not hasattr(self.options,k):
+        # You can't set in rcfile something that isn't also an option.
+        self.fatal("Unknown issue attribute: %s" % k)
+      if getattr(self.options,k) is None:
+        # Take the rc file value if not given on CLI
+        self.logger.debug("set %s %s" % (k,v))
+        setattr(self.options,k,v)
 
-  def set_resolutions(self):
-    result = self.proxy.getResolutions(self.auth)
-    for item in result:
-      self.resolutions[item['name'].lower()] = item['id']
+  def call_api(self,method,uri,payload=None):
+    self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
+    call = getattr(self.proxy,method)
+    headers = {'Content-Type' : 'application/json'}
+    if self.token is not None:
+      headers['Authorization'] = 'Basic %s' % self.token
+    try:
+      self.logger.debug("calling %s %s" % (method.upper(),self.proxy.uri))
+      response = call(headers=headers,payload=payload)
+    except Unauthorized:
+      if os.path.exists(self.options.sessionfile):
+        os.unlink(self.options.sessionfile)
+      self.fatal("Login failed")
+    except Exception,msg:
+      self.fatal("Unhandled API exception for method: %s: %s" % (self.proxy.uri,msg))
+    try:
+      data = json.loads(response.body_string())
+      return data
+    except ValueError:
+      # No json
+      return
+      pass
 
-  def set_project_versions(self,projectName):
-    result = self.proxy.getVersions(self.auth,projectName)
-    for item in result:
-      self.versionmap[item['name'].lower()] = item['id']
+  def get_project_id(self,projectKey):
+    uri = "%s/%s" % ('rest/api/latest/project', projectKey)
+    data = self.call_api("get",uri)
+    self.maps['project'][int(data["id"])] = projectKey.lower()
 
-  def set_project_components(self,projectName):
-    result = self.proxy.getComponents(self.auth,projectName)
-    for item in result:
-      self.componentmap[item['name'].lower()] = item['id']
+  def get_issue_types(self,projectKey):
+    self.check_auth()
+    uri = '''%s?projectKeys=%s''' % ('rest/api/latest/issue/createmeta', projectKey)
+    data = self.call_api("get",uri)
+    for item in data['projects'][0]['issuetypes']:
+      #self.maps['issuetype'][str(item['name'].lower())] = int(item['id'])
+      self.maps['issuetype'][int(item['id'])] = str(item['name'].lower())
+
+  def get_resolutions(self):
+    uri = 'rest/api/latest/resolution'
+    data = self.call_api("get",uri)
+    for item in data:
+      #self.maps['resolutions'][str(item['name'].lower())] = int(item['id'])
+      self.maps['resolutions'][int(item['id'])] = str(item['name'].lower()) 
+
+  def get_project_versions(self,projectKey):
+    uri = "%s/%s/%s" % ('rest/api/latest/project', projectKey, 'versions')
+    data = self.call_api("get",uri)
+    for item in data:
+      self.maps['versions'][int(item['id'])] = str(item['name'].lower())
+    self.maps['fixversions'] = self.maps['versions']
+
+  def get_project_components(self,projectKey):
+    uri = "%s/%s/%s" % ('rest/api/latest/project', projectKey, 'components')
+    data = self.call_api("get",uri)
+    for item in data:
+      self.maps['components'][int(item['id'])] = str(item['name'].lower())
+
+  def get_priorities(self):
+    uri = 'rest/api/latest/priority'
+    data = self.call_api("get",uri)
+    for item in data:
+      #self.maps['priority'][str(item['name'].lower())] = int(item['id'])
+      self.maps['priority'][int(item['id'])] = str(item['name'].lower())
+
+  def get_serverinfo(self):
+    uri = 'rest/api/latest/serverInfo'
+    return self.call_api("get",uri)
+
+  def get_issue(self,issueID):
+    uri = 'rest/api/latest/issue/%s' % issueID
+    result = self.call_api("get",uri)
+    return result
+
+  def delete_issue(self,issueID):
+    uri = 'rest/api/latest/issue/%s?deleteSubtasks' % issueID
+    self.call_api('delete',uri)
+    print "Deleted %s/browse/%s" % \
+     (self.get_serverinfo()['baseUrl'], issueID)
+
+  def resolve_issue(self,issueID,resolution):
+    resolution_id = self.maps['resolutions'].find_key(resolution)
+    uri = 'rest/api/latest/issue/%s/transitions' % issueID
+    payload = json.dumps({"id": resolution_id})
+    result = self.call_api("post",uri,payload=payload)
+    print "Resolved %s/browse/%s" % \
+     (self.get_serverinfo()['baseUrl'], issueID)
+    pp.pprint(result)
+    return result
+
+  def display_issue(self,issueID):
+    uri = 'rest/api/latest/issue/%s' % issueID
+    result = self.call_api('get',uri)
+    pp.pprint(result)
+
+  def add_comment(self,issueID,comment):
+    uri = 'rest/api/latest/issue/%s/comment' % issueID
+    comment = json.dumps({'body':comment})
+    result = self.call_api('post',uri,payload=comment)
+    return result
+
+  def create_issue(self,issueObj):
+    issue = issueObj.__dict__
+    for k,v in issue.items():
+      if not v: issue.pop(k)
+      if v == {"id":None}: issue.pop(k)
+      if v == [{"id":None}]: issue.pop(k)
+    data = json.dumps({"fields":issue})
+    print "Create issue:"
+    pp.pprint(data)
+    if self.options.noop:
+      # return a fake Issue Key
+      return 'KEY'
+    uri = 'rest/api/latest/issue'
+    newissue = self.call_api('post',uri,payload=data)
+    issueID = newissue["key"]
+    print "Created %s/browse/%s" % \
+     (self.get_serverinfo()['baseUrl'], issueID)
+    return issueID
+
+  def get_issue_links(self,issueID,linktype=None):
+    uri = 'rest/api/latest/issue/%s' % issueID
+    data = self.call_api('get',uri)
+    return data['fields']['issuelinks']
+
+  def modify_issue(self,issueID,issueObj):
+    uri = 'rest/api/latest/issue/%s' % issueID
+    payload = json.dumps(issueObj)
+    self.call_api('post',uri,payload=payload)
+    print "Modified %s/browse/%s" % \
+      (self.get_serverinfo()['baseUrl'], issueID)
+
+  def get_session(self):
+    uri = 'rest/auth/latest/session'
+    try:
+      self.call_api("get",uri)
+    except:
+      if os.path.exists(self.options.sessionfile):
+        os.unlink(self.options.sessionfile)
+      self.fatal("Login failed")
 
   def read_password(self):
     if not self.options.password:
@@ -517,210 +642,132 @@ class Jiraclient(object):
       self.options.password = pw
 
   def check_auth(self):
-    session = os.path.join(os.environ["HOME"],'.jira-session')
-
+    session = self.options.sessionfile
     if os.path.exists(session):
       if S_IMODE(os.stat(session).st_mode) != int("600",8):
         self.logger.error("session file %s is not mode 600, forcing new session" % (session))
         os.unlink(session)
 
+    token = None
     if not os.path.exists(session):
-      # New session
-      self.read_password()
-      try:
-        auth = self.proxy.login(self.options.user,self.options.password)
-      except Exception, details:
-        self.fatal("Login failed")
-      fd = open(session,'w')
-      fd.write(auth)
-      fd.close()
-      os.chmod(session,int("600",8))
+      self.logger.debug("make auth token")
+      if not self.options.password:
+        self.read_password()
+      token = base64.b64encode("%s:%s" % (self.options.user, self.options.password))
     else:
-      # Existing auth session
+      self.logger.debug("read auth token")
       fd = open(session,'r')
-      auth = fd.read()
+      token = fd.read()
       fd.close()
 
-    self.auth = auth
+    self.token = token
+    self.get_session()
+    fd = open(session,'w')
+    fd.write(token)
+    fd.close()
+    os.chmod(session,int("600",8))
 
-    # We now have enough to connect,
-    # so get priorities from Jira to validate auth.
-    try:
-      self.get_priorities()
-    except Exception,details:
-      m = session_rx.search(repr(details))
-      if m:
-        # Session expired, re-auth
-        os.unlink(session)
-        self.check_auth()
+  def update_issue_obj(self,issue,key,value):
+    # This method handles Issue's complex attribute types.
+    #
+    # Input values come from CLI or rc file, so are all strings
+    # potentially with comma separated lists.  To keep things
+    # simple, let's just assume all CLI and rc file input are not lists.
+    #
+    # Use case examples:
+    #   summary is a string
+    #   project is a dict with id
+    #   versions is a list of dicts with id
+
+    attr = getattr(issue,key)
+
+    # Does the 'key' exist in self.maps to provide an ID?
+    attribute_map = None
+    if self.maps.has_key(key.lower()):
+      attribute_map = self.maps[key.lower()]
+      attribute_id = attribute_map.find_key(value.lower())
+      if not attribute_id:
+        self.logger.debug("no id found for %s" % (value.lower()))
+        return
+    else:
+      self.logger.debug("no map found for %s" % (key.lower()))
+      attribute_id = value.lower()
+
+    # Plain string assignment
+    if type(attr) is str:
+      setattr(issue,key,str(value))
+
+    # Lists might be lists of strings or lists of dicts
+    # 'labels' is the only list of just strings
+    if type(attr) is list:
+      if key == 'labels':
+        attr.append(str(value))
       else:
-        self.fatal("Failed to get project priorities from Jira: %r" % (details))
+        try:
+          attr.pop(attr.index({'id':None}))
+        except Exception: pass
+        attr.append({'id':str(attribute_id)})
 
-  def get_priorities(self):
-    result = self.proxy.getPriorities(self.auth)
-    for item in result:
-      self.priorities[item['name'].lower()] = item['id']
-
-  def create_issue_obj(self,permissive=False):
-    # Creates an Issue object based on CLI args and config file.
-    # We do this for create and modify operations.
-
-    issue = Issue()
-
-    # Supported issue attributes, and whether or not they are required.
-    # Requiredness might be better as some part of an Issue attribute.
-    attrs = {
-      'project'         : True,
-      'type'            : True,
-      'summary'         : True,
-      'assignee'        : False,
-      'components'      : False,
-      'description'     : False,
-      'fixVersions'     : False,
-      'affectsVersions' : False,
-      'priority'        : False,
-      'environment'     : False,
-      'timetracking'    : False,
-    }
-
-    # Allow 'None' on command line to unset something specified in .jiraclientrc
-    for (key,value) in attrs.items():
-      if hasattr(self.options,key) and getattr(self.options,key) is not None:
-        if getattr(self.options,key).lower() == "none":
-          setattr(self.options,key,None)
-
-    # Validate that required options are present.
-    for (key,required) in attrs.items():
-      if hasattr(self.options,key) and getattr(self.options,key):
-        # Timetracking must be a "modify" action, not create
-        if key == 'timetracking' and not self.options.issueID: continue
-        issue.update(key,getattr(self.options,key))
-      else:
-        if self.options.issueID is None:
-          # This is a create, which requires some attrs
-          if required is True and not permissive:
-            self.fatal("You must specify: %s" % key)
-
-    # Now that we have the project, get its ID and then project types.
-    # Project ID is installation specific.
-    if hasattr(issue,'project'):
-      projectID = self.get_project_id(issue.project)
-      if not projectID and self.options.issueID is None:
-        self.fatal("Project %s is unknown" % issue.project)
-
-      self.set_issue_types(projectID)
-      self.set_project_versions(issue.project)
-      self.set_project_components(issue.project)
-
-    # A given type must be known to Jira, convert to numerical form
-    if hasattr(issue,'type') and issue.type is not None:
-      if issue.type not in self.typemap:
-        print "Known issue types:\n%r\n" % self.typemap
-        self.fatal("Unknown issue type: '%s' for Project: '%s'" % (issue.type,issue.project))
-      issue.type = self.typemap[issue.type]
-
-    # A given fixVersion must be known to Jira, convert to numerical form
-    if hasattr(issue,'fixVersions'):
-      for version in issue.fixVersions:
-        versionid = version['id'].lower()
-        if versionid.isdigit(): continue
-        if versionid not in self.versionmap:
-          print "Known versions :\n%r\n" % self.versionmap
-          self.fatal("Unknown fixVersion: '%s' for Project: '%s'" % (versionid,issue.project))
-
-        idx = issue.fixVersions.index(version)
-        versionname = versionid
-        versionid = self.versionmap[versionid]
-        print "Version named '%s' is id %s" % (versionname,versionid)
-        issue.fixVersions[idx]['id'] = versionid
-
-    # A given Component must be known to Jira, convert to numerical form
-    if hasattr(issue,'components'):
-      for component in issue.components:
-        componentid = component['id'].lower()
-        if componentid.isdigit(): continue
-        if componentid not in self.componentmap:
-          print "Known components :\n%r\n" % self.componentmap
-          self.fatal("Unknown component: '%s' for Project: '%s'" % (componentid,issue.project))
-
-        idx = issue.components.index(component)
-        componentname = componentid
-        componentid = self.componentmap[componentid]
-        print "Component named '%s' is id %s" % (componentname,componentid)
-        issue.components[idx]['id'] = componentid
-
-    # Epic/Theme is a custom field that may or may not be enabled
-    # for a given project.  We have the issue_epic_theme which is the desired
-    # existing Epic issue we want to include in the issue we're creating,
-    # and we have the epic_theme, which is the custom field ID for this 
-    # installation's current Project.
-    if self.options.issue_epic_theme:
-      issue.customFieldValues = [{'values':self.options.issue_epic_theme,'customfieldId':self.options.epic_theme}]
-
-    # Priorities are also installation specific
-    if hasattr(issue,'priority') and issue.priority is not None:
-      issue.priority = self.priorities[issue.priority.lower()]
-
-    # Set prefix on summary
-    if self.options.prefix:
-      issue.summary = self.options.prefix
+    if type(attr) is dict:
+      #self.logger.debug("set dict attr %s %s" % (key,value))
+      item = getattr(issue,key)
+      if item.has_key('id'):
+        if attribute_map:
+          item['id'] = str(attribute_id)
+        else:
+          item['id'] = str(value)
+      if item.has_key('name'):
+        item['name'] = str(value)
 
     return issue
 
-  def get_issue(self,issueID):
-    result = self.proxy.getIssue(self.auth,issueID)
-    return result
+  def create_issue_obj(self,defaults=False):
+    # Trigger to parse rc file for issue default values
+    if defaults:
+      self.read_issue_defaults()
 
-  def delete_issue(self,issueID):
-    result = self.proxy.deleteIssue(self.auth,issueID)
-    return result
+    if self.options.project is None:
+      self.fatal("You must specify a project key")
 
-  def get_issue_links(self,issueID,type=None):
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.fatal("Only the SOAP client can link issues")
-    result = self.proxy.getIssue(self.auth,issueID)
-    result = self.proxy.getLinkedIssues(self.auth,SOAPpy.Types.longType(long(result['id'])),'')
-    return result
+    # Creates an Issue object based on CLI args and config file.
+    # We do this for create and modify operations.
+    issue = Issue()
 
-  def add_comment(self,issueID,comment):
-    result = self.proxy.addComment(self.auth,issueID,{'body': comment})
-    print "Modified %s/browse/%s" % \
-     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
+    self.get_project_id(self.options.project)
+    self.get_issue_types(self.options.project)
+    self.get_project_versions(self.options.project)
+    self.get_project_components(self.options.project)
+    self.get_resolutions()
+    self.get_priorities()
 
-  def resolve_issue(self,issueID,resolution):
-    self.set_resolutions()
-    rid = None
-    rname = None
-    # Caller can ask for either the resolution name or its id
-    for k,v in self.resolutions.items():
-      if resolution == k or resolution == v:
-        rid = v
-        rname = k
-        break
-    # Here '2' means workflow action "closed"
-    # Here '5' means workflow action "resolved"
-    # FIXME: Use getAvailableActions, issueID to get the map of actions
-    result = self.proxy.progressWorkflowAction(self.auth, issueID, '5',
-                 [ {"id": "resolution", "values": rid } ]
-                )
-    print "Resolved %s/browse/%s" % \
-     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
-    return result
+    for key in issue.__dict__.keys():
+      #self.logger.debug("attr %s" % key)
+      if hasattr(self.options,key):
+        attr = getattr(self.options,key)
+        if attr:
+          values = getattr(self.options,key).split(',')
+          for value in values:
+            issue = self.update_issue_obj(issue,key,value)
+
+    if self.options.epic_theme:
+      setattr(issue,self.options.epic_theme_id,self.options.epic_theme)
+
+    if self.options.timetracking:
+      issue.timetracking = { "originalEstimate": self.options.timetracking }
+    if self.options.remaining:
+      issue.timetracking = { "remainingEstimate": self.options.remaining }
+
+    return issue
 
   def log_work(self,issueID):
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.logger.error("Only the SOAP interface supports this operation")
-      return
-
+    '''/rest/api/2/issue/{issueIdOrKey}/worklog?adjustEstimate&newEstimate&reduceBy'''
     comment = self.options.worklog
-
     spent = self.options.timespent
     if spent is not None:
       m = time_rx.match(spent)
       if not m:
         self.logger.warning("Time spent has dubious format: %s: no action taken" % (spent))
         return
-
     remaining = self.options.remaining
     if remaining is not None:
       m = time_rx.match(remaining)
@@ -728,90 +775,53 @@ class Jiraclient(object):
         self.logger.warning("Time remaining has dubious format: %s: no action taken" % (remaining))
         return
 
-    # Note time spent must be set, and cannot be less than 1m
-    dt_today = SOAPpy.dateTimeType(time.gmtime(time.time())[:6])
-
     self.logger.info("Update work log for %s: %s" % (issueID,comment))
+    baseuri = 'rest/api/2/issue/%s/worklog' % issueID
+    dt_today = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f-0000");
+
     if spent is None and remaining is None:
-      worklog = {'startDate':dt_today,'timeSpent':'1m','comment':comment}
-      self.proxy.addWorklogAndRetainRemainingEstimate(self.auth, issueID, worklog)
+      worklog = {'startDate':dt_today,'comment':comment}
+      payload = json.dumps(worklog)
+      self.call_api('post',baseuri,payload=payload)
     elif spent is None:
-      worklog = {'startDate':dt_today,'timeSpent':'1m','comment':comment}
-      self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, remaining)
+      # remaining has been set, but not spent
+      uri = "%s?adjustEstimate=new&newEstimate=%s" % (baseuri,remaining)
+      worklog = {'startDate':dt_today,'comment':comment}
+      payload = json.dumps(worklog)
+      self.call_api('post',uri,payload=payload)
     elif remaining is None:
+      # spent set, auto adjust
+      uri = "%s?adjustEstimate=auto" % (baseuri)
       worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
-      self.proxy.addWorklogAndAutoAdjustRemainingEstimate(self.auth, issueID, worklog)
+      payload = json.dumps(worklog)
+      self.call_api('post',uri,payload=payload)
     else:
+      # spent set and remaining set
+      uri = "%s?adjustEstimate=new&newEstimate=%s" % (baseuri,remaining)
       worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
-      self.proxy.addWorklogWithNewRemainingEstimate(self.auth, issueID, worklog, remaining)
-
-  def modify_issue(self,issueID,issue):
-
-    issue = issue.__dict__
-
-    if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
-      # SOAP takes a list of dictionaries of parameters, we need to convert to
-      # the right format
-      paramlist = []
-      for item in issue:
-        params = {'id':None,'values':None}
-        if item == 'type':
-          params['id'] = 'issuetype' # type becomes issuetype? WTF?
-        else:
-          params['id'] = item
-        if type(issue[item]) is list:
-          params['values'] = [x.values()[0] for x in issue[item]]
-        else:
-          params['values'] = issue[item]
-        if params not in paramlist:
-          paramlist.append(params)
-      issue = paramlist
-
-    print "Modify %s:" % issueID
-    pp.pprint(issue)
-    if self.options.noop: return
-    result = self.proxy.updateIssue(self.auth,issueID,issue)
-
-    print "Modified %s/browse/%s" % \
-     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
+      payload = json.dumps(worklog)
+      self.call_api('post',uri,payload=payload)
 
   def link_issues(self,issueFrom,linkType,issueTo):
     if self.options.noop:
-      print "Would link %s -> %s" % (parent,child)
+      print "Would link %s -> %s" % (issueFrom,issueTo)
       return
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.fatal("Only the SOAP client can link issues")
-    fromIssue = self.proxy.getIssue(self.auth,issueFrom)
-    fromId = SOAPpy.Types.longType(long(fromIssue['id']))
-    toIssue = self.proxy.getIssue(self.auth,issueTo)
-    toId = SOAPpy.Types.longType(long(toIssue['id']))
-    result = self.proxy.linkIssue(self.auth,fromId,toId,linkType,True,False)
+    uri = 'rest/api/latest/issueLink'
+    payload = json.dumps({"type":{"name":linkType},"inwardIssue":{"key":issueFrom},"outwardIssue":{"key":issueTo},"comment":{"body":self.options.comment}})
+    result = self.call_api('post',uri,payload=payload)
     return result
 
-  def unlink_issues(self,issueFrom,linkType,issueTo):
-    if self.options.noop:
-      print "Would unlink %s -> %s" % (parent,child)
-      return
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.fatal("Only the SOAP client can link issues")
-    fromIssue = self.proxy.getIssue(self.auth,issueFrom)
-    fromId = SOAPpy.Types.longType(long(fromIssue['id']))
-    toIssue = self.proxy.getIssue(self.auth,issueTo)
-    toId = SOAPpy.Types.longType(long(toIssue['id']))
-    result = self.proxy.unlinkIssue(self.auth,fromId,toId,linkType)
-    return result
+  #def unlink_issues(self,issueFrom,linkType,issueTo):
+  #  if self.options.noop:
+  #    print "Would unlink %s -> %s" % (parent,child)
+  #    return
+  #  result = self.proxy.unlinkIssue(self.auth,fromId,toId,linkType)
+  #  return result
 
   def subtask_link(self,parent,child):
     if self.options.noop:
       print "Would apply subtask link"
       return
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.fatal("Only the SOAP client can link issues")
-    parent = self.proxy.getIssue(self.auth,parent)
-    parentId = SOAPpy.Types.longType(long(parent['id']))
-    child = self.proxy.getIssue(self.auth,child)
-    childId = SOAPpy.Types.longType(long(child['id']))
-
     # issueType is always jira_subtask_link, which we get from the Jira DB:
     # mysql> select * from issuelinktype;
     # +-------+-------------------+---------------------+----------------------+--------------+
@@ -823,201 +833,8 @@ class Jiraclient(object):
     # | 10012 | Blocks            | is blocked by       | blocks               | NULL         | 
     # +-------+-------------------+---------------------+----------------------+--------------+
     # 4 rows in set (0.00 sec)
-    linkType = SOAPpy.Types.longType(long(10000))
-
-    # If we don't already know issue types, figure them out...
-    projectID = self.get_project_id(child.project)
-    if not projectID:
-      self.fatal("Project %s is unknown" % child.project)
-
-    # Set sub-task link
-    result = self.proxy.createSubtaskLink(self.auth,parentId,childId,linkType)
-
-    # Set issue type to sub-task after linking.
-    issue = Issue()
-    issue.type = self.typemap['sub-task']
-    issue.project = projectID
-    self.modify_issue(child.key,issue)
-
+    result = self.link_issues(child,'jira_subtask_link',parent)
     return result
-
-  def create_issue(self,issue):
-
-    issue = issue.__dict__
-    print "Create issue:"
-    pp.pprint(issue)
-    if self.options.noop:
-      # return a fake Issue Key
-      return 'issue'
-    newissue = self.proxy.createIssue(self.auth,issue)
-    issueID = newissue["key"]
-    print "Created %s/browse/%s" % \
-     (self.proxy.getServerInfo(self.auth)['baseUrl'], issueID)
-
-    return issueID
-
-  def create_issues_from_template(self):
-    # FIXME: This method is too long and has opportunities to reduce duplicate code.
-
-    if self.proxy.__class__ is not SOAPpy.WSDL.Proxy:
-      self.fatal("Only the SOAP extended webservice supports issue templates")
-
-    # Epic is required on templates to satisfy a GC convention.
-    if not hasattr(self.options,'epic_theme'):
-      self.fatal("Configuration lacking epic_theme parameter")
-
-    import yaml
-
-    if not self.options.template == "-" and not os.path.exists(self.options.template):
-      self.fatal("No such file: %s" % self.options.template)
-
-    # This isn't "real" recursion because as we get deeper the thing we represent
-    # goes from Epic to Story to Subtask, which are different datatypes in Jira.
-    try:
-      if self.options.template == "-":
-        template = yaml.load(sys.stdin)
-      else:
-        template = yaml.load(file(self.options.template,"r"))
-    except Exception,details:
-      self.fatal("Failed to parse YAML template: %s" % details)
-
-    e = self.create_issue_obj(permissive=True)
-    e.type = self.typemap['epic']
-    # FIXME: Assumes we have a single epic in this template
-    for (key,value) in template.items():
-      if type(value) is list: continue
-      if type(value) is types.StringType or type(value) is int:
-        if hasattr(e,key):
-          e.update(key,value)
-        else:
-          self.fatal("Unknown issue attribute in template: %s" % (key))
-
-    # Create an epic Issue here
-    eid = self.create_issue(e)
-    # set epic/theme with Issue ID we just received
-    e = Issue()
-    e.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-    self.modify_issue(eid,e)
-
-    time = None
-    if 'subtasks' in template.keys():
-      for subtask in template['subtasks']:
-        st = self.create_issue_obj(permissive=True)
-        # You cannot directly create a sub-task, you have to
-        # create an issue, set sub-task link, then set type = sub-task
-        st.type = self.typemap['story']
-        for (key,value) in subtask.items():
-          if type(value) is list:
-            self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
-          if type(value) is types.StringType or type(value) is int:
-            if hasattr(st,key):
-              st.update(key,value)
-            else:
-              self.fatal("Unknown issue attribute in template: %s" % (key))
-
-        st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-        # We specify timetracking on issues, but we can only set
-        # that attribute on a Modify action, not a Create action.
-        if hasattr(st,'timetracking') and st.timetracking is not None:
-          time = st.timetracking
-          del st.timetracking
-        stid = self.create_issue(st)
-        # This converts to a sub-task
-        self.subtask_link(eid,stid)
-        # Now set timetracking
-        if time is not None:
-          st = Issue()
-          st.update('timetracking',time)
-          self.modify_issue(stid,st)
-          time = None
-
-    # Now create the stories
-    if 'stories' in template.keys():
-      for story in template['stories']:
-        s = self.create_issue_obj(permissive=True)
-        s.type = self.typemap['story']
-        for (key,value) in story.items():
-          if type(value) is list: continue
-          if type(value) is types.StringType or type(value) is int:
-            if hasattr(s,key):
-              s.update(key,value)
-            else:
-              self.fatal("Unknown issue attribute in template: %s" % (key))
-
-        time = None
-        # We specify timetracking on issues, but we can only set
-        # that attribute on a Modify action, not a Create action.
-        if hasattr(s,'timetracking') and s.timetracking is not None:
-          time = s.timetracking
-          del s.timetracking
-
-        if eid:
-          s.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-        sid = self.create_issue(s)
-        if time is not None:
-          # Now set the timetracking
-          s = Issue()
-          s.update('timetracking',time)
-          self.modify_issue(sid,s)
-
-        # Now create all subtasks of this story
-        time = None
-        if 'subtasks' in story:
-          for subtask in story['subtasks']:
-            st = self.create_issue_obj(permissive=True)
-            # You cannot directly create a sub-task, you have to
-            # create an issue, set sub-task link, then set type = sub-task
-            st.type = self.typemap['story']
-            for (key,value) in subtask.items():
-              if type(value) is list:
-                self.fatal("Unsupported nesting depth in subtask of story: %s" % subtask['summary'])
-              if type(value) is types.StringType or type(value) is int:
-                if hasattr(st,key):
-                  st.update(key,value)
-                else:
-                  self.fatal("Unknown issue attribute in template: %s" % (key))
-
-            st.customFieldValues = [{'values':eid,'customfieldId':self.options.epic_theme}]
-            # We specify timetracking on issues, but we can only set
-            # that attribute on a Modify action, not a Create action.
-            if hasattr(st,'timetracking') and st.timetracking is not None:
-              time = st.timetracking
-              del st.timetracking
-            stid = self.create_issue(st)
-            # This converts to a sub-task
-            self.subtask_link(sid,stid)
-            # Now set timetracking
-            if time is not None:
-              st = Issue()
-              st.update('timetracking',time)
-              self.modify_issue(stid,st)
-              time = None
-
-    if not self.options.noop:
-      print "Issue Filter: %s/secure/IssueNavigator.jspa?reset=true&jqlQuery=cf[%s]+%%3D+%s+ORDER+BY+key+ASC,issuetype+ASC" % (self.proxy.getServerInfo(self.auth)['baseUrl'],self.options.epic_theme.replace('customfield_',''),eid)
-
-  def call_API(self,api,args):
-    func = getattr(self.proxy,api)
-    args = ' '.join(args)
-    if args:
-      result = func(self.auth,args)
-    else:
-      result = func(self.auth)
-
-    if self.proxy.__class__ is SOAPpy.WSDL.Proxy:
-      for item in result:
-        inspect(item)
-
-    else:
-      print result
-
-      for item in result:
-        if type(item) is dict:
-          for (k,v) in item.items():
-            print "%s = %s" % (k,v)
-          print
-        else:
-          print result
 
   def run(self):
 
@@ -1036,53 +853,48 @@ class Jiraclient(object):
     if not self.options.jiraurl:
       self.fatal("Please specify the Jira URL")
 
-    if self.options.jiraurl.lower().find('soap') != -1:
-      self.proxy = SOAPpy.WSDL.Proxy(self.options.jiraurl)
-    else:
-      self.proxy = xmlrpclib.ServerProxy(self.options.jiraurl).jira1
-
     # Check or get auth token
     self.check_auth()
 
     # Run a named Jira API call and return
     if self.options.api is not None:
       try:
-        self.call_API(self.options.api,self.args)
+        data = self.call_api('get',self.options.api)
       except Exception, details:
-        self.fatal("API error: bad method or args: %s" % details)
+        self.fatal("API error: bad method: %s" % details)
+      pp.pprint(data)
       return
 
-    if self.options.delete is not None:
-      try:
-        result = self.delete_issue(self.options.delete)
-        print "Issue deleted: %s" % self.options.delete
-        return
-      except Exception, details:
-        print "There was an error deleting %s: %r" % (self.options.delete,details)
-        return
-
-    # Create a set of Issues based on a YAML project file
-    if self.options.template is not None:
-      self.create_issues_from_template()
+    if self.options.delete is True:
+      self.delete_issue(self.options.issueID)
       return
+
+    if self.options.display:
+      self.display_issue(self.options.issueID)
+      return
+
+    ## Create a set of Issues based on a YAML project file
+    #if self.options.template is not None:
+    #  self.create_issues_from_template()
+    #  return
 
     # Link two existing IDs
     if self.options.link is not None:
-      (fromId,type,toId) = self.options.link.split(',')
-      print "Create '%s' link from '%s' to '%s'" % (type,fromId,toId)
-      result = self.link_issues(fromId,type,toId)
+      (fromId,linktype,toId) = self.options.link.split(',')
+      print "Create '%s' link from '%s' to '%s'" % (linktype,fromId,toId)
+      self.link_issues(fromId,linktype,toId)
       return
 
     # UnLink two existing IDs
-    if self.options.unlink is not None:
-      (fromId,type,toId) = self.options.unlink.split(',')
-      print "Remove '%s' link from '%s' to '%s'" % (type,fromId,toId)
-      result = self.unlink_issues(fromId,type,toId)
-      return
+    #if self.options.unlink is not None:
+    #  (fromId,linktype,toId) = self.options.unlink.split(',')
+    #  print "Remove '%s' link from '%s' to '%s'" % (linktype,fromId,toId)
+    #  result = self.unlink_issues(fromId,linktype,toId)
+    #  return
 
     # Make one issue a sub-task of another
     if self.options.subtask is not None:
-      (parent,child) = self.options.subtask .split(',')
+      (parent,child) = self.options.subtask.split(',')
       print "Make '%s' a subtask of '%s'" % (child,parent)
       result = self.subtask_link(parent,child)
       return
@@ -1109,67 +921,26 @@ class Jiraclient(object):
       self.resolve_issue(self.options.issueID,self.options.resolve)
       return
 
-    # Display a specified issue ID
-    if self.options.display:
-
-      if self.options.issueID is None:
-        self.logger.error("Please specify an issue ID with -i")
-        return
-
-      # Get the issue to display
-      try:
-        issue = self.get_issue(self.options.issueID)
-        print "Issue: %s" % self.options.issueID
-      except Exception, details:
-        print "There was an error fetching %s. Reason: %r" % (self.options.issueID,details)
-        return
-
-      if issue.__class__ is SOAPpy.Types.structType:
-        inspect(issue)
-
-      else:
-        for (k,v) in issue.items():
-          print "%15s: %s" % (k,v)
-
-      # Display linked issues... only with SOAP
-      if issue.__class__ is SOAPpy.Types.structType:
-        links = self.get_issue_links(self.options.issueID)
-        ids = []
-        for link in links:
-          ids.append(getattr(link,'key'))
-        print "Linked to this issue:"
-        print "%r" % ids
-
-      return
-
     # We've done all we're allowed to do with a given existing issueID
     if self.options.issueID is not None:
         return
 
-    # Create an issue object
-    issue = self.create_issue_obj()
-
     # Modify existing issue
     if self.options.issueID is not None:
-      # Modify existing issue
+      issue = self.create_issue_obj(defaults=False)
       self.modify_issue(self.options.issueID,issue)
       return
 
     # Create a new issue
+    issue = self.create_issue_obj(defaults=True)
     try:
       issueID = self.create_issue(issue)
     except Exception, details:
-      self.fatal("Failed to create issue.  Reason: %r" % details)
+      self.fatal("Failed to create issue. Reason: %r" % details)
 
     # Make the issue a subtask, if a parent is given
     if self.options.subtask_of:
       self.subtask_link(self.options.subtask_of,issueID)
-
-    # Set timetracking if present, sets original estimate
-    if self.options.timetracking is not None:
-      tt = Issue()
-      tt.timetracking = self.options.timetracking
-      self.modify_issue(issueID,tt)
 
     # Add a work log, possibly updating remaining estimate
     if self.options.worklog is not None:

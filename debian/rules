@@ -13,5 +13,6 @@ PACKAGE=$(shell dh_listpackages)
 binary-arch: build
 
 override_dh_install:
-	install -D -m 755 src/jiraclient.py debian/$(PACKAGE)/usr/bin/jiraclient
+	install -D -m 755 bin/jiraclient debian/$(PACKAGE)/usr/bin/jiraclient
+	install -D -m 644 src/jiraclient.py debian/$(PACKAGE)/usr/share/pyshared/jiraclient/jiraclient.py
 

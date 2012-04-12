@@ -3,173 +3,179 @@ import pprint
 import sys
 import os
 import unittest
-import SOAPpy
-import xmlrpclib
+import json
+import base64
 
 if os.path.exists("../src/"):
   sys.path.insert(0,"../src/")
 
 import jiraclient
+from restkit import BasicAuth
 
-pp = pprint.PrettyPrinter()
+pp = pprint.PrettyPrinter(depth=4,stream=sys.stdout)
+
+class DictDiffer(object):
+    """
+    Calculate the difference between two dictionaries as:
+    (1) items added
+    (2) items removed
+    (3) keys same in both but changed values
+    (4) keys same in both and unchanged values
+    """
+    def __init__(self, current_dict, past_dict):
+      self.current_dict, self.past_dict = current_dict, past_dict
+      self.set_current, self.set_past = set(current_dict.keys()), set(past_dict.keys())
+      self.intersect = self.set_current.intersection(self.set_past)
+    def added(self):
+      return self.set_current - self.intersect
+    def removed(self):
+      return self.set_past - self.intersect
+    def changed(self):
+      return set(o for o in self.intersect if self.past_dict[o] != self.current_dict[o])
+    def unchanged(self):
+      return set(o for o in self.intersect if self.past_dict[o] == self.current_dict[o])
+    def areEqual(self):
+      ch = self.changed()
+      if len(ch) != 0:
+        pp.pprint(ch)
+        pp.pprint(self.current_dict)
+        return False
+      return True
 
 class TestUnit(unittest.TestCase):
 
-  def testInspect(self):
-    return
-    i = jiraclient.Issue()
-    l = jiraclient.Issue()
-    j = SOAPpy.Types.structType(l)
-    k = SOAPpy.Types.typedArrayType([1,2,3])
-    i.type = 'foo'
-    i.project = 'bar'
-    i.project = ['foo','bar']
-    j.child = k
-    i.child = j
-    jiraclient.inspect(i)
+  def setUp(self):
+    self.c = jiraclient.Jiraclient()
+    self.c.parse_args()
+    self.c.options.config = "./data/jiraclientrc-001"
+    self.c.options.sessionfile = "./data/jira-session"
+    self.c.options.loglevel = "DEBUG"
+    self.c.prepare_logger()
+    self.c.read_config()
+    self.c.options.user = 'jirauser'
+    self.c.options.password = 'jirauser'
 
   def testLogger(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.logger.info('info')
-    c.logger.warn('warn')
-    c.logger.error('error')
-    c.logger.fatal('fatal')
+    self.c.logger.info('info')
+    self.c.logger.warn('warn')
+    self.c.logger.error('error')
+    self.c.logger.fatal('fatal')
+
+  def testTimeIsValid(self):
+    assert jiraclient.time_is_valid('1s') is False
+    assert jiraclient.time_is_valid('1m') is True
+    assert jiraclient.time_is_valid('1h') is True
+    assert jiraclient.time_is_valid('1d') is True
+    assert jiraclient.time_is_valid('1w') is True
+    assert jiraclient.time_is_valid('1q') is False
+    assert jiraclient.time_is_valid('0.1m') is False
+
+  def testInspect(self):
+    adict = { "foo": "bar", "baz": "bing" }
+    assert jiraclient.inspect(adict,padding=10) is None
 
   def testFatal(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    self.assertRaises(SystemExit,c.fatal)
+    self.assertRaises(SystemExit,self.c.fatal)
 
   def testReadConfig(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc"
-    c.read_config()
-
-    assert c.options == {
+    desired = {
       'comment': None,
-      'fixversions': '10033',
-      'assignee': 'user',
+      'fixVersions': 'Backlog',
+      'assignee': 'jirauser',
       'api': None,
       'file': None,
-      'affectsversions': None,
+      'affectsVersions': None,
       'epic_theme': 'customfield_10020',
-      'jiraurl': 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc',
+      'jiraurl': 'https://jira.gsc.wustl.edu',
       'unlink': None,
       'issueID': None,
       'priority': 'normal',
       'use_syslog': False,
       'noop': False,
       'template': None,
-      'config': './data/jiraclientrc',
+      'config': './data/jiraclientrc-001',
       'description': None,
       'subtask': None,
       'link': None,
-      'user': 'user',
-      'password': 'password',
-      'loglevel': 'INFO',
+      'user': 'jirauser',
+      'loglevel': 'DEBUG',
       'type': 'story',
       'summary': None,
       'project': 'INFOSYS',
-      'components': '10002',
-      'display': False,
+      'components': 'CSA',
     }
+    diff = DictDiffer(self.c.__dict__,desired)
+    assert diff.areEqual()
 
   def testGetProjectId(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
+    self.c.get_project_id('INFOSYS')
+    assert self.c.maps['project'][10001] == 'infosys'
 
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    result = c.get_project_id('INFOSYS')
-    assert result == '10001'
+  def testGetSession(self):
+    self.c.token = base64.b64encode("%s:%s" % (self.c.options.user, self.c.options.password))
+    assert self.c.get_session() is None
 
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    result = c.get_project_id('INFOSYS')
-    assert result == '10001'
+  def testCheckAuth(self):
+    if os.path.exists(self.c.options.sessionfile):
+      os.unlink(self.c.options.sessionfile)
+
+    # Test success
+    self.c.check_auth()
+    fd = open(self.c.options.sessionfile,"r")
+    tokenA = fd.read()
+    fd.close()
+    tokenB = base64.b64encode("%s:%s" % (self.c.options.user, self.c.options.password))
+    assert tokenA == tokenB
+    if os.path.exists(self.c.options.sessionfile):
+      os.unlink(self.c.options.sessionfile)
+
+    # Test failure
+    self.c.options.password = "wrong"
+    self.c.token = base64.b64encode("%s:%s" % (self.c.options.user, self.c.options.password))
+    self.assertRaises(SystemExit,self.c.check_auth)
+    if os.path.exists(self.c.options.sessionfile):
+      os.unlink(self.c.options.sessionfile)
+
+    self.setUp()
 
   def testGetIssueTypes(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
+    response = self.c.get_issue_types('INFOSYS')
+    desired = {'bug': 1, 'epic': 6, 'improvement': 4, 'new feature': 2, 'story': 7, 'sub-task': 5, 'task': 3, 'technical task': 8}
+    diff = DictDiffer(self.c.maps['issuetype'],desired)
+    assert diff.areEqual()
 
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    projectID = c.get_project_id('INFOSYS')
-    result = c.get_issue_types(projectID)
-    assert c.typemap == {'story': '7', 'epic': '6', 'sub-task': '5'}
+  def testGetResolutions(self):
+    response = self.c.get_resolutions()
+    desired = {'cannot reproduce': 5, 'complete': 6, 'duplicate': 3, 'fixed': 1, 'incomplete': 4, "won't fix": 2}
+    diff = DictDiffer(self.c.maps['issuetype'],desired)
+    assert diff.areEqual()
 
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    projectID = c.get_project_id('INFOSYS')
-    result = c.get_issue_types(projectID)
-    assert c.typemap == {'story': '7', 'epic': '6', 'sub-task': '5'}
+  def testGetProjectVersions(self):
+    response = self.c.get_project_versions('INFOSYS')
+    assert self.c.maps['versions'][10180] == 'sprint 2012-1: 1/2 - 1/13'
+
+  def testGetProjectComponents(self):
+    response = self.c.get_project_components('INFOSYS')
+    assert self.c.maps['components'][10111] == 'csa'
 
   def testGetPriorities(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    result = c.get_priorities()
-    assert c.priorities == {'major': '3', 'normal': '6', 'blocker': '1', 'high': '7', 'critical': '2', 'trivial': '5', 'minor': '4'}
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    result = c.get_priorities()
-    assert c.priorities == {'major': '3', 'normal': '6', 'blocker': '1', 'high': '7', 'critical': '2', 'trivial': '5', 'minor': '4'}
+    response = self.c.get_priorities()
+    assert self.c.maps['priority'][3] == 'major'
 
   def testCreateIssueObj(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
-
-    c.options.type = 'story'
-    c.options.summary = 'Summary'
-    c.options.description = 'Description'
-    c.options.priority = 'normal'
-    c.options.project = 'INFOSYS'
-    c.options.assignee = 'user'
-    c.options.components = '10001,10002,10003'
-    c.options.fixVersions = '10010,10020,10030'
-    c.options.affectsVersions = '10010,10020,10030'
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    c.get_priorities()
-    i = c.create_issue_obj()
+    self.c.options.type = 'story'
+    self.c.options.summary = 'Summary'
+    self.c.options.description = 'Description'
+    self.c.options.priority = 'normal'
+    self.c.options.project = 'INFOSYS'
+    self.c.options.assignee = 'jirauser'
+    self.c.options.components = '10001,10002,10003'
+    self.c.options.fixVersions = '10010,10020,10030'
+    self.c.options.affectsVersions = '10010,10020,10030'
+    self.c.get_priorities()
+    i = self.c.create_issue_obj()
     assert i.__dict__ == {
-     'assignee': 'user',
-     'components': [{'id': '10001'}, {'id': '10002'}, {'id': '10003'}],
-     'description': 'Description',
-     'fixVersions': [{'id': '10033'}],
-     'priority': '6',
-     'project': 'INFOSYS',
-     'summary': 'Summary',
-     'type': '7'
-    }
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    c.get_priorities()
-    i = c.create_issue_obj()
-    assert i.__dict__ == {
-     'assignee': 'user',
+     'assignee': 'jirauser',
      'components': [{'id': '10001'}, {'id': '10002'}, {'id': '10003'}],
      'description': 'Description',
      'fixVersions': [{'id': '10033'}],
@@ -180,59 +186,41 @@ class TestUnit(unittest.TestCase):
     }
 
   def testGetIssue(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    c.get_priorities()
-    i = c.get_issue('INFOSYS-1')
+    self.c.get_priorities()
+    i = self.c.get_issue('INFOSYS-1')
     assert i == {'status': '6', 'project': 'INFOSYS', 'updated': '2010-06-01 08:13:58.406', 'votes': '0', 'components': [{'name': 'Research Computing', 'id': '10003'}], 'reporter': 'mcallawa', 'customFieldValues': [{'values': '', 'customfieldId': 'customfield_10010'}, {'values': '', 'customfieldId': 'customfield_10020'}, {'values': '280000000', 'customfieldId': 'customfield_10001'}], 'resolution': '1', 'created': '2010-03-04 16:07:53.85', 'fixVersions': [{'archived': 'true', 'name': 'Sprint 01: 3/1 - 3/18', 'sequence': '6', 'releaseDate': '2010-03-18 00:00:00.0', 'released': 'true', 'id': '10000'}], 'summary': 'Create a basic JIRA installation', 'priority': '3', 'assignee': 'mcallawa', 'key': 'INFOSYS-1', 'affectsVersions': [], 'type': '7', 'id': '10000', 'description': 'Set up JIRA and begin using it for project tracking.'}
 
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    c.get_priorities()
-    i = c.get_issue('INFOSYS-1')
-    assert i.__class__ is SOAPpy.Types.structType
-
   def testGetIssueLinks(self):
-    c = jiraclient.Jiraclient()
-    c.parse_args()
-    c.prepare_logger()
-    c.options.config = "./data/jiraclientrc-001"
-    c.read_config()
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/xmlrpc'
-    c.proxy = xmlrpclib.ServerProxy(jiraurl).jira1
-    c.get_priorities()
-    self.assertRaises(SystemExit,c.get_issue_links,'INFOSYS-565')
-
-    jiraurl = 'https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl'
-    c.proxy = SOAPpy.WSDL.Proxy(jiraurl)
-    c.get_priorities()
-    result = c.get_issue_links('INFOSYS-565')
-    assert result.__class__ is SOAPpy.Types.typedArrayType
-    for item in result:
-      assert item.__class__ is SOAPpy.Types.structType
-
-  def testCallAPI(self):
-     print "start"
-
+    self.c.get_priorities()
+    data = self.c.get_issue_links('INFOSYS-5548')
+    #pp.pprint(data)
+    assert data[0]['inwardIssue'] is not None
 
 def suite():
 
-  suite = unittest.makeSuite(TestUnit,'test')
+  #suite = unittest.makeSuite(TestUnit,'test')
 
   # If we want to add test methods one at a time, then we build up the
   # test suite by hand.
-  #suite = unittest.TestSuite()
-  #suite.addTest(TestUnit("testGetIssueLinks"))
+  suite = unittest.TestSuite()
+  suite.addTest(TestUnit("testLogger"))
+  suite.addTest(TestUnit("testTimeIsValid"))
+  suite.addTest(TestUnit("testInspect"))
+  suite.addTest(TestUnit("testFatal"))
+  suite.addTest(TestUnit("testReadConfig"))
+  suite.addTest(TestUnit("testGetProjectId"))
+  suite.addTest(TestUnit("testGetSession"))
+  suite.addTest(TestUnit("testCheckAuth"))
+  suite.addTest(TestUnit("testGetIssueTypes"))
+  suite.addTest(TestUnit("testGetResolutions"))
+  suite.addTest(TestUnit("testGetIssueLinks"))
+  suite.addTest(TestUnit("testGetProjectVersions"))
+  suite.addTest(TestUnit("testGetProjectComponents"))
+  suite.addTest(TestUnit("testGetPriorities"))
+  #suite.addTest(TestUnit("testCreateIssueObj"))
 
   return suite
 
 if __name__ == "__main__":
-  print "Unit tests disabled for now"
-  #unittest.main(defaultTest="suite")
+  #print "Unit tests disabled for now"
+  unittest.main(defaultTest="suite")

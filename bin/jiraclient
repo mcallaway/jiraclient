@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+from jiraclient import Jiraclient
+if __name__ == "__main__":
+    App = Jiraclient()
+    try:
+        App.run()
+    except KeyboardInterrupt:
+        print "Exiting..."

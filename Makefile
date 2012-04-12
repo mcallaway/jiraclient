@@ -14,7 +14,7 @@ RELEASE = $(shell awk '{ if ($$0 ~ /^Release:/) { print $$2; exit; }}' $(RPMSPEC
 TAGV = $(shell echo $(VERSION)-$(RELEASE) | sed -e 's/\./_/g' )
 TAG = $(NAME)-$(TAGV)
 
-SOURCES = src/jiraclient.py
+SOURCES = src/jiraclient.py bin/jiraclient
 
 TEST = test
 

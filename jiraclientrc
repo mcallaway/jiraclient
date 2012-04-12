@@ -1,13 +1,6 @@
 [jiraclient]
-# The Extended SOAP interface
-jiraurl = https://jira.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl
-# The XMLRPC interface
-#jiraurl = https://jira.gsc.wustl.edu/rpc/xmlrpc
-
+jiraurl = https://jira.gsc.wustl.edu/
 user = myname
-# Storing password here is supported, but not necessarily recommended
-# jiraclient will prompt that ~/.jiraclientrc is mode 0600
-#password = mysecret
 
 [issues]
 project = INFOSYS
@@ -21,18 +14,7 @@ priority = Normal
 #epic_theme = customfield_10010
 
 # -- Component
-# Systems Development Component = 10002
-components = 10002
+components = CSA
 
 # -- Fix Version
-# Sprint 7
-fixversions = 10032
-
-# RENCI integration
-#fixversions = 10021
-
-# Hexagrid Phase 1
-#fixversions = 10035
-
-# Backlog
-#fixversions = 10020
+fixVersions = Backlog
