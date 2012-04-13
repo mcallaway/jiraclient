@@ -46,21 +46,6 @@ def time_is_valid(value):
     return False
   return True
 
-def inspect(obj,padding=None):
-  # Traverse an object printing non-private attributes
-  if padding is None:
-    padding = 5
-  if type(obj) is types.StringType:
-    print "%s%s" % (' ' * padding,obj)
-  elif type(obj) is types.NoneType:
-    print "%s%s" % (' ' * padding,'None')
-  else:
-    for attr in dir(obj):
-      if attr.startswith('_'): continue
-      a = getattr(obj,attr)
-      if callable(a): continue
-      print "%s%s: %s" % (' ' * padding,attr,a)
-
 class Attribute(object):
   required = False
   name = None
@@ -99,22 +84,19 @@ class Issue(object):
     text += ")"
     return text
 
-  def update(self,key,value):
-    # FIXME: remove unless this expands to handle complex data type attributes
-    setattr(self,key,value)
-
 class SearchableDict(dict):
   def find_key(self,val):
       """return the key of dictionary dic given the value"""
-      return [k for k, v in self.iteritems() if v == val].pop()
+      items = [k for k, v in self.iteritems() if v == val]
+      if items: return items.pop()
+      else: return None
   def find_value(self,key):
       """return the value of dictionary dic given the key"""
-      return self[key]
+      if self.has_key(key): return self[key]
+      else: return None
 
 class Jiraclient(object):
-
   version = "2.0.0"
-
   def __init__(self):
     self.pool    = TConnectionManager()
     self.proxy   = Resource('', pool_instance=self.pool, filters=[])
@@ -196,21 +178,14 @@ class Jiraclient(object):
       "--link",
       action="store",
       dest="link",
-      help="Given link=A,Depends,B links issues A and B with linktype Depends",
+      help="Given link=A,linkType,B links issues A and B with the named link type (eg. Depends)",
       default=None,
     )
-    #optParser.add_option(
-    #  "--unlink",
-    #  action="store",
-    #  dest="unlink",
-    #  help="Given unlink=A,B unlink issues A and B",
-    #  default=None,
-    #)
     optParser.add_option(
-      "--subtask",
+      "--unlink",
       action="store",
-      dest="subtask",
-      help="Given subtask=A,B Make issue B into a sub-task of A",
+      dest="unlink",
+      help="Given link=A,linkType,B unlinks issues A and B with the named link type (eg. Depends)",
       default=None,
     )
     optParser.add_option(
@@ -277,7 +252,7 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-t","--time",
+      "-t","--timetracking",
       action="store",
       dest="timetracking",
       help="Jira issue time 'original estimate'",
@@ -371,7 +346,7 @@ class Jiraclient(object):
       "--subtask-of",
       action="store",
       dest="subtask_of",
-      help="Make the new issue a subtask of this issue key",
+      help="Make the given issue a subtask of this issue key",
       default=None,
     )
     optParser.add_option(
@@ -476,7 +451,6 @@ class Jiraclient(object):
         setattr(self.options,k,v)
 
   def read_issue_defaults(self):
-
     self.logger.debug("read config %s" % self.options.config)
     parser = ConfigParser.ConfigParser()
     parser.optionxform = str
@@ -497,13 +471,15 @@ class Jiraclient(object):
         setattr(self.options,k,v)
 
   def call_api(self,method,uri,payload=None):
+    self.logger.debug("Call API: %s %s/%s payload=%s" % (method,self.options.jiraurl,uri,payload))
+    if self.options.noop: return {}
     self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
     call = getattr(self.proxy,method)
     headers = {'Content-Type' : 'application/json'}
     if self.token is not None:
       headers['Authorization'] = 'Basic %s' % self.token
+
     try:
-      self.logger.debug("calling %s %s" % (method.upper(),self.proxy.uri))
       response = call(headers=headers,payload=payload)
     except Unauthorized:
       if os.path.exists(self.options.sessionfile):
@@ -511,13 +487,13 @@ class Jiraclient(object):
       self.fatal("Login failed")
     except Exception,msg:
       self.fatal("Unhandled API exception for method: %s: %s" % (self.proxy.uri,msg))
+
+    self.logger.debug("Response: %s" % (response.status_int))
     try:
       data = json.loads(response.body_string())
       return data
     except ValueError:
-      # No json
-      return
-      pass
+      return {}
 
   def get_project_id(self,projectKey):
     uri = "%s/%s" % ('rest/api/latest/project', projectKey)
@@ -561,27 +537,26 @@ class Jiraclient(object):
 
   def get_serverinfo(self):
     uri = 'rest/api/latest/serverInfo'
-    return self.call_api("get",uri)
+    result = self.call_api("get",uri)
+    if not result:
+      result = {"baseUrl":self.options.jiraurl}
+    return result
 
   def get_issue(self,issueID):
     uri = 'rest/api/latest/issue/%s' % issueID
-    result = self.call_api("get",uri)
-    return result
+    return self.call_api("get",uri)
 
   def delete_issue(self,issueID):
     uri = 'rest/api/latest/issue/%s?deleteSubtasks' % issueID
     self.call_api('delete',uri)
-    print "Deleted %s/browse/%s" % \
-     (self.get_serverinfo()['baseUrl'], issueID)
+    self.logger.info("Deleted %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
 
   def resolve_issue(self,issueID,resolution):
-    resolution_id = self.maps['resolutions'].find_key(resolution)
     uri = 'rest/api/latest/issue/%s/transitions' % issueID
+    resolution_id = self.maps['resolutions'].find_key(resolution)
     payload = json.dumps({"id": resolution_id})
     result = self.call_api("post",uri,payload=payload)
-    print "Resolved %s/browse/%s" % \
-     (self.get_serverinfo()['baseUrl'], issueID)
-    pp.pprint(result)
+    self.logger.info("Resolved %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
     return result
 
   def display_issue(self,issueID):
@@ -595,36 +570,53 @@ class Jiraclient(object):
     result = self.call_api('post',uri,payload=comment)
     return result
 
-  def create_issue(self,issueObj):
+  def clean_issue(self,issueObj):
+    # We have an Issue with a number of required default values
+    # that are often empty.  Remove the empty ones so as to not
+    # confuse the API service.
     issue = issueObj.__dict__
     for k,v in issue.items():
       if not v: issue.pop(k)
       if v == {"id":None}: issue.pop(k)
+      if v == {"name":None}: issue.pop(k)
       if v == [{"id":None}]: issue.pop(k)
-    data = json.dumps({"fields":issue})
-    print "Create issue:"
-    pp.pprint(data)
-    if self.options.noop:
-      # return a fake Issue Key
-      return 'KEY'
+    return issue
+
+  def create_issue(self,issueObj):
+    issue = self.clean_issue(issueObj)
+    payload = json.dumps({"fields":issue})
+    self.logger.debug("payload: %s" % payload)
     uri = 'rest/api/latest/issue'
-    newissue = self.call_api('post',uri,payload=data)
+    newissue = self.call_api('post',uri,payload=payload)
     issueID = newissue["key"]
-    print "Created %s/browse/%s" % \
-     (self.get_serverinfo()['baseUrl'], issueID)
+    self.logger.info("Created %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
     return issueID
+
+  def modify_issue(self,issueID,issueObj):
+    issue = self.clean_issue(issueObj)
+
+    # FIXME: I'm not sure of a good way to see if we just said --issue with no other options.
+    # So this is a hack to check to see if that's the case.
+    issuecopy = issue
+    issuecopy.pop("project")
+    if not issuecopy:
+      # We specified nothing but --issue, in that case, just display that issue
+      # This is like --display --issue FOO-123
+      return self.display_issue(issueID)
+    payload = json.dumps({"fields":issue})
+    self.logger.debug("payload: %s" % payload)
+    uri = 'rest/api/latest/issue/%s' % issueID
+    self.call_api('put',uri,payload=payload)
+    self.logger.info("Modified %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
 
   def get_issue_links(self,issueID,linktype=None):
     uri = 'rest/api/latest/issue/%s' % issueID
     data = self.call_api('get',uri)
     return data['fields']['issuelinks']
 
-  def modify_issue(self,issueID,issueObj):
-    uri = 'rest/api/latest/issue/%s' % issueID
-    payload = json.dumps(issueObj)
-    self.call_api('post',uri,payload=payload)
-    print "Modified %s/browse/%s" % \
-      (self.get_serverinfo()['baseUrl'], issueID)
+  def delete_issue_link(self,linkID):
+    uri = 'rest/api/latest/issueLink/%s' % linkID
+    return self.call_api('delete',uri)
 
   def get_session(self):
     uri = 'rest/auth/latest/session'
@@ -688,7 +680,7 @@ class Jiraclient(object):
       attribute_id = attribute_map.find_key(value.lower())
       if not attribute_id:
         self.logger.debug("no id found for %s" % (value.lower()))
-        return
+        return issue
     else:
       self.logger.debug("no map found for %s" % (key.lower()))
       attribute_id = value.lower()
@@ -733,6 +725,11 @@ class Jiraclient(object):
     # We do this for create and modify operations.
     issue = Issue()
 
+    # A real issue object contains stuff we've received from 
+    # the Jira API, if in noop mode, don't reach out.
+    if self.options.noop:
+      return issue
+
     self.get_project_id(self.options.project)
     self.get_issue_types(self.options.project)
     self.get_project_versions(self.options.project)
@@ -741,7 +738,7 @@ class Jiraclient(object):
     self.get_priorities()
 
     for key in issue.__dict__.keys():
-      #self.logger.debug("attr %s" % key)
+      self.logger.debug("attr %s" % key)
       if hasattr(self.options,key):
         attr = getattr(self.options,key)
         if attr:
@@ -775,53 +772,56 @@ class Jiraclient(object):
         self.logger.warning("Time remaining has dubious format: %s: no action taken" % (remaining))
         return
 
-    self.logger.info("Update work log for %s: %s" % (issueID,comment))
-    baseuri = 'rest/api/2/issue/%s/worklog' % issueID
+    baseuri = 'rest/api/latest/issue/%s/worklog' % issueID
     dt_today = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f-0000");
 
+    args = None
     if spent is None and remaining is None:
       worklog = {'startDate':dt_today,'comment':comment}
       payload = json.dumps(worklog)
-      self.call_api('post',baseuri,payload=payload)
+      args = ('post',baseuri)
     elif spent is None:
       # remaining has been set, but not spent
       uri = "%s?adjustEstimate=new&newEstimate=%s" % (baseuri,remaining)
-      worklog = {'startDate':dt_today,'comment':comment}
+      worklog = {'comment':comment}
       payload = json.dumps(worklog)
-      self.call_api('post',uri,payload=payload)
+      args = ('post',uri)
     elif remaining is None:
       # spent set, auto adjust
       uri = "%s?adjustEstimate=auto" % (baseuri)
-      worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
+      worklog = {'timeSpent':spent,'comment':comment}
       payload = json.dumps(worklog)
-      self.call_api('post',uri,payload=payload)
+      args = ('post',uri)
     else:
       # spent set and remaining set
       uri = "%s?adjustEstimate=new&newEstimate=%s" % (baseuri,remaining)
-      worklog = {'startDate':dt_today,'timeSpent':spent,'comment':comment}
+      worklog = {'timeSpent':spent,'comment':comment}
       payload = json.dumps(worklog)
-      self.call_api('post',uri,payload=payload)
+      args = ('post',uri)
+
+    self.logger.debug("Log work: %s %s" % (args,payload))
+    self.call_api(*args,payload=payload)
 
   def link_issues(self,issueFrom,linkType,issueTo):
-    if self.options.noop:
-      print "Would link %s -> %s" % (issueFrom,issueTo)
-      return
+    self.logger.debug("Link %s -> %s" % (issueFrom,issueTo))
     uri = 'rest/api/latest/issueLink'
     payload = json.dumps({"type":{"name":linkType},"inwardIssue":{"key":issueFrom},"outwardIssue":{"key":issueTo},"comment":{"body":self.options.comment}})
     result = self.call_api('post',uri,payload=payload)
     return result
 
-  #def unlink_issues(self,issueFrom,linkType,issueTo):
-  #  if self.options.noop:
-  #    print "Would unlink %s -> %s" % (parent,child)
-  #    return
-  #  result = self.proxy.unlinkIssue(self.auth,fromId,toId,linkType)
-  #  return result
+  def unlink_issues(self,issueFrom,linkType,issueTo):
+    self.logger.debug("Unlink %s -> %s" % (issueFrom,issueTo))
+    fromIssue = self.get_issue(issueFrom)
+    for link in self.get_issue_links(issueFrom):
+      if link["outwardIssue"]["key"] == issueTo and link["type"]["name"].lower() == linkType.lower():
+        return self.delete_issue_link(link["id"])
+    if linkType == "jira_subtask_link":
+      # issueFrom has 'subtask' field, issueTo has 'parent' field.
+      # Not sure yet if I can just delete those in a modify_issue action.
+      self.log.issue("Unlinking subtasks is currently unsupported")
 
   def subtask_link(self,parent,child):
-    if self.options.noop:
-      print "Would apply subtask link"
-      return
+    self.logger.debug("Apply subtask link: %s -> %s" % (parent,child))
     # issueType is always jira_subtask_link, which we get from the Jira DB:
     # mysql> select * from issuelinktype;
     # +-------+-------------------+---------------------+----------------------+--------------+
@@ -833,8 +833,42 @@ class Jiraclient(object):
     # | 10012 | Blocks            | is blocked by       | blocks               | NULL         | 
     # +-------+-------------------+---------------------+----------------------+--------------+
     # 4 rows in set (0.00 sec)
-    result = self.link_issues(child,'jira_subtask_link',parent)
+    result = self.link_issues(parent,'jira_subtask_link',child)
     return result
+
+  def act_on_existing_issue(self):
+
+    (project,issue) = self.options.issueID.split('-')
+    self.options.project = project
+
+    # Delete a given issue
+    if self.options.delete is True:
+      return self.delete_issue(self.options.issueID)
+
+    # Display a given issue
+    if self.options.display:
+      return self.display_issue(self.options.issueID)
+
+    # Make one issue a sub-task of another
+    if self.options.subtask_of is not None:
+      return self.subtask_link(self.options.subtask_of,self.options.issueID)
+
+    # Comment on an existing issue ID
+    if self.options.comment is not None:
+      return self.add_comment(self.options.issueID,self.options.comment)
+
+    # Modify worklog and time
+    if self.options.worklog or self.options.timespent or self.options.remaining:
+      return self.log_work(self.options.issueID)
+
+    # Resolve a given existing issue ID
+    if self.options.resolve is not None:
+      return self.resolve_issue(self.options.issueID,self.options.resolve)
+
+    # Modify existing issue
+    if self.options.issueID is not None:
+      issue = self.create_issue_obj(defaults=False)
+      return self.modify_issue(self.options.issueID,issue)
 
   def run(self):
 
@@ -845,6 +879,12 @@ class Jiraclient(object):
       return
 
     self.prepare_logger()
+
+    # Notify the user if noop is on
+    if self.options.noop:
+      self.logger.info("NOOPMODE: API will not be called")
+
+    # Read the rc file
     self.read_config()
 
     if not self.options.user:
@@ -865,71 +905,23 @@ class Jiraclient(object):
       pp.pprint(data)
       return
 
-    if self.options.delete is True:
-      self.delete_issue(self.options.issueID)
-      return
-
-    if self.options.display:
-      self.display_issue(self.options.issueID)
-      return
-
-    ## Create a set of Issues based on a YAML project file
-    #if self.options.template is not None:
-    #  self.create_issues_from_template()
-    #  return
-
     # Link two existing IDs
     if self.options.link is not None:
       (fromId,linktype,toId) = self.options.link.split(',')
-      print "Create '%s' link from '%s' to '%s'" % (linktype,fromId,toId)
-      self.link_issues(fromId,linktype,toId)
-      return
+      return self.link_issues(fromId,linktype,toId)
 
     # UnLink two existing IDs
-    #if self.options.unlink is not None:
-    #  (fromId,linktype,toId) = self.options.unlink.split(',')
-    #  print "Remove '%s' link from '%s' to '%s'" % (linktype,fromId,toId)
-    #  result = self.unlink_issues(fromId,linktype,toId)
-    #  return
+    if self.options.unlink is not None:
+      (fromId,linktype,toId) = self.options.unlink.split(',')
+      return self.unlink_issues(fromId,linktype,toId)
 
-    # Make one issue a sub-task of another
-    if self.options.subtask is not None:
-      (parent,child) = self.options.subtask.split(',')
-      print "Make '%s' a subtask of '%s'" % (child,parent)
-      result = self.subtask_link(parent,child)
-      return
+    ## Create a set of Issues based on a YAML project file
+    #if self.options.template is not None:
+    #  return self.create_issues_from_template()
 
-    # Comment on an existing issue ID
-    if self.options.comment is not None and self.options.issueID is not None:
-      if self.options.noop:
-        print "Add comment to %s: %s" % (self.options.issueID,self.options.comment)
-      else:
-        self.add_comment(self.options.issueID,self.options.comment)
-
-    # Update time remaining of given issue
-    if self.options.worklog is not None and self.options.issueID is not None:
-      if self.options.noop:
-        print "Update time estimate for %s: %s" % (self.options.issueID,self.options.remaining)
-      else:
-        self.log_work(self.options.issueID)
-
-    # Resolve a given existing issue ID
-    if self.options.issueID is not None and self.options.resolve is not None:
-      if self.options.noop:
-        print "Resolve %s %s" % (self.options.issueID,self.options.resolve)
-        return
-      self.resolve_issue(self.options.issueID,self.options.resolve)
-      return
-
-    # We've done all we're allowed to do with a given existing issueID
+    # Act on an existing Jira Issue
     if self.options.issueID is not None:
-        return
-
-    # Modify existing issue
-    if self.options.issueID is not None:
-      issue = self.create_issue_obj(defaults=False)
-      self.modify_issue(self.options.issueID,issue)
-      return
+      return self.act_on_existing_issue()
 
     # Create a new issue
     issue = self.create_issue_obj(defaults=True)
@@ -946,7 +938,7 @@ class Jiraclient(object):
     if self.options.worklog is not None:
       self.log_work(issueID)
 
-    # Immediately resolve it if specified
+    # Resolve the just created issue
     if self.options.resolve is not None:
       self.resolve_issue(issueID,self.options.resolve)
 

@@ -6,8 +6,8 @@ import unittest
 import json
 import base64
 
-if os.path.exists("../src/"):
-  sys.path.insert(0,"../src/")
+if os.path.exists("./src/"):
+  sys.path.insert(0,"./src/")
 
 import jiraclient
 from restkit import BasicAuth
@@ -41,14 +41,21 @@ class DictDiffer(object):
         pp.pprint(self.current_dict)
         return False
       return True
+    def areEqual(self):
+      ch = self.changed()
+      if len(ch) != 0:
+        pp.pprint(self.current_dict)
+        pp.pprint(ch)
+        return False
+      return True
 
 class TestUnit(unittest.TestCase):
 
   def setUp(self):
     self.c = jiraclient.Jiraclient()
     self.c.parse_args()
-    self.c.options.config = "./data/jiraclientrc-001"
-    self.c.options.sessionfile = "./data/jira-session"
+    self.c.options.config = "./test/data/jiraclientrc-001"
+    self.c.options.sessionfile = "./test/data/jira-session"
     self.c.options.loglevel = "DEBUG"
     self.c.prepare_logger()
     self.c.read_config()
@@ -70,10 +77,6 @@ class TestUnit(unittest.TestCase):
     assert jiraclient.time_is_valid('1q') is False
     assert jiraclient.time_is_valid('0.1m') is False
 
-  def testInspect(self):
-    adict = { "foo": "bar", "baz": "bing" }
-    assert jiraclient.inspect(adict,padding=10) is None
-
   def testFatal(self):
     self.assertRaises(SystemExit,self.c.fatal)
 
@@ -93,13 +96,13 @@ class TestUnit(unittest.TestCase):
       'use_syslog': False,
       'noop': False,
       'template': None,
-      'config': './data/jiraclientrc-001',
+      'config': './test/data/jiraclientrc-001',
       'description': None,
       'subtask': None,
       'link': None,
       'user': 'jirauser',
       'loglevel': 'DEBUG',
-      'type': 'story',
+      'issuetype': 'story',
       'summary': None,
       'project': 'INFOSYS',
       'components': 'CSA',
@@ -163,32 +166,33 @@ class TestUnit(unittest.TestCase):
     assert self.c.maps['priority'][3] == 'major'
 
   def testCreateIssueObj(self):
-    self.c.options.type = 'story'
+    self.c.options.issuetype = 'story'
     self.c.options.summary = 'Summary'
     self.c.options.description = 'Description'
     self.c.options.priority = 'normal'
     self.c.options.project = 'INFOSYS'
     self.c.options.assignee = 'jirauser'
-    self.c.options.components = '10001,10002,10003'
-    self.c.options.fixVersions = '10010,10020,10030'
-    self.c.options.affectsVersions = '10010,10020,10030'
+    self.c.options.components = 'csa'
+    self.c.options.fixVersions = '10033'
     self.c.get_priorities()
-    i = self.c.create_issue_obj()
-    assert i.__dict__ == {
-     'assignee': 'jirauser',
-     'components': [{'id': '10001'}, {'id': '10002'}, {'id': '10003'}],
+    i = self.c.create_issue_obj(defaults=True)
+    desired = {
+     'assignee': {'name':'jirauser'},
+     'components': [{'id': '10111'}],
      'description': 'Description',
-     'fixVersions': [{'id': '10033'}],
-     'priority': '6',
-     'project': 'INFOSYS',
+     'fixVersions': [{'id': None}],
+     'priority': {'id':'6'},
+     'project': {'id':'10001'},
      'summary': 'Summary',
-     'type': '7'
+     'issuetype': {'id':'7'}
     }
+    diff = DictDiffer(i.__dict__,desired)
+    assert diff.areEqual()
 
   def testGetIssue(self):
     self.c.get_priorities()
     i = self.c.get_issue('INFOSYS-1')
-    assert i == {'status': '6', 'project': 'INFOSYS', 'updated': '2010-06-01 08:13:58.406', 'votes': '0', 'components': [{'name': 'Research Computing', 'id': '10003'}], 'reporter': 'mcallawa', 'customFieldValues': [{'values': '', 'customfieldId': 'customfield_10010'}, {'values': '', 'customfieldId': 'customfield_10020'}, {'values': '280000000', 'customfieldId': 'customfield_10001'}], 'resolution': '1', 'created': '2010-03-04 16:07:53.85', 'fixVersions': [{'archived': 'true', 'name': 'Sprint 01: 3/1 - 3/18', 'sequence': '6', 'releaseDate': '2010-03-18 00:00:00.0', 'released': 'true', 'id': '10000'}], 'summary': 'Create a basic JIRA installation', 'priority': '3', 'assignee': 'mcallawa', 'key': 'INFOSYS-1', 'affectsVersions': [], 'type': '7', 'id': '10000', 'description': 'Set up JIRA and begin using it for project tracking.'}
+    assert i == {'status': '6', 'project': 'INFOSYS', 'updated': '2010-06-01 08:13:58.406', 'votes': '0', 'components': [{'name': 'Research Computing', 'id': '10003'}], 'reporter': 'mcallawa', 'customFieldValues': [{'values': '', 'customfieldId': 'customfield_10010'}, {'values': '', 'customfieldId': 'customfield_10020'}, {'values': '280000000', 'customfieldId': 'customfield_10001'}], 'resolution': '1', 'created': '2010-03-04 16:07:53.85', 'fixVersions': [{'archived': 'true', 'name': 'Sprint 01: 3/1 - 3/18', 'sequence': '6', 'releaseDate': '2010-03-18 00:00:00.0', 'released': 'true', 'id': '10000'}], 'summary': 'Create a basic JIRA installation', 'priority': '3', 'assignee': 'mcallawa', 'key': 'INFOSYS-1', 'affectsVersions': [], 'issuetype': '7', 'id': '10000', 'description': 'Set up JIRA and begin using it for project tracking.'}
 
   def testGetIssueLinks(self):
     self.c.get_priorities()
@@ -205,7 +209,6 @@ def suite():
   suite = unittest.TestSuite()
   suite.addTest(TestUnit("testLogger"))
   suite.addTest(TestUnit("testTimeIsValid"))
-  suite.addTest(TestUnit("testInspect"))
   suite.addTest(TestUnit("testFatal"))
   suite.addTest(TestUnit("testReadConfig"))
   suite.addTest(TestUnit("testGetProjectId"))
@@ -217,7 +220,7 @@ def suite():
   suite.addTest(TestUnit("testGetProjectVersions"))
   suite.addTest(TestUnit("testGetProjectComponents"))
   suite.addTest(TestUnit("testGetPriorities"))
-  #suite.addTest(TestUnit("testCreateIssueObj"))
+  suite.addTest(TestUnit("testCreateIssueObj"))
 
   return suite
 

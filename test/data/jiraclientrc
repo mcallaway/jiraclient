@@ -5,7 +5,7 @@ user = jirauser
 [issues]
 epic_theme = customfield_10020
 project = INFOSYS
-type = story
+issuetype = story
 priority = normal
 assignee = jirauser
 components = CSA
