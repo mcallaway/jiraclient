@@ -5,8 +5,8 @@ import os
 import logging
 import unittest
 
-if os.path.exists("../src/"):
-  sys.path.insert(0,"../src/")
+if os.path.exists("./src/"):
+  sys.path.insert(0,"./src/")
 
 import jiraclient
 

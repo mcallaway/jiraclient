@@ -6,8 +6,8 @@ import unittest
 import json
 import base64
 
-if os.path.exists("../src/"):
-  sys.path.insert(0,"../src/")
+if os.path.exists("./src/"):
+  sys.path.insert(0,"./src/")
 
 import jiraclient
 from restkit import BasicAuth
@@ -46,8 +46,8 @@ class TestUnit(unittest.TestCase):
   def setUp(self):
     self.c = jiraclient.Jiraclient()
     self.c.parse_args()
-    self.c.options.config = "./data/jiraclientrc-001"
-    self.c.options.sessionfile = "./data/jira-session"
+    self.c.options.config = "./test/data/jiraclientrc-001"
+    self.c.options.sessionfile = "./test/data/jira-session"
     self.c.options.loglevel = "DEBUG"
     self.c.prepare_logger()
     self.c.read_config()

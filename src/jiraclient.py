@@ -533,8 +533,10 @@ class Jiraclient(object):
     self.check_auth()
     uri = '''%s?projectKeys=%s''' % ('rest/api/latest/issue/createmeta', projectKey)
     data = self.call_api("get",uri)
-    for item in data['projects'][0]['issuetypes']:
-      self.maps['issuetype'][int(item['id'])] = str(item['name'].lower())
+    for project in data['projects']:
+      if project['key'] == projectKey:
+        for item in data['projects'][0]['issuetypes']:
+          self.maps['issuetype'][int(item['id'])] = str(item['name'].lower())
 
   def get_resolutions(self):
     if self.maps['resolutions']: return
