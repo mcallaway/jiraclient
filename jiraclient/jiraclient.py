@@ -33,7 +33,6 @@ import json
 import base64
 import datetime
 from restkit import Resource, BasicAuth, request
-from restkit import TConnectionManager
 from restkit.errors import Unauthorized
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -87,11 +86,11 @@ class SearchableDict(dict):
 class Jiraclient(object):
   version = "2.0.0"
   def __init__(self):
-    self.pool    = TConnectionManager()
-    self.proxy   = Resource('', pool_instance=self.pool, filters=[])
+    self.proxy   = Resource('', filters=[])
     self.pool    = None
     self.restapi = None
     self.token   = None
+    self.cookie = None
     self.maps    = {
       'project'    : SearchableDict(),
       'priority'   : SearchableDict(),
@@ -485,8 +484,7 @@ class Jiraclient(object):
       self.logger.debug("set %s %s" % (k,v))
       setattr(self.options,k,v)
 
-  def call_api(self,method,uri,payload=None):
-    self.logger.debug("Call API: %s %s/%s payload=%s" % (method,self.options.jiraurl,uri,payload))
+  def call_api(self,method,uri,payload=None,full=False):
     if self.options.noop: return {}
     if self.options.nopost and ( method.lower() == 'post' or method.lower() == 'put' ): return {}
     self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
@@ -494,7 +492,10 @@ class Jiraclient(object):
     headers = {'Content-Type' : 'application/json'}
     if self.token is not None:
       headers['Authorization'] = 'Basic %s' % self.token
+    if self.cookie is not None:
+      headers['Cookie'] = '%s' % self.cookie
 
+    self.logger.debug("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
     try:
       response = call(headers=headers,payload=payload)
     except Unauthorized:
@@ -505,6 +506,8 @@ class Jiraclient(object):
       self.fatal("Unhandled API exception for method: %s: %s" % (self.proxy.uri,msg))
 
     self.logger.debug("Response: %s" % (response.status_int))
+    if full:
+      return response
     try:
       data = json.loads(response.body_string())
       return data
@@ -661,11 +664,12 @@ class Jiraclient(object):
   def get_session(self):
     uri = 'rest/auth/latest/session'
     try:
-      self.call_api("get",uri)
-    except:
+      response = self.call_api("get",uri,full=True)
+    except Exception, msg:
       if os.path.exists(self.options.sessionfile):
         os.unlink(self.options.sessionfile)
-      self.fatal("Login failed")
+      self.fatal("Login failed: %s" % (msg))
+    return response
 
   def read_password(self):
     if not self.options.password:
@@ -674,30 +678,37 @@ class Jiraclient(object):
       self.options.password = pw
 
   def check_auth(self):
-    session = self.options.sessionfile
-    if os.path.exists(session):
-      if S_IMODE(os.stat(session).st_mode) != int("600",8):
-        self.logger.error("session file %s is not mode 600, forcing new session" % (session))
-        os.unlink(session)
+    sessionfile = self.options.sessionfile
 
-    token = None
-    if not os.path.exists(session):
-      self.logger.debug("make auth token")
-      if not self.options.password:
-        self.read_password()
-      token = base64.b64encode("%s:%s" % (self.options.user, self.options.password))
-    else:
-      self.logger.debug("read auth token")
-      fd = open(session,'r')
-      token = fd.read()
+    # Don't allow insecure cookie file
+    if os.path.exists(sessionfile) and S_IMODE(os.stat(sessionfile).st_mode) != int("600",8):
+        self.logger.error("session file %s is not mode 600, forcing new session" % (sessionfile))
+        os.unlink(sessionfile)
+
+    # Read existing session
+    if os.path.exists(sessionfile):
+      self.logger.debug("read auth session")
+      fd = open(sessionfile,'r')
+      self.cookie = fd.read()
       fd.close()
+      return
 
-    self.token = token
-    self.get_session()
-    fd = open(session,'w')
-    fd.write(token)
+    self.logger.debug("make auth session")
+    if not self.options.password:
+      self.read_password()
+
+    self.token = base64.b64encode("%s:%s" % (self.options.user, self.options.password))
+    response = self.get_session()
+    m = re.match(r'JSESSIONID=(.*?);',response.headers['Set-Cookie'])
+    cookie = m.group(0)
+    self.cookie = cookie
+
+    # clear token
+    self.token = None
+    fd = open(sessionfile,'w')
+    fd.write(cookie)
     fd.close()
-    os.chmod(session,int("600",8))
+    os.chmod(sessionfile,int("600",8))
 
   def update_issue_obj(self,issue,key,value):
     # This method handles Issue's complex attribute types.
