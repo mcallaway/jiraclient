@@ -6,8 +6,8 @@ import unittest
 import json
 import base64
 
-if os.path.exists("./src/"):
-  sys.path.insert(0,"./src/")
+if os.path.exists("./jiraclient/"):
+  sys.path.insert(0,"./jiraclient/")
 
 import jiraclient
 from restkit import BasicAuth
@@ -125,10 +125,9 @@ class TestUnit(unittest.TestCase):
     # Test success
     self.c.check_auth()
     fd = open(self.c.options.sessionfile,"r")
-    tokenA = fd.read()
+    cookie = fd.read()
     fd.close()
-    tokenB = base64.b64encode("%s:%s" % (self.c.options.user, self.c.options.password))
-    assert tokenA == tokenB
+    assert cookie.startswith("JSESSIONID")
     if os.path.exists(self.c.options.sessionfile):
       os.unlink(self.c.options.sessionfile)
 
@@ -207,20 +206,20 @@ def suite():
   # If we want to add test methods one at a time, then we build up the
   # test suite by hand.
   suite = unittest.TestSuite()
-  suite.addTest(TestUnit("testLogger"))
-  suite.addTest(TestUnit("testTimeIsValid"))
-  suite.addTest(TestUnit("testFatal"))
-  suite.addTest(TestUnit("testReadConfig"))
-  suite.addTest(TestUnit("testGetProjectId"))
-  suite.addTest(TestUnit("testGetSession"))
+  #suite.addTest(TestUnit("testLogger"))
+  #suite.addTest(TestUnit("testTimeIsValid"))
+  #suite.addTest(TestUnit("testFatal"))
+  #suite.addTest(TestUnit("testReadConfig"))
+  #suite.addTest(TestUnit("testGetProjectId"))
+  #suite.addTest(TestUnit("testGetSession"))
   suite.addTest(TestUnit("testCheckAuth"))
-  suite.addTest(TestUnit("testGetIssueTypes"))
-  suite.addTest(TestUnit("testGetResolutions"))
-  suite.addTest(TestUnit("testGetIssueLinks"))
-  suite.addTest(TestUnit("testGetProjectVersions"))
-  suite.addTest(TestUnit("testGetProjectComponents"))
-  suite.addTest(TestUnit("testGetPriorities"))
-  suite.addTest(TestUnit("testCreateIssueObj"))
+  #suite.addTest(TestUnit("testGetIssueTypes"))
+  #suite.addTest(TestUnit("testGetResolutions"))
+  #suite.addTest(TestUnit("testGetIssueLinks"))
+  #suite.addTest(TestUnit("testGetProjectVersions"))
+  #suite.addTest(TestUnit("testGetProjectComponents"))
+  #suite.addTest(TestUnit("testGetPriorities"))
+  #suite.addTest(TestUnit("testCreateIssueObj"))
 
   return suite
 

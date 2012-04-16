@@ -6,8 +6,8 @@ import unittest
 import json
 import base64
 
-if os.path.exists("./src/"):
-  sys.path.insert(0,"./src/")
+if os.path.exists("./jiraclient/"):
+  sys.path.insert(0,"./jiraclient/")
 
 import jiraclient
 from restkit import BasicAuth
