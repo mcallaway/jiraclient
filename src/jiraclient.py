@@ -46,17 +46,6 @@ def time_is_valid(value):
     return False
   return True
 
-class Attribute(object):
-  required = False
-  name = None
-  value = None
-  def __init__(self,name=None,value=None,required=False):
-    self.name = name
-    self.value = value
-    self.required = required
-  def __repr__(self):
-    return self.value
-
 class Issue(object):
 
   def __init__(self):
@@ -605,7 +594,7 @@ class Jiraclient(object):
   def display_issue(self,issueID):
     uri = 'rest/api/latest/issue/%s' % issueID
     result = self.call_api('get',uri)
-    pp.pprint(result)
+    print json.dumps(result)
 
   def add_comment(self,issueID,comment):
     uri = 'rest/api/latest/issue/%s/comment' % issueID
@@ -989,31 +978,30 @@ class Jiraclient(object):
       issue = self.create_issue_obj(defaults=False)
       return self.modify_issue(self.options.issueID,issue)
 
-  def run(self):
+  def setup(self):
 
     self.parse_args()
+    self.prepare_logger()
+    self.read_config()
+    self.check_auth()
+
+  def run(self):
+
+    self.setup()
 
     if self.options.version:
       self.print_version()
       return
 
-    self.prepare_logger()
-
     # Notify the user if noop is on
     if self.options.noop:
       self.logger.info("NOOPMODE: API will not be called")
-
-    # Read the rc file
-    self.read_config()
 
     if not self.options.user:
       self.fatal("Please specify Jira user")
 
     if not self.options.jiraurl:
       self.fatal("Please specify the Jira URL")
-
-    # Check or get auth token
-    self.check_auth()
 
     # Run a named Jira API call and return
     if self.options.api is not None:
