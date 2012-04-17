@@ -56,6 +56,7 @@ class Issue(object):
     self.issuetype    = { 'id': None }
     self.assignee     = { 'name': None }
     self.priority     = { 'id': None }
+    self.parent       = { 'key': None }
     self.timetracking = { }
     self.labels       = []
     self.versions     = [ { 'id': None } ]
@@ -359,9 +360,9 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "--subtask-of",
+      "--parent",
       action="store",
-      dest="subtask_of",
+      dest="parent",
       help="Make the given issue a subtask of this issue key",
       default=None,
     )
@@ -444,9 +445,9 @@ class Jiraclient(object):
         fd.write('user = %s\n' % os.environ["USER"])
         fd.write('[issues]\n')
         fd.write('#project = INFOSYS\n')
-        fd.write('#type = story\n')
+        fd.write('#issuetype = story\n')
         fd.write('#priority = Normal\n')
-        fd.write('#epic_theme = \n')
+        fd.write('#epic_theme_id = \n')
         fd.write('#assignee = \n')
         fd.write('#components = \n')
         fd.write('#fixVersions = \n')
@@ -463,7 +464,11 @@ class Jiraclient(object):
         self.fatal("Unable to parse file at %r: %s" % (self.options.config,details))
 
     for (k,v) in (parser.items('jiraclient')):
-      if not hasattr(self.options,k) or getattr(self.options,k) is None:
+      if not hasattr(self.options,k):
+        # You can't set in rcfile something that isn't also an option.
+        self.fatal("Unknown option: %s" % k)
+      if getattr(self.options,k) is None:
+        self.logger.debug("take value %s for %s from rc file" % (v,k))
         setattr(self.options,k,v)
 
   def read_issue_defaults(self):
@@ -481,8 +486,9 @@ class Jiraclient(object):
       if not hasattr(self.options,k):
         # You can't set in rcfile something that isn't also an option.
         self.fatal("Unknown issue attribute: %s" % k)
-      self.logger.debug("set %s %s" % (k,v))
-      setattr(self.options,k,v)
+      if getattr(self.options,k) is None:
+        self.logger.debug("take value %s for %s from rc file" % (v,k))
+        setattr(self.options,k,v)
 
   def call_api(self,method,uri,payload=None,full=False):
     if self.options.noop: return {}
@@ -561,6 +567,7 @@ class Jiraclient(object):
 
   def update_maps_from_jiraserver(self):
     self.logger.debug("update maps from jira server")
+    if self.options.noop: return
     # Need project first.
     # These need to happen before any issue creation or modification
     self.get_project_id(self.options.project)
@@ -721,7 +728,7 @@ class Jiraclient(object):
     #   summary is a string
     #   project is a dict with id
     #   versions is a list of dicts with id
-    self.logger.debug("update issue %s %s %s" % (issue,key,value))
+    self.logger.debug("update issue object: %s %s" % (key,value))
 
     if not hasattr(issue,key):
       setattr(issue,key,value)
@@ -729,13 +736,17 @@ class Jiraclient(object):
     attr = getattr(issue,key)
 
     # Does the 'key' exist in self.maps to provide an ID?
+    attribute_map = None
     if type(value) is int:
       attribute_id = value
     elif self.maps.has_key(key.lower()):
+      self.logger.debug("k v : %s %s" % (key,value))
+      self.logger.debug("look at: %s" % self.maps[key.lower()])
       attribute_map = self.maps[key.lower()]
       attribute_id = attribute_map.find_key(value.lower())
       if not attribute_id:
-        self.logger.debug("no id found for %s" % (value.lower()))
+        if not self.options.noop:
+          self.fatal("No value known for %s = %s" % (key,value.lower()))
         return issue
 
     # Plain string assignment
@@ -763,11 +774,13 @@ class Jiraclient(object):
           item['id'] = str(value)
       if item.has_key('name'):
         item['name'] = str(value)
+      if item.has_key('key'):
+        item['key'] = str(value)
 
     return issue
 
   def update_issue_from_options(self,issue):
-    self.logger.debug("update issue: %s" % issue)
+    self.logger.debug("update issue from options: %s" % issue)
     for key in issue.__dict__.keys():
       self.logger.debug("attr %s" % key)
       if hasattr(self.options,key):
@@ -780,6 +793,7 @@ class Jiraclient(object):
     return issue
 
   def create_issue_obj(self,defaults=False):
+    self.logger.debug("create issue object")
     # Trigger to parse rc file for issue default values
     if defaults:
       self.read_issue_defaults()
@@ -790,8 +804,11 @@ class Jiraclient(object):
     # Creates an Issue object based on CLI args and config file.
     # We do this for create and modify operations.
     issue = Issue()
-    issue = self.update_issue_from_options(issue)
 
+    # FIXME: is order right here?  Do these go after update_issue_from_options below?
+
+    # Now update issue attributes from CLI options that are not themselves
+    # issue attributes.
     if self.options.epic_theme:
       setattr(issue,self.options.epic_theme_id,self.options.epic_theme)
     if self.options.timetracking:
@@ -799,14 +816,12 @@ class Jiraclient(object):
     if self.options.remaining:
       setattr(issue,'timetracking',{"remainingEstimate": self.options.remaining})
 
-    # A real issue object contains stuff we've received from 
-    # the Jira API, if in noop mode, don't reach out.
-    if self.options.noop:
-      return issue
-
     # The not noop version updates data (eg. IDs) from jiraserver
     self.update_maps_from_jiraserver()
     issue = self.update_issue_from_options(issue)
+
+    if issue.parent["key"] is not None and issue.issuetype['id'] != str(self.maps['issuetype'].find_key("sub-task")):
+      self.fatal("Issue type must be sub-task for --parent to be valid")
 
     return issue
 
@@ -874,6 +889,7 @@ class Jiraclient(object):
       self.logger.info("Unlinking subtasks is currently unsupported")
 
   def subtask_link(self,parent,child):
+    # Modify child issue:
     # issueType is always jira_subtask_link, which we get from the Jira DB:
     # mysql> select * from issuelinktype;
     # +-------+-------------------+---------------------+----------------------+--------------+
@@ -885,8 +901,13 @@ class Jiraclient(object):
     # | 10012 | Blocks            | is blocked by       | blocks               | NULL         | 
     # +-------+-------------------+---------------------+----------------------+--------------+
     # 4 rows in set (0.00 sec)
-    result = self.link_issues(parent,'jira_subtask_link',child)
-    return result
+    # Must set the subtask link first, then change the issue type of child
+    self.link_issues(parent,'jira_subtask_link',child)
+    # Change issue type to subtask and set parent attribute on child issue
+    issue = self.create_issue_obj(defaults=False)
+    self.update_issue_obj(issue,'issuetype',self.maps['issuetype'].find_key("sub-task"))
+    self.update_issue_obj(issue,'parent',parent)
+    self.modify_issue(child,issue)
 
   def create_issues_from_template(self):
     import yaml
@@ -927,9 +948,6 @@ class Jiraclient(object):
       issue.issuetype = {"id":self.maps['issuetype'].find_key("sub-task")}
       issue.parent = {'key':eid}
       stid = self.create_issue(issue)
-      #self.subtask_link(eid,stid)
-      #self.modify_issue(stid,{self.options.epic_theme_id:eid})
-      #self.modify_issue(stid,{self.options.epic_theme_id:eid,"issuetype":{"id":self.maps['issuetype'].find_key("sub-task")}})
 
     # create stories for eid, inheriting from epic
     for story in stories:
@@ -949,9 +967,9 @@ class Jiraclient(object):
           issue = epic
           for (k,v) in subtask.items():
             issue = self.update_issue_obj(issue,k,v)
+          issue.issuetype = {"id":self.maps['issuetype'].find_key("sub-task")}
+          issue.parent = {'key':sid}
           stid = self.create_issue(issue)
-          self.subtask_link(sid,stid)
-          self.modify_issue(stid,{self.options.epic_theme_id:eid})
 
     self.logger.info("Created %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 
@@ -969,8 +987,8 @@ class Jiraclient(object):
       return self.display_issue(self.options.issueID)
 
     # Make one issue a sub-task of another
-    if self.options.subtask_of is not None:
-      return self.subtask_link(self.options.subtask_of,self.options.issueID)
+    if self.options.parent is not None:
+      return self.subtask_link(self.options.parent,self.options.issueID)
 
     # Comment on an existing issue ID
     if self.options.comment is not None:
@@ -1062,10 +1080,6 @@ class Jiraclient(object):
       issueID = self.create_issue(issue)
     except Exception, details:
       self.fatal("Failed to create issue. Reason: %r" % details)
-
-    # Make the issue a subtask, if a parent is given
-    if self.options.subtask_of:
-      self.subtask_link(self.options.subtask_of,issueID)
 
     # Add a work log, possibly updating remaining estimate
     if self.options.worklog is not None:
