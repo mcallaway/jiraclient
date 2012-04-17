@@ -501,13 +501,13 @@ class Jiraclient(object):
     if self.cookie is not None:
       headers['Cookie'] = '%s' % self.cookie
 
-    self.logger.debug("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
+    self.logger.info("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
     try:
       response = call(headers=headers,payload=payload)
     except Unauthorized:
       if os.path.exists(self.options.sessionfile):
         os.unlink(self.options.sessionfile)
-      self.fatal("Login failed")
+      return None
     except Exception,msg:
       self.fatal("Unhandled API exception for method: %s: %s" % (self.proxy.uri,msg))
 
@@ -670,13 +670,7 @@ class Jiraclient(object):
 
   def get_session(self):
     uri = 'rest/auth/latest/session'
-    try:
-      response = self.call_api("get",uri,full=True)
-    except Exception, msg:
-      if os.path.exists(self.options.sessionfile):
-        os.unlink(self.options.sessionfile)
-      self.fatal("Login failed: %s" % (msg))
-    return response
+    return self.call_api("get",uri,full=True)
 
   def read_password(self):
     if not self.options.password:
@@ -698,7 +692,15 @@ class Jiraclient(object):
       fd = open(sessionfile,'r')
       self.cookie = fd.read()
       fd.close()
-      return
+      # Check if it's still valid
+      response = self.get_session()
+      if type(response).__name__ == 'Response' and response.status_int == 200:
+        # Cookie still valid, use it
+        return
+      # Get a new cookie below
+      self.cookie = None
+      if os.path.exists(sessionfile):
+        os.unlink(sessionfile)
 
     self.logger.debug("make auth session")
     if not self.options.password:
@@ -706,11 +708,16 @@ class Jiraclient(object):
 
     self.token = base64.b64encode("%s:%s" % (self.options.user, self.options.password))
     response = self.get_session()
-    m = re.match(r'JSESSIONID=(.*?);',response.headers['Set-Cookie'])
-    cookie = m.group(0)
-    self.cookie = cookie
+    if response is None:
+      self.fatal("Login failed")
 
-    # clear token
+    if type(response).__name__ == 'Response' and response.status_int == 200:
+      m = re.match(r'JSESSIONID=(.*?);',response.headers['Set-Cookie'])
+      if m:
+        cookie = m.group(0)
+        self.cookie = cookie
+
+    # Clear token and use cookie
     self.token = None
     fd = open(sessionfile,'w')
     fd.write(cookie)
