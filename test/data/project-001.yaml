@@ -1,0 +1,7 @@
+summary: This is a test Epic
+description: Test Epic description
+components: CSA
+fixVersions: Backlog
+subtasks:
+  - summary: This is test epic subtask 1
+    description: This is test epic subtask 1 description
