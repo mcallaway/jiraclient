@@ -1104,6 +1104,7 @@ class Jiraclient(object):
         self.logger.debug("create subtask inheriting from epic")
         issue = self.create_issue_obj(defaults=defaults)
         for (k,v) in epic.__dict__.items():
+          if k == 'description' or k == 'summary': continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in subtask.items():
           issue = self.update_issue_obj(issue,k,v)
@@ -1123,6 +1124,7 @@ class Jiraclient(object):
         self.logger.debug("create story inheriting from epic")
         issue = self.create_issue_obj(defaults=defaults)
         for (k,v) in epic.__dict__.items():
+          if k == 'description' or k == 'summary': continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in story.items():
           issue = self.update_issue_obj(issue,k,v)
