@@ -24,7 +24,7 @@ import os
 import pprint
 import re
 import sys
-import logging, logging.handlers
+import logging, inspect, logging.handlers
 from stat import *
 from optparse import OptionParser,OptionValueError
 import ConfigParser
@@ -45,6 +45,18 @@ def time_is_valid(value):
     return False
   return True
 
+class IndentFormatter(logging.Formatter):
+    def __init__( self, fmt=None, datefmt=None ):
+        logging.Formatter.__init__(self, fmt, datefmt)
+        self.baseline = len(inspect.stack())
+    def format( self, rec ):
+        stack = inspect.stack()
+        rec.indent = ' '*(len(stack)-self.baseline)
+        rec.function = stack[8][3]
+        out = logging.Formatter.format(self, rec)
+        del rec.indent; del rec.function
+        return out
+
 class Issue(object):
 
   def __init__(self):
@@ -57,7 +69,7 @@ class Issue(object):
     self.assignee     = { 'name': None }
     self.priority     = { 'id': None }
     self.parent       = { 'key': None }
-    self.timetracking = { }
+    self.timetracking = { 'originalEstimate': None }
     self.labels       = []
     self.versions     = [ { 'id': None } ]
     self.fixVersions  = [ { 'id': None } ]
@@ -87,11 +99,12 @@ class SearchableDict(dict):
 class Jiraclient(object):
   version = "2.0.0"
   def __init__(self):
+    self.issues_created = []
     self.proxy   = Resource('', filters=[])
     self.pool    = None
     self.restapi = None
     self.token   = None
-    self.cookie = None
+    self.cookie  = None
     self.maps    = {
       'project'    : SearchableDict(),
       'priority'   : SearchableDict(),
@@ -421,8 +434,9 @@ class Jiraclient(object):
       handler = logging.StreamHandler()
 
     datefmt = "%b %d %H:%M:%S"
-    fmt = "%(asctime)s %(name)s[%(process)d]: %(levelname)s: %(message)s"
-    fmtr = logging.Formatter(fmt,datefmt)
+    fmt = "%(asctime)s %(name)s[%(process)d]: %(levelname)s: %(indent)s %(message)s"
+    #fmtr = logging.Formatter(fmt,datefmt)
+    fmtr = IndentFormatter(fmt,datefmt)
     handler.setFormatter(fmtr)
     logger.handlers = []
     logger.addHandler(handler)
@@ -491,7 +505,6 @@ class Jiraclient(object):
         setattr(self.options,k,v)
 
   def call_api(self,method,uri,payload=None,full=False):
-    if self.options.noop: return {}
     if self.options.nopost and ( method.lower() == 'post' or method.lower() == 'put' ): return {}
     self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
     call = getattr(self.proxy,method)
@@ -501,7 +514,10 @@ class Jiraclient(object):
     if self.cookie is not None:
       headers['Cookie'] = '%s' % self.cookie
 
-    self.logger.info("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
+    self.logger.debug("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
+    if self.options.noop:
+      return {}
+
     try:
       response = call(headers=headers,payload=payload)
     except Unauthorized:
@@ -534,6 +550,7 @@ class Jiraclient(object):
     for project in data['projects']:
       if project['key'] == projectKey:
         for item in data['projects'][0]['issuetypes']:
+          self.logger.debug("types: %s" % item)
           self.maps['issuetype'][int(item['id'])] = str(item['name'].lower())
 
   def get_resolutions(self):
@@ -623,6 +640,8 @@ class Jiraclient(object):
       if not v: issue.pop(k)
       if v == {"id":None}: issue.pop(k)
       if v == {"name":None}: issue.pop(k)
+      if v == {"key":None}: issue.pop(k)
+      if v == {"originalEstimate":None}: issue.pop(k)
       if v == [{"id":None}]: issue.pop(k)
       if k == self.options.epic_theme_id:
         if type(v) is not list:
@@ -633,19 +652,18 @@ class Jiraclient(object):
   def create_issue(self,issueObj):
     issue = self.clean_issue(issueObj)
     payload = json.dumps({"fields":issue})
-    self.logger.debug("payload: %s" % payload)
     uri = 'rest/api/latest/issue'
     newissue = self.call_api('post',uri,payload=payload)
     issueID = "NOOP"
     if newissue:
       issueID = newissue["key"]
     self.logger.info("Created %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
+    self.issues_created.append(issue)
     return issueID
 
   def modify_issue(self,issueID,issueObj):
     issue = self.clean_issue(issueObj)
     self.logger.debug("modify issue: %s %s" % (issueID,issue))
-
     # FIXME: I'm not sure of a good way to see if we just said --issue with no other options.
     # So this is a hack to check to see if that's the case.
     issuecopy = issue
@@ -657,7 +675,7 @@ class Jiraclient(object):
     payload = json.dumps({"fields":issue})
     uri = 'rest/api/latest/issue/%s' % issueID
     self.call_api('put',uri,payload=payload)
-    self.logger.info("Modified %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
+    self.logger.info("Modified issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
 
   def get_issue_links(self,issueID):
     uri = 'rest/api/latest/issue/%s' % issueID
@@ -679,6 +697,8 @@ class Jiraclient(object):
       self.options.password = pw
 
   def check_auth(self):
+    if self.options.noop: return
+    self.logger.debug("Check authentication")
     sessionfile = self.options.sessionfile
 
     # Don't allow insecure cookie file
@@ -716,6 +736,8 @@ class Jiraclient(object):
       if m:
         cookie = m.group(0)
         self.cookie = cookie
+      else:
+        return
 
     # Clear token and use cookie
     self.token = None
@@ -724,7 +746,89 @@ class Jiraclient(object):
     fd.close()
     os.chmod(sessionfile,int("600",8))
 
-  def update_issue_obj(self,issue,key,value):
+  def update_dict_value(self,adict,attribute,value):
+    # Take a dict like { 'id': something } and put in the right value
+    # If the value is a string of digits, use it directly.
+    # If the value is a string, look up its id in a map.
+    # If the value is a dict, use it directly.
+    newdict = {}
+    key = adict.keys()[0]
+    if key == 'id':
+      id_of_value = None
+      if self.options.noop:
+        # Empty maps in noop mode return fake IDs
+        id_of_value = '00'
+      else:
+        amap = self.maps[attribute.lower()]
+        if type(value) is str and value.isdigit():
+          # Special case if we specify an ID directly
+          if amap.has_key(int(value)):
+            id_of_value = value
+          else:
+            self.fatal("You specified unknown ID '%s' for attribute '%s', known values are: %s" % (value,attribute,amap))
+        else:
+          # Find the id of the value from the maps
+          id_of_value = amap.find_key(value.lower())
+      newdict['id'] = str(id_of_value)
+    else:
+      # Key is 'name' or 'key' and needs no lookup
+      if type(value) is str:
+        newdict[key] = str(value)
+      elif type(value) is dict:
+        newdict[key] = value
+      else:
+        raise ValueError("Unhandled value for input: %s %s" % (key,value))
+    self.logger.debug("convert %s to %s" % (adict,newdict))
+    return newdict
+
+  def update_issue_obj(self,issue,attribute,value):
+    self.logger.debug("update issue object: %s %s %s" % (issue,attribute,value))
+
+    if not attribute or not value:
+      # Return unmodified issue
+      return issue
+
+    if type(value) is dict or type(value) is list:
+      # If value is a dict, it's already been looked up in some previous
+      # call of this method, like in create_issues_from_template()
+      setattr(issue,attribute,value)
+      return issue
+
+    if attribute.startswith("customfield"):
+      # Custom fields aren't class attributes, just add them
+      setattr(issue,attribute,[value])
+      return issue
+
+    if not hasattr(Issue(),attribute):
+      self.fatal("Unknown issue attribute: %s" % attribute)
+
+    attr = getattr(Issue(),attribute)
+    # Is the attr a string, list of strings, dict or list of dicts?
+    if type(attr) is str:
+      # If attr is a string, set the value and we're done
+      self.logger.debug("set str attr: %s %s" % (attribute,value))
+      setattr(issue,attribute,str(value))
+    elif type(attr) is list:
+      # List of dicts or list of labels
+      self.logger.debug("updating list %s" % attr)
+      if len(attr) == 0 or type(attr[0]) is str:
+        # This is the labels list, append and we're done
+        attr = getattr(issue,attribute)
+        attr.append(str(value))
+      else:
+        # This is a list of dicts.
+        # Assume we can have only one value...
+        item = attr.pop()
+        # Now modify the value...
+        newvalue = self.update_dict_value(item,attribute,value)
+        self.logger.debug("set attr %s %s %s" % (issue,attribute,newvalue))
+        setattr(issue,attribute,[newvalue])
+    elif type(attr) is dict:
+      setattr(issue,attribute,self.update_dict_value(attr,attribute,value))
+
+    return issue
+
+  def update_issue_obj2(self,issue,key,value):
     # This method handles Issue's complex attribute types.
     #
     # Input values come from CLI or rc file, so are all strings
@@ -735,22 +839,50 @@ class Jiraclient(object):
     #   summary is a string
     #   project is a dict with id
     #   versions is a list of dicts with id
+    #
+    # So we say update issue attribute named "key" with value "value"
+    #   where the attribute might be a string, list of strings, dict
+    #   or list of dicts.  Where if the thing is a dict, it might
+    #   be keyed on "id", "key", "name" etc.
+    #   If the key is "id" we convert "value" to id of value from self.maps
     self.logger.debug("update issue object: %s %s" % (key,value))
 
+    if not key or not value: return
+
     if not hasattr(issue,key):
+      self.logger.debug("set simple attr: %s %s" % (key,value))
       setattr(issue,key,value)
 
     attr = getattr(issue,key)
+    # attribute_map is one of self.maps to find the jira DB id value
+    # corresponding to a string name.
+    attribute_map = None
+    # attribute_id is the numerical id of the desired value.
+    attribute_id = None
+    # So if we're saying: set issue's "component" to "CSA" then
+    # components are in self.maps['component'] and value "CSA" has id 10020
 
     # Does the 'key' exist in self.maps to provide an ID?
-    attribute_map = None
-    if type(value) is int:
+    # In noop mode maps will be empty.
+    if self.options.noop:
+      # If in noop mode, we haven't set up self.maps, so just use fake values
+      if self.maps.has_key(key.lower()):
+        attribute_map = self.maps[key.lower()]
+      attribute_id = value
+    elif type(value) is int:
+      # If we say set issue attr to 10, an int, then we don't have to look it up.
       attribute_id = value
     elif self.maps.has_key(key.lower()):
-      self.logger.debug("k v : %s %s" % (key,value))
-      self.logger.debug("look at: %s" % self.maps[key.lower()])
-      attribute_map = self.maps[key.lower()]
-      attribute_id = attribute_map.find_key(value.lower())
+      self.logger.debug("update with key value : %s %s" % (key,value))
+      if type(value) is str:
+        self.logger.debug("look at: %s" % self.maps[key.lower()])
+        attribute_map = self.maps[key.lower()]
+        attribute_id = attribute_map.find_key(value.lower())
+        self.logger.debug("use id %s for %s" % (attribute_id,value))
+      else:
+        self.logger.debug("use value for: %s %s" % (key,value))
+        setattr(issue,key,value)
+        return issue
       if not attribute_id:
         if not self.options.noop:
           self.fatal("No value known for %s = %s" % (key,value.lower()))
@@ -758,6 +890,7 @@ class Jiraclient(object):
 
     # Plain string assignment
     if type(attr) is str:
+      self.logger.debug("use str for: %s %s" % (key,value))
       setattr(issue,key,str(value))
 
     # Lists might be lists of strings or lists of dicts
@@ -767,21 +900,26 @@ class Jiraclient(object):
         attr.append(str(value))
       else:
         try:
+          # remove initial empty value if it's there
           attr.pop(attr.index({'id':None}))
         except Exception: pass
+        self.logger.debug("set dict for %s %s" % (key,[{'id':str(attribute_id)}]))
         setattr(issue,key,[{'id':str(attribute_id)}])
 
     if type(attr) is dict:
-      #self.logger.debug("set dict attr %s %s" % (key,value))
+      self.logger.debug("set dict attr %s %s" % (key,value))
       item = getattr(issue,key)
-      if item.has_key('id'):
+      if type(value) is dict:
+        setattr(issue,key,value)
+      elif item.has_key('id'):
         if attribute_map:
+          # If this attribute is one with a self.maps entry...
           item['id'] = str(attribute_id)
         else:
           item['id'] = str(value)
-      if item.has_key('name'):
+      elif item.has_key('name'):
         item['name'] = str(value)
-      if item.has_key('key'):
+      elif item.has_key('key'):
         item['key'] = str(value)
 
     return issue
@@ -789,18 +927,22 @@ class Jiraclient(object):
   def update_issue_from_options(self,issue):
     self.logger.debug("update issue from options: %s" % issue)
     for key in issue.__dict__.keys():
-      self.logger.debug("attr %s" % key)
+      self.logger.debug("check attr %s" % key)
       if hasattr(self.options,key):
         attr = getattr(self.options,key)
         if attr:
           values = getattr(self.options,key).split(',')
           for value in values:
             issue = self.update_issue_obj(issue,key,value)
+        else:
+          self.logger.debug("options has empty value for: %s" % (key))
+      else:
+        self.logger.debug("options has no value for: %s" % (key))
     self.logger.debug("updated issue: %s" % issue)
     return issue
 
   def create_issue_obj(self,defaults=False):
-    self.logger.debug("create issue object")
+    self.logger.debug("create issue object (%s)" % (defaults))
     # Trigger to parse rc file for issue default values
     if defaults:
       self.read_issue_defaults()
@@ -817,7 +959,7 @@ class Jiraclient(object):
     # Now update issue attributes from CLI options that are not themselves
     # issue attributes.
     if self.options.epic_theme:
-      setattr(issue,self.options.epic_theme_id,self.options.epic_theme)
+      setattr(issue,self.options.epic_theme_id,[self.options.epic_theme])
     if self.options.timetracking:
       setattr(issue,'timetracking',{"originalEstimate": self.options.timetracking})
     if self.options.remaining:
@@ -827,6 +969,10 @@ class Jiraclient(object):
     self.update_maps_from_jiraserver()
     issue = self.update_issue_from_options(issue)
 
+    if not issue.project:
+      self.fatal("Issue must have a project")
+    if not issue.issuetype:
+      self.fatal("Issue must have an issuetype")
     if issue.parent["key"] is not None and issue.issuetype['id'] != str(self.maps['issuetype'].find_key("sub-task")):
       self.fatal("Issue type must be sub-task for --parent to be valid")
 
@@ -912,12 +1058,13 @@ class Jiraclient(object):
     self.link_issues(parent,'jira_subtask_link',child)
     # Change issue type to subtask and set parent attribute on child issue
     issue = self.create_issue_obj(defaults=False)
-    self.update_issue_obj(issue,'issuetype',self.maps['issuetype'].find_key("sub-task"))
-    self.update_issue_obj(issue,'parent',parent)
+    issue = self.update_issue_obj(issue,'issuetype','sub-task')
+    issue = self.update_issue_obj(issue,'parent',parent)
     self.modify_issue(child,issue)
 
   def create_issues_from_template(self):
     import yaml
+    self.logger.debug("Create issues from template")
 
     if not self.options.template == "-" and not os.path.exists(self.options.template):
       self.fatal("No such file: %s" % self.options.template)
@@ -932,6 +1079,8 @@ class Jiraclient(object):
     except Exception,details:
       self.fatal("Failed to parse YAML template: %s" % details)
 
+    stories = None
+    subtasks = None
     if yamldata.has_key('stories'):
       stories = yamldata.pop('stories')
     if yamldata.has_key('subtasks'):
@@ -944,41 +1093,58 @@ class Jiraclient(object):
     epic = self.create_issue_obj(defaults=defaults)
     for (k,v) in yamldata.items():
       epic = self.update_issue_obj(epic,k,v)
+    epic = self.update_issue_obj(epic,'issuetype','epic')
     eid = self.create_issue(epic)
     self.modify_issue(eid,{self.options.epic_theme_id:eid})
+    epic = self.update_issue_obj(epic,self.options.epic_theme_id,eid)
 
     # create subtasks for eid, inheriting from epic
-    for subtask in subtasks:
-      issue = epic
-      for (k,v) in subtask.items():
-        issue = self.update_issue_obj(issue,k,v)
-      issue.issuetype = {"id":self.maps['issuetype'].find_key("sub-task")}
-      issue.parent = {'key':eid}
-      stid = self.create_issue(issue)
+    if subtasks:
+      for subtask in subtasks:
+        self.logger.debug("create subtask inheriting from epic")
+        issue = self.create_issue_obj(defaults=defaults)
+        for (k,v) in epic.__dict__.items():
+          issue = self.update_issue_obj(issue,k,v)
+        for (k,v) in subtask.items():
+          issue = self.update_issue_obj(issue,k,v)
+        # we set issuetype only to avoid confusion in debugging,
+        # subtask_link will change this issuetype to subtask.
+        issue = self.update_issue_obj(issue,'issuetype','task')
+        stid = self.create_issue(issue)
+        self.subtask_link(eid,stid)
 
     # create stories for eid, inheriting from epic
-    for story in stories:
-      subtasks = None
-      if story.has_key('subtasks'):
-        subtasks = story.pop('subtasks')
+    if stories:
+      for story in stories:
+        subtasks = None
+        if story.has_key('subtasks'):
+          subtasks = story.pop('subtasks')
 
-      issue = epic
-      for (k,v) in story.items():
-        issue = self.update_issue_obj(issue,k,v)
-      sid = self.create_issue(issue)
-      self.modify_issue(sid,{self.options.epic_theme_id:eid})
+        self.logger.debug("create story inheriting from epic")
+        issue = self.create_issue_obj(defaults=defaults)
+        for (k,v) in epic.__dict__.items():
+          issue = self.update_issue_obj(issue,k,v)
+        for (k,v) in story.items():
+          issue = self.update_issue_obj(issue,k,v)
+        issue = self.update_issue_obj(issue,'issuetype','story')
+        sid = self.create_issue(issue)
 
-      if subtasks:
-        # create subtasks for stories of epic, inheriting from epic
-        for subtask in subtasks:
-          issue = epic
-          for (k,v) in subtask.items():
-            issue = self.update_issue_obj(issue,k,v)
-          issue.issuetype = {"id":self.maps['issuetype'].find_key("sub-task")}
-          issue.parent = {'key':sid}
-          stid = self.create_issue(issue)
+        if subtasks:
+          # create subtasks for stories of epic, inheriting from epic
+          for subtask in subtasks:
+            self.logger.debug("create story subtask inheriting from epic")
+            issue = self.create_issue_obj(defaults=defaults)
+            for (k,v) in epic.__dict__.items():
+              issue = self.update_issue_obj(issue,k,v)
+            for (k,v) in subtask.items():
+              issue = self.update_issue_obj(issue,k,v)
+            # we set issuetype only to avoid confusion in debugging,
+            # subtask_link will change this issuetype to subtask.
+            issue = self.update_issue_obj(issue,'issuetype','task')
+            stid = self.create_issue(issue)
+            self.subtask_link(sid,stid)
 
-    self.logger.info("Created %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
+    self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 
   def act_on_existing_issue(self):
 
