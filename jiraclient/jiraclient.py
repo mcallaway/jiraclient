@@ -942,8 +942,9 @@ class Jiraclient(object):
     self.logger.debug("updated issue: %s" % issue)
     return issue
 
-  def create_issue_obj(self,defaults=False):
+  def create_issue_obj(self,defaults=False,empty=False):
     self.logger.debug("create issue object (%s)" % (defaults))
+
     # Trigger to parse rc file for issue default values
     if defaults:
       self.read_issue_defaults()
@@ -954,6 +955,8 @@ class Jiraclient(object):
     # Creates an Issue object based on CLI args and config file.
     # We do this for create and modify operations.
     issue = Issue()
+    if empty:
+      return issue
 
     # FIXME: is order right here?  Do these go after update_issue_from_options below?
 
@@ -1058,7 +1061,7 @@ class Jiraclient(object):
     self.logger.debug("Set subtask link: %s -> %s" % (parent,child))
     self.link_issues(parent,'jira_subtask_link',child)
     # Change issue type to subtask and set parent attribute on child issue
-    issue = self.create_issue_obj(defaults=False)
+    issue = self.create_issue_obj(empty=True)
     issue = self.update_issue_obj(issue,'issuetype','sub-task')
     issue = self.update_issue_obj(issue,'parent',parent)
     self.modify_issue(child,issue)
