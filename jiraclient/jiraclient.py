@@ -772,7 +772,8 @@ class Jiraclient(object):
       newdict['id'] = str(id_of_value)
     else:
       # Key is 'name' or 'key' and needs no lookup
-      if type(value) is str:
+      self.logger.debug("value type: %s" % (type(value)))
+      if type(value) is str or type(value) is unicode:
         newdict[key] = str(value)
       elif type(value) is dict:
         newdict[key] = value
@@ -1022,14 +1023,13 @@ class Jiraclient(object):
       args = ('post',uri)
 
     self.logger.debug("Log work: %s %s" % (args,payload))
-    self.call_api(*args,payload=payload)
+    return self.call_api(*args,payload=payload)
 
   def link_issues(self,issueFrom,linkType,issueTo):
     self.logger.debug("Link %s -> %s -> %s" % (issueFrom,linkType,issueTo))
     uri = 'rest/api/latest/issueLink'
     payload = json.dumps({"type":{"name":linkType},"inwardIssue":{"key":issueFrom},"outwardIssue":{"key":issueTo},"comment":{"body":self.options.comment}})
-    result = self.call_api('post',uri,payload=payload)
-    return result
+    return self.call_api('post',uri,payload=payload)
 
   def unlink_issues(self,issueFrom,linkType,issueTo):
     self.logger.debug("Unlink %s -> %s -> %s" % (issueFrom,linkType,issueTo))
@@ -1055,6 +1055,7 @@ class Jiraclient(object):
     # +-------+-------------------+---------------------+----------------------+--------------+
     # 4 rows in set (0.00 sec)
     # Must set the subtask link first, then change the issue type of child
+    self.logger.debug("Set subtask link: %s -> %s" % (parent,child))
     self.link_issues(parent,'jira_subtask_link',child)
     # Change issue type to subtask and set parent attribute on child issue
     issue = self.create_issue_obj(defaults=False)
