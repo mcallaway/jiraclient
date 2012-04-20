@@ -191,6 +191,13 @@ class Jiraclient(object):
       default="INFO",
     )
     optParser.add_option(
+      "--labels",
+      action="store",
+      dest="labels",
+      help="Comma separated list of labels to apply to new issue",
+      default=None,
+    )
+    optParser.add_option(
       "--link",
       action="store",
       dest="link",
