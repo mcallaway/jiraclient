@@ -32,6 +32,7 @@ import types
 import json
 import base64
 import datetime
+import time
 from restkit import Resource, BasicAuth, request
 from restkit.errors import Unauthorized
 
@@ -512,7 +513,6 @@ class Jiraclient(object):
         setattr(self.options,k,v)
 
   def call_api(self,method,uri,payload=None,full=False):
-    if self.options.nopost and ( method.lower() == 'post' or method.lower() == 'put' ): return {}
     self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
     call = getattr(self.proxy,method)
     headers = {'Content-Type' : 'application/json'}
@@ -523,6 +523,10 @@ class Jiraclient(object):
 
     self.logger.debug("Call API: %s %s/%s payload=%s headers=%s" % (method,self.options.jiraurl,uri,payload,headers))
     if self.options.noop:
+      self.logger.debug("NOOP mode, return before API call")
+      return {}
+    elif self.options.nopost and ( method.lower() == 'post' or method.lower() == 'put' ):
+      self.logger.debug("NOPOST mode, return before API call")
       return {}
 
     try:
@@ -779,7 +783,7 @@ class Jiraclient(object):
       newdict['id'] = str(id_of_value)
     else:
       # Key is 'name' or 'key' and needs no lookup
-      self.logger.debug("value type: %s" % (type(value)))
+      #self.logger.debug("value type: %s" % (type(value)))
       if type(value) is str or type(value) is unicode:
         newdict[key] = str(value)
       elif type(value) is dict:
@@ -1119,11 +1123,9 @@ class Jiraclient(object):
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in subtask.items():
           issue = self.update_issue_obj(issue,k,v)
-        # we set issuetype only to avoid confusion in debugging,
-        # subtask_link will change this issuetype to subtask.
-        issue = self.update_issue_obj(issue,'issuetype','task')
+        issue = self.update_issue_obj(issue,'issuetype','sub-task')
+        issue = self.update_issue_obj(issue,'parent',eid)
         stid = self.create_issue(issue)
-        self.subtask_link(eid,stid)
 
     # create stories for eid, inheriting from epic
     if stories:
@@ -1151,11 +1153,9 @@ class Jiraclient(object):
               issue = self.update_issue_obj(issue,k,v)
             for (k,v) in subtask.items():
               issue = self.update_issue_obj(issue,k,v)
-            # we set issuetype only to avoid confusion in debugging,
-            # subtask_link will change this issuetype to subtask.
-            issue = self.update_issue_obj(issue,'issuetype','task')
+            issue = self.update_issue_obj(issue,'issuetype','sub-task')
+            issue = self.update_issue_obj(issue,'parent',sid)
             stid = self.create_issue(issue)
-            self.subtask_link(sid,stid)
 
     self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 
