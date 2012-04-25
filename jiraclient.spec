@@ -2,7 +2,7 @@
 Name: jiraclient
 Summary: A command line client for Jira.
 BuildArch: noarch
-Version: 1.6.10
+Version: 2.0.0
 Release: 1
 License: GPL
 Vendor:  The Genome Center at Washington University
@@ -10,7 +10,7 @@ Packager: %packager
 Group: System/Utilities
 Source0:   %{name}-%version.tar.gz
 BuildRoot: %{_tmppath}/%{name}2-%{version}-%{release}-build
-Requires: python, python-fpconst, python-soappy, python-yaml
+Requires: python, python-fpconst, python-restkit, python-yaml
 
 %description
 Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.
@@ -24,16 +24,22 @@ like issue creation and creation of many issues via YAML templates.
 %build
 
 %install
-install -D -m 0755 jiraclient.py %{buildroot}/bin/jiraclient
+install -D -m 0755 jiraclient %{buildroot}/usr/bin/jiraclient
+install -D -m 0644 jiraclient.py %{buildroot}/usr/share/pyshared/jiraclient/jiraclient.py
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
 
 %files
 %defattr(-,root,root)
-/bin/jiraclient
+/usr/bin/jiraclient
+/usr/share/pyshared/jiraclient
 
 %changelog
+* Thu Apr 12 2012 Matthew Callaway <mcallawa@genome.wustl.edu>
+  [ 2.0.0-1 ]
+- Update for jira 5 REST API
+
 * Wed Jan 4 2012 Matthew Callaway <mcallawa@genome.wustl.edu>
   [ 1.6.10-1 ]
 - Add --spent option

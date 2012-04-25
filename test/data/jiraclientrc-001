@@ -1,23 +1,13 @@
 [jiraclient]
-jiraurl = https://jira-dev.gsc.wustl.edu/rpc/xmlrpc
-#jiraurl = https://jira-dev.gsc.wustl.edu/rpc/soap/sharedspace-s1v1?wsdl
-
+jiraurl = https://jira.gsc.wustl.edu
 user = jirauser
 
-password = jirauser
-
 [issues]
-epic_theme = customfield_10020
-
+epic_theme_id = customfield_10020
 project = INFOSYS
-
-type = story
-
+issuetype = story
 priority = normal
-
-assignee = user
-
-components = 10002
-
-fixversions = 10033
+assignee = jirauser
+components = CSA
+fixVersions = Backlog
 

@@ -1,0 +1,18 @@
+summary: This is an Epic
+description: Epic description
+components: csa
+fixVersions: Backlog
+subtasks:
+  - summary: est1 summary
+  - summary: est2 summary
+stories:
+  - summary: s1 summary
+    description: story s1 description
+    timetracking: 1h
+    subtasks:
+      - summary: s1 st1 summary
+        description: s1 st1 description
+        timetracking: 30m
+      - summary: s1 st2 summary
+        description: s1 st2 description
+        timetracking: 1h

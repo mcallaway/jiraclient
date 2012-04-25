@@ -7,9 +7,8 @@ Standards-Version: 3.8.3
 
 Package: jiraclient
 Architecture: all
-Depends: ${shlibs:Depends}, python, python-soappy, python-yaml, python-fpconst
+Depends: ${shlibs:Depends}, python, python-restkit (>= 4.0), python-yaml
 Description: A command line client for Jira.
- Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.
- It leverages SOAP or XML-RPC, depending upon the API selected in the
- configuration.  It allows command line access to a number of Jira tasks
- like issue creation and creation of many issues via YAML templates.
+ Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.  It
+ leverages the Jira 5.x REST API It allows command line access to a number of
+ Jira tasks like issue creation and creation of many issues via YAML templates.
