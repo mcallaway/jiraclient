@@ -956,7 +956,10 @@ class Jiraclient(object):
       if hasattr(self.options,key):
         attr = getattr(self.options,key)
         if attr:
-          values = getattr(self.options,key).split(',')
+          if key == 'summary' or key == 'description':
+            values = [value]
+          else:
+            values = getattr(self.options,key).split(',')
           for value in values:
             issue = self.update_issue_obj(issue,key,value)
         else:
