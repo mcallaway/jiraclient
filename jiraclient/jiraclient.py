@@ -113,7 +113,8 @@ class Jiraclient(object):
       'versions'   : SearchableDict(),
       'fixversions': SearchableDict(),
       'components' : SearchableDict(),
-      'resolutions': SearchableDict()
+      'resolutions': SearchableDict(),
+      'transitions': SearchableDict()
     }
 
   def fatal(self,msg=None):
@@ -571,6 +572,14 @@ class Jiraclient(object):
     for item in data:
       self.maps['resolutions'][int(item['id'])] = str(item['name'].lower()) 
 
+  def get_transitions(self,issueKey):
+    if self.maps['transitions']: return
+    uri = 'rest/api/latest/issue/%s/transitions' % issueKey
+    data = self.call_api("get",uri)
+    for item in data['transitions']:
+      item = item['to']
+      self.maps['transitions'][int(item['id'])] = str(item['name'].lower()) 
+
   def get_project_versions(self,projectKey):
     if self.maps['fixversions']: return
     uri = "%s/%s/%s" % ('rest/api/latest/project', projectKey, 'versions')
@@ -618,13 +627,17 @@ class Jiraclient(object):
 
   def delete_issue(self,issueID):
     uri = 'rest/api/latest/issue/%s?deleteSubtasks=true' % issueID
-    self.call_api('delete',uri)
+    result = self.call_api('delete',uri)
     self.logger.info("Deleted %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
+    return result
 
   def resolve_issue(self,issueID,resolution):
+    resolution = resolution[0].upper() + resolution[1:].lower()
+    self.get_transitions(issueID)
     uri = 'rest/api/latest/issue/%s/transitions' % issueID
+    transition_id = self.maps['transitions'].find_key("resolved")
     resolution_id = self.maps['resolutions'].find_key(resolution)
-    payload = json.dumps({"id": resolution_id})
+    payload = json.dumps({"transition":{"id": transition_id},"fields":{"resolution":{"name":resolution}}})
     result = self.call_api("post",uri,payload=payload)
     self.logger.info("Resolved %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
     return result
