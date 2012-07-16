@@ -1,5 +1,11 @@
 jiraclient (2.0.0-1) lucid; urgency=low
 
+  * Fix numerous bugs related to REST API.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Mon, 16 Jul 2012 17:24:21 -0500
+
+jiraclient (2.0.0-1) lucid; urgency=low
+
   * Drop all support for xmlrpc and soap and move to REST for jira 5
 
  -- Matt Callaway <mcallawa@genome.wustl.edu>  Thu, 12 Apr 2012 16:56:21 -0500

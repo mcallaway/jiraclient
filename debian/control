@@ -7,7 +7,7 @@ Standards-Version: 3.8.3
 
 Package: jiraclient
 Architecture: all
-Depends: ${shlibs:Depends}, python, python-restkit (>= 4.0), python-yaml
+Depends: ${shlibs:Depends}, python, python-restkit (>= 4.0), python-yaml, python-socketpool
 Description: A command line client for Jira.
  Jiraclient is a command line utility for Atlassian's Jira Issue Tracker.  It
  leverages the Jira 5.x REST API It allows command line access to a number of
