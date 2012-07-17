@@ -87,7 +87,7 @@ class TestUnit(unittest.TestCase):
       'duedate': '2012-04-13',
       'environment': 'environment',
       'fixVersions': [{'id': '10020'}],
-      'issuetype': {'id': '3'},
+      'issuetype': {'id': 'None'},
       'labels': ['change', 'maintenance'],
       'priority': {'id': '4'},
       'project': {'id': '10001'},
@@ -106,10 +106,10 @@ def suite():
 
   # If we want to add test methods one at a time, then we build up the
   # test suite by hand.
-  #suite = unittest.TestSuite()
+  suite = unittest.TestSuite()
   #suite.addTest(TestUnit("testUpdateIssueObj"))
   #suite.addTest(TestUnit("testCreateSimpleIssue"))
-  #suite.addTest(TestUnit("testCreateIssueObj"))
+  suite.addTest(TestUnit("testCreateIssueObj"))
 
   return suite
 

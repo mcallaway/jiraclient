@@ -23,18 +23,17 @@ class DictDiffer(object):
     def areEqual(self):
       ch = self.changed()
       ch = ch.union(self.removed(),self.added())
-      if len(ch) != 0:
-        print "Differences: %s" % (ch)
-        print "Changed: %s" % (self.changed())
-        print "Added: %s" % (self.added())
-        print "Removed: %s" % (self.removed())
-        for item in ch:
-          if self.current_dict.has_key(item) and self.past_dict.has_key(item):
-            print "%s got %s vs %s" % (item,self.current_dict[item],self.past_dict[item])
-          elif self.current_dict.has_key(item) and not self.past_dict.has_key(item):
-            print "%s got %s vs %s" % (item,self.current_dict[item],None)
-          elif not self.current_dict.has_key(item) and self.past_dict.has_key(item):
-            print "%s got %s vs %s" % (item,None,self.past_dict[item])
-        return False
-      return True
+      if len(ch) == 0: return True
+      print "Differences: %s" % (ch)
+      print "Changed: %s" % (self.changed())
+      print "Added: %s" % (self.added())
+      print "Removed: %s" % (self.removed())
+      for item in ch:
+        if self.current_dict.has_key(item) and self.past_dict.has_key(item):
+          print "%s got %s vs %s" % (item,self.current_dict[item],self.past_dict[item])
+        elif self.current_dict.has_key(item) and not self.past_dict.has_key(item):
+          print "%s got %s vs %s" % (item,self.current_dict[item],None)
+        elif not self.current_dict.has_key(item) and self.past_dict.has_key(item):
+          print "%s got %s vs %s" % (item,None,self.past_dict[item])
+      return False
 

@@ -25,15 +25,13 @@ import pprint
 import re
 import sys
 import logging, inspect, logging.handlers
-from stat import *
-from optparse import OptionParser,OptionValueError
+import stat
+from optparse import OptionParser
 import ConfigParser
-import types
 import json
 import base64
 import datetime
-import time
-from restkit import Resource, BasicAuth, request
+from restkit import Resource
 from restkit.errors import Unauthorized
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -477,7 +475,7 @@ class Jiraclient(object):
         fd.close()
         os.chmod(self.options.config,int("600",8))
 
-      if S_IMODE(os.stat(self.options.config).st_mode) != int("600",8):
+      if stat.S_IMODE(os.stat(self.options.config).st_mode) != int("600",8):
         self.logger.warning("Config file %s is not mode 600" % (self.options.config))
       try:
         parser.readfp(file(self.options.config,'r'))
@@ -636,7 +634,6 @@ class Jiraclient(object):
     self.get_transitions(issueID)
     uri = 'rest/api/latest/issue/%s/transitions' % issueID
     transition_id = self.maps['transitions'].find_key("resolved")
-    resolution_id = self.maps['resolutions'].find_key(resolution)
     payload = json.dumps({"transition":{"id": transition_id},"fields":{"resolution":{"name":resolution}}})
     result = self.call_api("post",uri,payload=payload)
     self.logger.info("Resolved %s/browse/%s" % (self.get_serverinfo()['baseUrl'], issueID))
@@ -726,7 +723,7 @@ class Jiraclient(object):
     sessionfile = self.options.sessionfile
 
     # Don't allow insecure cookie file
-    if os.path.exists(sessionfile) and S_IMODE(os.stat(sessionfile).st_mode) != int("600",8):
+    if os.path.exists(sessionfile) and stat.S_IMODE(os.stat(sessionfile).st_mode) != int("600",8):
         self.logger.error("session file %s is not mode 600, forcing new session" % (sessionfile))
         os.unlink(sessionfile)
 
@@ -957,7 +954,7 @@ class Jiraclient(object):
         attr = getattr(self.options,key)
         if attr:
           if key == 'summary' or key == 'description':
-            values = [value]
+            values = [key]
           else:
             values = getattr(self.options,key).split(',')
           for value in values:
@@ -1171,7 +1168,7 @@ class Jiraclient(object):
               issue = self.update_issue_obj(issue,k,v)
             issue = self.update_issue_obj(issue,'issuetype','sub-task')
             issue = self.update_issue_obj(issue,'parent',sid)
-            stid = self.create_issue(issue)
+            self.create_issue(issue)
 
     self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 
