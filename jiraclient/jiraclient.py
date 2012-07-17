@@ -1138,7 +1138,7 @@ class Jiraclient(object):
           issue = self.update_issue_obj(issue,k,v)
         issue = self.update_issue_obj(issue,'issuetype','sub-task')
         issue = self.update_issue_obj(issue,'parent',eid)
-        stid = self.create_issue(issue)
+        self.create_issue(issue)
 
     # create stories for eid, inheriting from epic
     if stories:
@@ -1233,23 +1233,30 @@ class Jiraclient(object):
 
     # Run a named Jira API call and return
     if self.options.api is not None:
+      # Set payload
       payload = None
-      if self.options.jsondata:
-        if os.path.exists(self.options.jsondata):
-          fd = open(self.options.jsondata,'r')
-          try:
-            jsondata = fd.read()
-          except Exception,msg:
-            self.fatal("Error reading jsondata: %s" % msg)
-          fd.close()
-          try:
-            payload = json.dumps(json.loads(jsondata))
-          except Exception,msg:
-            self.fatal("Error parsing jsondata: %s" % msg)
+      if self.options.jsondata is not None:
+        self.logger.debug("read json data %s" % self.options.jsondata)
+        if self.options.jsondata.startswith("{"):
+          payload = json.dumps(json.loads(self.options.jsondata))
         else:
-          self.fatal("API error: file not found: %s" % self.options.jsondata)
+          jsonpath = os.path.expanduser(self.options.jsondata)
+          if os.path.exists(jsonpath):
+            fd = open(jsonpath,'r')
+            try:
+              jsondata = fd.read()
+            except Exception,msg:
+              self.fatal("Error reading jsondata: %s" % msg)
+            fd.close()
+            try:
+              payload = json.dumps(json.loads(jsondata))
+            except Exception,msg:
+              self.fatal("Error parsing jsondata: %s" % msg)
+          else:
+            self.fatal("API error: file not found: %s" % self.options.jsondata)
+      # Send payload with method
       try:
-        response = self.call_api(self.options.method,self.options.api,payload=payload)
+        response = self.call_api(self.options.method.lower(),self.options.api,payload=payload)
         pp.pprint(response)
       except Exception, details:
         self.fatal("API error: bad method: %s" % details)
