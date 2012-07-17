@@ -954,7 +954,7 @@ class Jiraclient(object):
         attr = getattr(self.options,key)
         if attr:
           if key == 'summary' or key == 'description':
-            values = [key]
+            values = [getattr(self.options,key)]
           else:
             values = getattr(self.options,key).split(',')
           for value in values:
