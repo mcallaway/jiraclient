@@ -2,7 +2,6 @@
 
 import jiraclient
 import pprint
-import sys
 
 pp = pprint.PrettyPrinter(indent=4)
 
