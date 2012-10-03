@@ -1023,11 +1023,12 @@ class Jiraclient(object):
         return
 
     baseuri = 'rest/api/latest/issue/%s/worklog' % issueID
-    dt_today = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f-0000");
+    dt_today = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000-0000");
 
     args = None
     if spent is None and remaining is None:
-      worklog = {'startDate':dt_today,'comment':comment}
+      # time spent must not be null, so default to 1m
+      worklog = {'started':dt_today,'comment':comment,'timeSpent':'1m'}
       payload = json.dumps(worklog)
       args = ('post',baseuri)
     elif spent is None:
