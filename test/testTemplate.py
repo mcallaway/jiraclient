@@ -2,7 +2,6 @@
 import pprint
 import sys
 import os
-import logging
 import unittest
 from DictDiffer import DictDiffer;
 
@@ -85,6 +84,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
+     'customfield_10441': ['The Epic Name'],
      'description': 'Epic description',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '6'},
@@ -97,10 +97,11 @@ class TestUnit(unittest.TestCase):
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
      'fixVersions': [{'id': '10020'}],
-     'issuetype': {'id': '3'},
+     'issuetype': {'id': '5'},
      'priority': {'id': '6'},
      'project': {'id': '10001'},
      'summary': 'est1 summary',
+     'parent': {'key':'NOOP'},
     }
     desired_story = {
      'assignee': {'name': 'jirauser'},
@@ -111,18 +112,21 @@ class TestUnit(unittest.TestCase):
      'priority': {'id': '6'},
      'project': {'id': '10001'},
      'summary': 's1 summary',
-     'description': 'story s1 description'
+     'description': 'story s1 description',
+     'timetracking': {'originalEstimate':'1h'},
     }
     desired_story_subtask = {
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
      'fixVersions': [{'id': '10020'}],
-     'issuetype': {'id': '3'},
+     'issuetype': {'id': '5'},
      'priority': {'id': '6'},
      'project': {'id': '10001'},
      'summary': 's1 st1 summary',
-     'description': 's1 st1 description'
+     'description': 's1 st1 description',
+     'timetracking': {'originalEstimate':'30m'},
+     'parent': {'key':'NOOP'},
     }
     epic = self.c.issues_created[0]
     diff = DictDiffer(epic,desired_epic)
@@ -130,10 +134,10 @@ class TestUnit(unittest.TestCase):
     subtask = self.c.issues_created[1]
     diff = DictDiffer(subtask,desired_subtask)
     assert diff.areEqual()
-    story = self.c.issues_created[2]
+    story = self.c.issues_created[3]
     diff = DictDiffer(story,desired_story)
     assert diff.areEqual()
-    subtask = self.c.issues_created[3]
+    subtask = self.c.issues_created[4]
     diff = DictDiffer(subtask,desired_story_subtask)
     assert diff.areEqual()
 

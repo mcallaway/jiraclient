@@ -3,7 +3,6 @@ jiraurl = https://jira.gsc.wustl.edu
 user = jirauser
 
 [issues]
-epic_theme_id = customfield_10020
 project = INFOSYS
 issuetype = story
 priority = normal

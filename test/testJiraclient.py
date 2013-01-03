@@ -3,7 +3,7 @@ import pprint
 import sys
 import os
 import unittest
-import json
+#import json
 import base64
 from DictDiffer import DictDiffer
 
@@ -11,7 +11,7 @@ if os.path.exists("./jiraclient/"):
   sys.path.insert(0,"./jiraclient/")
 
 import jiraclient
-from restkit import BasicAuth
+#from restkit import BasicAuth
 
 pp = pprint.PrettyPrinter(depth=4,stream=sys.stdout)
 
@@ -27,6 +27,7 @@ class TestUnit(unittest.TestCase):
     self.c.options.noop = False
     self.c.prepare_logger()
     self.c.read_config()
+    # These tests require jirauser have permission to create issues
     self.c.options.user = 'jirauser'
     self.c.options.password = 'jirauser'
 
@@ -54,7 +55,7 @@ class TestUnit(unittest.TestCase):
 
   def testGetProjectId(self):
     self.c.get_project_id('INFOSYS')
-    assert self.c.maps['project'][10001] == 'infosys'
+    assert self.c.maps['project']['10001'] == 'infosys'
 
   def testGetSession(self):
     self.c.token = base64.b64encode("%s:%s" % (self.c.options.user, self.c.options.password))
@@ -82,28 +83,47 @@ class TestUnit(unittest.TestCase):
     self.setUp()
 
   def testGetIssueTypes(self):
-    response = self.c.get_issue_types('INFOSYS')
-    desired = { 6: 'epic', 7: 'story', 5: 'sub-task', 3: 'task'}
+    self.c.get_issue_types('INFOSYS')
+    pp.pprint(self.c.maps['issuetype'])
+    desired = { '6': 'epic', '7': 'story', '5': 'sub-task', '3': 'task'}
     diff = DictDiffer(self.c.maps['issuetype'],desired)
     assert diff.areEqual()
 
+  def testGetCustomFields(self):
+    self.c.check_auth()
+    pp.pprint(self.c.__dict__)
+    self.c.get_project_id('INFOSYS')
+    assert self.c.maps['project']['10001'] == 'infosys'
+    self.c.get_issue_types('INFOSYS')
+    assert self.c.maps['issuetype']['6'] == 'epic'
+    self.c.get_customfields('INFOSYS','epic')
+    desired = {
+            'customfield_10010': 'epic/theme',
+            'customfield_10002': 'story points',
+            'customfield_10003': 'business value',
+            'customfield_10000': 'flagged',
+            'customfield_10441': 'epic name'
+            }
+    diff = DictDiffer(self.c.maps['customfields'],desired)
+    assert diff.areEqual()
+
   def testGetResolutions(self):
-    response = self.c.get_resolutions()
-    desired = {5: 'cannot reproduce', 6: 'complete', 3: 'duplicate', 1: 'fixed', 4: 'incomplete', 2: "won't fix"}
+    self.c.get_resolutions()
+    desired = {'5': 'cannot reproduce', '6': 'complete', '3': 'duplicate', '1': 'fixed', '4': 'incomplete', '2': "won't fix"}
     diff = DictDiffer(self.c.maps['resolutions'],desired)
     assert diff.areEqual()
 
   def testGetProjectVersions(self):
-    response = self.c.get_project_versions('INFOSYS')
-    assert self.c.maps['versions'][10180] == 'sprint 2012-1: 1/2 - 1/13'
+    self.c.get_project_versions('INFOSYS')
+    assert self.c.maps['versions']['10180'] == 'sprint 2012-1: 1/2 - 1/13'
 
   def testGetProjectComponents(self):
-    response = self.c.get_project_components('INFOSYS')
-    assert self.c.maps['components'][10111] == 'csa'
+    self.c.get_project_components('INFOSYS')
+    assert self.c.maps['components']['10111'] == 'csa'
 
   def testGetPriorities(self):
-    response = self.c.get_priorities()
-    assert self.c.maps['priority'][3] == 'major'
+    self.c.get_priorities()
+    assert self.c.maps['priority']['3'] == 'major'
 
   def testCreateIssueObj(self):
     self.c.options.issuetype = 'story'
@@ -163,6 +183,7 @@ def suite():
   #suite.addTest(TestUnit("testCheckAuth"))
   #suite.addTest(TestUnit("testGetIssue"))
   #suite.addTest(TestUnit("testGetIssueTypes"))
+  #suite.addTest(TestUnit("testGetCustomFields"))
   #suite.addTest(TestUnit("testGetIssueLinks"))
   #suite.addTest(TestUnit("testGetResolutions"))
   #suite.addTest(TestUnit("testGetProjectVersions"))

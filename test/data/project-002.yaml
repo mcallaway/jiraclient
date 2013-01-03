@@ -1,4 +1,5 @@
 summary: This is an Epic
+epic name: The Epic Name
 description: Epic description
 components: csa
 fixVersions: Backlog

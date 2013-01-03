@@ -3,15 +3,12 @@ import pprint
 import sys
 import os
 import unittest
-import json
-import base64
 
 if os.path.exists("./jiraclient/"):
   sys.path.insert(0,"./jiraclient/")
 
 from DictDiffer import DictDiffer
 import jiraclient
-from restkit import BasicAuth
 
 pp = pprint.PrettyPrinter(depth=4,stream=sys.stdout)
 
@@ -87,7 +84,7 @@ class TestUnit(unittest.TestCase):
       'duedate': '2012-04-13',
       'environment': 'environment',
       'fixVersions': [{'id': '10020'}],
-      'issuetype': {'id': 'None'},
+      'issuetype': {'id': '3'},
       'labels': ['change', 'maintenance'],
       'priority': {'id': '4'},
       'project': {'id': '10001'},
@@ -106,10 +103,10 @@ def suite():
 
   # If we want to add test methods one at a time, then we build up the
   # test suite by hand.
-  suite = unittest.TestSuite()
+  #suite = unittest.TestSuite()
   #suite.addTest(TestUnit("testUpdateIssueObj"))
   #suite.addTest(TestUnit("testCreateSimpleIssue"))
-  suite.addTest(TestUnit("testCreateIssueObj"))
+  #suite.addTest(TestUnit("testCreateIssueObj"))
 
   return suite
 
