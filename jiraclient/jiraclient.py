@@ -651,6 +651,7 @@ class Jiraclient(object):
     self.get_project_components(self.options.project)
     self.get_resolutions()
     self.get_priorities()
+    self.logger.debug("maps: %s" % self.maps)
 
   def get_serverinfo(self):
     uri = 'rest/api/latest/serverInfo'
@@ -830,6 +831,9 @@ class Jiraclient(object):
         else:
           # Find the id of the value from the maps
           id_of_value = amap.find_key(value.lower())
+      if id_of_value is None:
+        self.fatal("You specified '%s' for attribute '%s', known values are: %s" % (value,attribute,amap))
+
       newdict['id'] = str(id_of_value)
     else:
       # Key is 'name' or 'key' and needs no lookup
@@ -850,10 +854,6 @@ class Jiraclient(object):
       # Return unmodified issue
       return issue
 
-# FIXME: remove
-    self.logger.debug("issue is type %s" % (issue.issuetype['id']))
-    self.logger.debug("attribute %s is %s" % (attribute,value))
-
     if type(value) is dict or type(value) is list:
       # If value is a dict, it's already been looked up in some previous
       # call of this method, like in create_issues_from_template()
@@ -865,13 +865,13 @@ class Jiraclient(object):
       setattr(issue,attribute,[value])
       return issue
 
-    # Right now we only support custom fields of epics.  Ignore customfields on non-epics.
     if issue.issuetype['id'] != self.maps['issuetype'].find_key('epic') and self.maps['customfields'].find_key(str(attribute)) is not None:
+      # Ignore customfields on non-epics.
       self.logger.debug("Ignore custom field for non epic")
       return issue
 
-    # Right now we only support custom fields of epics.
     if attribute.startswith('epic') and issue.issuetype['id'] == self.maps['issuetype'].find_key('epic'):
+      # Right now we only support custom fields of epics.
       if self.options.noop:
         setattr(issue,attribute,value)
       if self.maps['customfields'].find_key(str(attribute)):
