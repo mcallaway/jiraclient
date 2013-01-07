@@ -1,2 +1,6 @@
 test/data/jira-session
 */*.pyc
+build/*
+debian/files
+debian/jiraclient.*
+debian/jiraclient/*
