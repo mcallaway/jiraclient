@@ -10,11 +10,8 @@ priority = Normal
 # -- Default assignee
 #assignee = myname
 
-# -- Epic/Theme for this installation
-#epic_theme = customfield_10010
-
 # -- Component
-components = CSA
+#components = CSA
 
 # -- Fix Version
-fixVersions = Backlog
+#fixVersions = Backlog
