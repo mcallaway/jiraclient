@@ -13,6 +13,7 @@ Create a set of issues with a YAML formatted template file like this:
 python jiraclient.py --template project.yaml
 
 # -- project.yaml file
+epic name: Epic Name
 summary: This is an Epic
 description: Epic description
 stories:
