@@ -1066,9 +1066,10 @@ class Jiraclient(object):
 
     # Set issue type if we said to.
     if issuetype is not None:
+        issuetype = issuetype.lower()
         itype = self.maps['issuetype'].find_key(issuetype)
         if itype is None:
-          self.fatal("Failed to set issue type to '%s'" % issuetype)
+          self.fatal("Failed to set issue type to '%s', no issue id found in %s" % (issuetype,self.maps['issuetype']))
         self.logger.debug("set issue type to %s" % (itype))
         issue.issuetype['id'] = itype
 
@@ -1202,8 +1203,18 @@ class Jiraclient(object):
     # Should we use the rc file for issue defaults?
     defaults = not self.options.norcfile
 
-    # First create the Epic so we can use its Key as epic_theme in subtasks and stories
-    epic = self.create_issue_obj(defaults=defaults,issuetype='epic')
+    # First create the "Epic", which might be an actual Epic or some custom
+    # issue type that is a duplicate of an Epic.  Create this Epic first so we
+    # can use its Key as epic_theme in subtasks and stories
+    issuetype = 'epic'
+    # The sub type is the Issue type for project milestones.
+    subtype = 'story'
+    if 'type' in yamldata.keys():
+      issuetype = yamldata.pop('type').lower()
+    if 'subtype' in yamldata.keys():
+      subtype = yamldata.pop('subtype').lower()
+
+    epic = self.create_issue_obj(defaults=defaults,issuetype=issuetype)
     for (k,v) in yamldata.items():
       epic = self.update_issue_obj(epic,k,v)
     eid = self.create_issue(epic)
@@ -1235,7 +1246,7 @@ class Jiraclient(object):
           subtasks = story.pop('subtasks')
 
         self.logger.debug("create story inheriting from epic")
-        issue = self.create_issue_obj(defaults=defaults,issuetype='story')
+        issue = self.create_issue_obj(defaults=defaults,issuetype=subtype)
         for (k,v) in epic.__dict__.items():
           if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
                   k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
@@ -1370,7 +1381,7 @@ class Jiraclient(object):
 
     # Create a new issue
     defaults = not self.options.norcfile
-    issue = self.create_issue_obj(self.options.issuetype.lower(),defaults=defaults)
+    issue = self.create_issue_obj(self.options.issuetype,defaults=defaults)
     try:
       issueID = self.create_issue(issue)
     except Exception, details:
