@@ -64,9 +64,10 @@ class TestUnit(unittest.TestCase):
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
      'fixVersions': [{'id': '10020'}],
-     'issuetype': {'id': '3'},
+     'issuetype': {'id': '5'},
      'priority': {'id': '6'},
      'project': {'id': '10001'},
+     'parent': {'key': 'NOOP'},
      'summary': 'This is test epic subtask 1',
      'description': 'This is test epic subtask 1 description'
     }
@@ -84,7 +85,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10441': ['The Epic Name'],
+     'customfield_10441': 'The Epic Name',
      'description': 'Epic description',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '6'},
@@ -143,10 +144,10 @@ class TestUnit(unittest.TestCase):
 
 def suite():
   suite = unittest.makeSuite(TestUnit,'test')
-  suite = unittest.TestSuite()
+  #suite = unittest.TestSuite()
   #suite.addTest(TestUnit("testTemplate000"))
   #suite.addTest(TestUnit("testTemplate001"))
-  suite.addTest(TestUnit("testTemplate002"))
+  #suite.addTest(TestUnit("testTemplate002"))
 
   return suite
 

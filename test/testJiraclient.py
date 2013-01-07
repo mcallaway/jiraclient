@@ -96,14 +96,14 @@ class TestUnit(unittest.TestCase):
     assert self.c.maps['project']['10001'] == 'infosys'
     self.c.get_issue_types('INFOSYS')
     assert self.c.maps['issuetype']['6'] == 'epic'
-    self.c.get_customfields('INFOSYS','epic')
-    desired = {
+    self.c.get_customfields('INFOSYS','6')
+    desired = { '6': {
             'customfield_10010': 'epic/theme',
             'customfield_10002': 'story points',
             'customfield_10003': 'business value',
             'customfield_10000': 'flagged',
             'customfield_10441': 'epic name'
-            }
+            }}
     diff = DictDiffer(self.c.maps['customfields'],desired)
     assert diff.areEqual()
 
@@ -135,7 +135,7 @@ class TestUnit(unittest.TestCase):
     self.c.options.components = 'csa'
     self.c.options.fixVersions = '10033'
     self.c.get_priorities()
-    i = self.c.create_issue_obj(defaults=True)
+    i = self.c.create_issue_obj('story',defaults=True)
     desired = {
      'environment': '',
      'duedate': '',

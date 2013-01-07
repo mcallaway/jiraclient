@@ -28,7 +28,7 @@ class TestUnit(unittest.TestCase):
 
   def testUpdateIssueObj(self):
     self.c.options.project = "INFOSYS"
-    issue = self.c.create_issue_obj()
+    issue = self.c.create_issue_obj('task')
     issue = self.c.update_issue_obj(issue,'components','CSA')
     issue = self.c.update_issue_obj(issue,'labels','change')
     issue = self.c.update_issue_obj(issue,'assignee','jirauser')
@@ -36,7 +36,7 @@ class TestUnit(unittest.TestCase):
 
   def testCreateSimpleIssue(self):
     self.c.options.project = "INFOSYS"
-    issue = self.c.create_issue_obj()
+    issue = self.c.create_issue_obj('task')
     got = issue.__dict__
     desired = {
       'assignee': {'name': None},
@@ -45,7 +45,7 @@ class TestUnit(unittest.TestCase):
       'duedate': '',
       'environment': '',
       'fixVersions': [{'id': None}],
-      'issuetype': {'id': None},
+      'issuetype': {'id': '3'},
       'labels': [],
       'priority': {'id': None},
       'project': {'id': '00'},
@@ -75,7 +75,7 @@ class TestUnit(unittest.TestCase):
     self.c.options.versions = 'Ideas'
     self.c.options.epic_theme = 'INFOSYS-100'
 
-    issue = self.c.create_issue_obj()
+    issue = self.c.create_issue_obj('task')
     got = issue.__dict__
     desired = {
       'assignee': {'name': 'jirauser'},
