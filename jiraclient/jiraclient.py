@@ -31,6 +31,7 @@ import ConfigParser
 import json
 import base64
 import datetime
+import itertools
 from restkit import Resource
 from restkit.errors import Unauthorized
 
@@ -221,7 +222,7 @@ class Jiraclient(object):
     )
     optParser.add_option(
       "--norcfile",
-      action="store",
+      action="store_true",
       dest="norcfile",
       help="Do not parse issue defaults when using --template",
       default=False,
@@ -558,6 +559,7 @@ class Jiraclient(object):
   def get_issue_types(self,projectKey):
     if self.maps['issuetype']: return
     if self.options.noop:
+      # minimal set of issue types for tests to work
       self.maps['issuetype']['1'] = 'epic'
       self.maps['issuetype']['2'] = 'story'
       self.maps['issuetype']['3'] = 'task'
@@ -573,20 +575,29 @@ class Jiraclient(object):
   def get_customfields(self,projectKey,issueType):
     if not self.maps['project']: return
     if not self.maps['issuetype']: return
-    if self.maps['customfields']: return
+    if issueType in self.maps['customfields']: return
     if self.options.noop:
-      self.maps['customfields']['customfield_00000'] = 'epic/theme'
-      self.maps['customfields']['customfield_00001'] = 'epic name'
+      # Minimum fields for epics to work for tests to pass.
+      tid = self.maps['issuetype'].find_key('epic')
+      self.maps['customfields'][str(tid)] = SearchableDict()
+      self.maps['customfields'][str(tid)]['customfield_00000'] = 'epic/theme'
+      self.maps['customfields'][str(tid)]['customfield_00001'] = 'epic name'
+      for tid in (2,3,4):
+        self.maps['customfields'][str(tid)] = SearchableDict()
+        self.maps['customfields'][str(tid)]['customfield_00000'] = 'epic/theme'
     else:
       pid = self.maps['project'].find_key(projectKey.lower())
-      tid = self.maps['issuetype'].find_key(issueType)
-      uri = 'rest/api/latest/issue/createmeta?projectIds=%s&issuetypeIds=%s&expand=projects.issuetypes.fields' % (pid,tid)
+      #tid = self.maps['issuetype'].find_key(issueType)
+      uri = 'rest/api/latest/issue/createmeta?projectIds=%s&issuetypeIds=%s&expand=projects.issuetypes.fields' % (pid,issueType)
       data = self.call_api("get",uri)
       for item in data['projects'][0]['issuetypes']:
-          for field in item['fields']:
-              if field.startswith('customfield'):
-                  self.logger.debug("customfield: %s %s" % (field,str(item['fields'][field]['name'].lower())))
-                  self.maps['customfields'][str(field)] = str(item['fields'][field]['name'].lower())
+        for field in item['fields']:
+          if field.startswith('customfield'):
+            self.logger.debug("customfield: %s %s" % (field,str(item['fields'][field]['name'].lower())))
+            #self.maps['customfields'][str(field)] = str(item['fields'][field]['name'].lower())
+            if issueType not in self.maps['customfields'].keys():
+              self.maps['customfields'][str(issueType)] = SearchableDict()
+            self.maps['customfields'][str(issueType)][str(field)] = str(item['fields'][field]['name'].lower())
 
   def get_resolutions(self):
     if self.maps['resolutions']: return
@@ -646,7 +657,8 @@ class Jiraclient(object):
     # These need to happen before any issue creation or modification
     self.get_project_id(self.options.project)
     self.get_issue_types(self.options.project)
-    self.get_customfields(self.options.project,'epic')
+    for itype in self.maps['issuetype']:
+      self.get_customfields(self.options.project,itype)
     self.get_project_versions(self.options.project)
     self.get_project_components(self.options.project)
     self.get_resolutions()
@@ -705,9 +717,6 @@ class Jiraclient(object):
       if v == {"key":None}: issue.pop(k)
       if v == {"originalEstimate":None}: issue.pop(k)
       if v == [{"id":None}]: issue.pop(k)
-      if k in self.maps['customfields']:
-        if type(v) is not list:
-          issue[k]=[v]
     self.logger.debug("cleaned issue: %s" % issue)
     return issue
 
@@ -865,22 +874,19 @@ class Jiraclient(object):
       setattr(issue,attribute,[value])
       return issue
 
-    if issue.issuetype['id'] != self.maps['issuetype'].find_key('epic') and self.maps['customfields'].find_key(str(attribute)) is not None:
-      # Ignore customfields on non-epics.
-      self.logger.debug("Ignore custom field for non epic")
-      return issue
-
-    if attribute.startswith('epic') and issue.issuetype['id'] == self.maps['issuetype'].find_key('epic'):
-      # Right now we only support custom fields of epics.
+    itype = issue.issuetype['id']
+    if itype in self.maps['customfields'].keys() and attribute in self.maps['customfields'][itype].values():
       if self.options.noop:
         setattr(issue,attribute,value)
-      if self.maps['customfields'].find_key(str(attribute)):
-        # If we used a custom field by name, use it by id.
-        setattr(issue,self.maps['customfields'].find_key(str(attribute)),[value])
+      if attribute == 'epic/theme':
+        setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),[value])
+      if attribute == 'epic name':
+        setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),value)
       return issue
 
     # Fail if we specified an unknown attribute that isn't a customfield
-    if not hasattr(Issue(),attribute):
+    customfields = list(set(itertools.chain( *[ x.values() for x in self.maps['customfields'].values() ] )))
+    if not hasattr(Issue(),attribute) and attribute not in customfields:
       self.fatal("Unknown issue attribute: %s" % attribute)
 
     attr = getattr(Issue(),attribute)
@@ -1025,7 +1031,7 @@ class Jiraclient(object):
     self.logger.debug("updated issue: %s" % issue)
     return issue
 
-  def create_issue_obj(self,defaults=False,empty=False,issuetype=None):
+  def create_issue_obj(self,issuetype,defaults=False,empty=False):
     self.logger.debug("create issue object (%s)" % (defaults))
 
     # Trigger to parse rc file for issue default values
@@ -1061,6 +1067,8 @@ class Jiraclient(object):
     # Set issue type if we said to.
     if issuetype is not None:
         itype = self.maps['issuetype'].find_key(issuetype)
+        if itype is None:
+          self.fatal("Failed to set issue type to '%s'" % issuetype)
         self.logger.debug("set issue type to %s" % (itype))
         issue.issuetype['id'] = itype
 
@@ -1072,12 +1080,14 @@ class Jiraclient(object):
       self.fatal("Issue type must be sub-task for --parent to be valid")
 
     # Set Epic attributes via customfield
-    if self.options.epic_theme:
-      setattr(issue,self.maps['customfields'].find_key('epic/theme'),[self.options.epic_theme])
-    if self.options.epic_name:
-      setattr(issue,self.maps['customfields'].find_key('epic name'),[self.options.epic_name])
-    #if issue.issuetype['id'] == self.maps['issuetype'].find_key('epic') and self.options.epic_name:
-    #  setattr(issue,self.maps['customfields'].find_key('epic name'),[self.options.epic_name])
+    if self.options.epic_theme and \
+     self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme'):
+      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme')
+      setattr(issue,attr,[self.options.epic_theme])
+    if self.options.epic_name and \
+     self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
+      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
+      setattr(issue,self.maps['customfields'][issue.issuetype['id']].find_key('epic name'),self.options.epic_name)
 
     return issue
 
@@ -1198,9 +1208,10 @@ class Jiraclient(object):
       epic = self.update_issue_obj(epic,k,v)
     eid = self.create_issue(epic)
 
-    # FIXME customfield handling
-    self.modify_issue(eid,{self.maps['customfields'].find_key('epic/theme'):eid})
-    epic = self.update_issue_obj(epic,self.maps['customfields'].find_key('epic/theme'),eid)
+    # Modify the epic we just created to set its own theme
+    self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'):[eid]})
+    # Update the epic issue object so that epic/theme is inherited for tasks we're about to create
+    epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'),eid)
 
     # create subtasks for eid, inheriting from epic
     if subtasks:
@@ -1208,7 +1219,8 @@ class Jiraclient(object):
         self.logger.debug("create subtask inheriting from epic")
         issue = self.create_issue_obj(defaults=defaults,issuetype='sub-task')
         for (k,v) in epic.__dict__.items():
-          if k in ('description','summary','issuetype') or (k.startswith('customfield') and k != self.maps['customfields'].find_key('epic/theme')): continue
+          if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in subtask.items():
           issue = self.update_issue_obj(issue,k,v)
@@ -1225,7 +1237,8 @@ class Jiraclient(object):
         self.logger.debug("create story inheriting from epic")
         issue = self.create_issue_obj(defaults=defaults,issuetype='story')
         for (k,v) in epic.__dict__.items():
-          if k in ('description','summary','issuetype') or (k.startswith('customfield') and k != self.maps['customfields'].find_key('epic/theme')): continue
+          if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in story.items():
           issue = self.update_issue_obj(issue,k,v)
@@ -1237,7 +1250,8 @@ class Jiraclient(object):
             self.logger.debug("create story subtask inheriting from epic")
             issue = self.create_issue_obj(defaults=defaults,issuetype='sub-task')
             for (k,v) in epic.__dict__.items():
-              if k in ('description','summary','issuetype') or (k.startswith('customfield') and k != self.maps['customfields'].find_key('epic/theme')): continue
+              if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
               issue = self.update_issue_obj(issue,k,v)
             for (k,v) in subtask.items():
               issue = self.update_issue_obj(issue,k,v)
@@ -1277,7 +1291,7 @@ class Jiraclient(object):
 
     # Modify existing issue
     if self.options.issueID is not None:
-      issue = self.create_issue_obj(defaults=False)
+      issue = self.create_issue_obj(None,defaults=False)
       return self.modify_issue(self.options.issueID,issue)
 
   def setup(self):
@@ -1355,7 +1369,8 @@ class Jiraclient(object):
       return self.act_on_existing_issue()
 
     # Create a new issue
-    issue = self.create_issue_obj(defaults=True)
+    defaults = not self.options.norcfile
+    issue = self.create_issue_obj(self.options.issuetype.lower(),defaults=defaults)
     try:
       issueID = self.create_issue(issue)
     except Exception, details:
