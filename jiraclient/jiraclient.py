@@ -97,7 +97,7 @@ class SearchableDict(dict):
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.0"
+  version = "2.1.1"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])
@@ -876,8 +876,6 @@ class Jiraclient(object):
 
     itype = issue.issuetype['id']
     if itype in self.maps['customfields'].keys() and attribute in self.maps['customfields'][itype].values():
-      if self.options.noop:
-        setattr(issue,attribute,value)
       if attribute == 'epic/theme':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),[value])
       if attribute == 'epic name':
