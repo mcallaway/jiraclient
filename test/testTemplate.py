@@ -34,7 +34,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'description': 'Epic description',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '6'},
@@ -53,7 +53,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'description': 'Test Epic description',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '6'},
@@ -65,7 +65,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '5'},
      'priority': {'id': '6'},
@@ -88,7 +88,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'customfield_10441': 'The Epic Name',
      'description': 'Epic description',
      'fixVersions': [{'id': '10020'}],
@@ -101,7 +101,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '5'},
      'priority': {'id': '6'},
@@ -113,7 +113,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '7'},
      'priority': {'id': '6'},
@@ -126,7 +126,7 @@ class TestUnit(unittest.TestCase):
      'assignee': {'name': 'jirauser'},
      'components': [{'id': '10111'}],
      'customfield_10010': ['NOOP'],
-     'customfield_10440': ['NOOP'],
+     'customfield_10440': 'NOOP',
      'fixVersions': [{'id': '10020'}],
      'issuetype': {'id': '5'},
      'priority': {'id': '6'},
@@ -151,8 +151,8 @@ class TestUnit(unittest.TestCase):
 
 def suite():
   suite = unittest.makeSuite(TestUnit,'test')
-  suite = unittest.TestSuite()
-  suite.addTest(TestUnit("testTemplate000"))
+  #suite = unittest.TestSuite()
+  #suite.addTest(TestUnit("testTemplate000"))
   #suite.addTest(TestUnit("testTemplate001"))
   #suite.addTest(TestUnit("testTemplate002"))
 

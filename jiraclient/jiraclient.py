@@ -859,7 +859,7 @@ class Jiraclient(object):
     return newdict
 
   def update_issue_obj(self,issue,attribute,value):
-    self.logger.debug("update issue object: %s %s %s" % (issue,attribute,value))
+    self.logger.debug("update issue (%s) attribute (%s) value (%s)" % (issue,attribute,value))
 
     if not attribute or not value:
       # Return unmodified issue
@@ -873,13 +873,15 @@ class Jiraclient(object):
 
     if attribute.startswith("customfield"):
       # Custom fields aren't class attributes, just add them
-      setattr(issue,attribute,[value])
+      setattr(issue,attribute,value)
       return issue
 
     itype = issue.issuetype['id']
     if itype in self.maps['customfields'].keys() and attribute in self.maps['customfields'][itype].values():
-      if attribute == 'epic/theme' or attribute == 'epic link':
+      if attribute == 'epic/theme':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),[value])
+      if attribute == 'epic link':
+        setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),value)
       if attribute == 'epic name':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),value)
       return issue
@@ -908,7 +910,7 @@ class Jiraclient(object):
         item = attr.pop()
         # Now modify the value...
         newvalue = self.update_dict_value(item,attribute,value)
-        self.logger.debug("set attr %s %s %s" % (issue,attribute,newvalue))
+        self.logger.debug("set issue (%s) attribute (%s) value (%s)" % (issue,attribute,newvalue))
         setattr(issue,attribute,[newvalue])
     elif type(attr) is dict:
       setattr(issue,attribute,self.update_dict_value(attr,attribute,value))
@@ -1087,8 +1089,9 @@ class Jiraclient(object):
       setattr(issue,attr,[self.options.epic_theme])
     if self.options.epic_theme and \
      self.maps['customfields'][issue.issuetype['id']].find_key('epic link'):
+      self.logger.debug("set epic link to %s" % self.options.epic_theme)
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic link')
-      setattr(issue,attr,[self.options.epic_theme])
+      setattr(issue,attr,self.options.epic_theme)
     if self.options.epic_name and \
      self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
@@ -1225,9 +1228,9 @@ class Jiraclient(object):
 
     # Modify the epic we just created to set its own theme
     self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'):[eid]})
-    self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic link'):[eid]})
+    self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic link'):eid})
     # Update the epic issue object so that epic/theme is inherited for tasks we're about to create
-    epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'),eid)
+    epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'),[eid])
     epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic link'),eid)
 
     # create subtasks for eid, inheriting from epic
