@@ -336,7 +336,7 @@ class Jiraclient(object):
       "-H","--epic","--epic-theme",
       action="store",
       dest="epic_theme",
-      help="Set the epic/theme for the issue",
+      help="Set the epic/theme or Epic Link for the issue",
       default=None,
     )
     optParser.add_option(
@@ -582,9 +582,11 @@ class Jiraclient(object):
       self.maps['customfields'][str(tid)] = SearchableDict()
       self.maps['customfields'][str(tid)]['customfield_00000'] = 'epic/theme'
       self.maps['customfields'][str(tid)]['customfield_00001'] = 'epic name'
+      self.maps['customfields'][str(tid)]['customfield_00002'] = 'epic link'
       for tid in (2,3,4):
         self.maps['customfields'][str(tid)] = SearchableDict()
         self.maps['customfields'][str(tid)]['customfield_00000'] = 'epic/theme'
+        self.maps['customfields'][str(tid)]['customfield_00001'] = 'epic link'
     else:
       pid = self.maps['project'].find_key(projectKey.lower())
       #tid = self.maps['issuetype'].find_key(issueType)
@@ -876,7 +878,7 @@ class Jiraclient(object):
 
     itype = issue.issuetype['id']
     if itype in self.maps['customfields'].keys() and attribute in self.maps['customfields'][itype].values():
-      if attribute == 'epic/theme':
+      if attribute == 'epic/theme' or attribute == 'epic link':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),[value])
       if attribute == 'epic name':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),value)
@@ -1083,6 +1085,10 @@ class Jiraclient(object):
      self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme')
       setattr(issue,attr,[self.options.epic_theme])
+    if self.options.epic_theme and \
+     self.maps['customfields'][issue.issuetype['id']].find_key('epic link'):
+      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic link')
+      setattr(issue,attr,[self.options.epic_theme])
     if self.options.epic_name and \
      self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
@@ -1219,8 +1225,10 @@ class Jiraclient(object):
 
     # Modify the epic we just created to set its own theme
     self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'):[eid]})
+    self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic link'):[eid]})
     # Update the epic issue object so that epic/theme is inherited for tasks we're about to create
     epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'),eid)
+    epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic link'),eid)
 
     # create subtasks for eid, inheriting from epic
     if subtasks:
@@ -1229,7 +1237,8 @@ class Jiraclient(object):
         issue = self.create_issue_obj(defaults=defaults,issuetype='sub-task')
         for (k,v) in epic.__dict__.items():
           if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
-                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic link')): continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in subtask.items():
           issue = self.update_issue_obj(issue,k,v)
@@ -1247,7 +1256,8 @@ class Jiraclient(object):
         issue = self.create_issue_obj(defaults=defaults,issuetype=subtype)
         for (k,v) in epic.__dict__.items():
           if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
-                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic link')): continue
           issue = self.update_issue_obj(issue,k,v)
         for (k,v) in story.items():
           issue = self.update_issue_obj(issue,k,v)
@@ -1260,7 +1270,8 @@ class Jiraclient(object):
             issue = self.create_issue_obj(defaults=defaults,issuetype='sub-task')
             for (k,v) in epic.__dict__.items():
               if k in ('description','summary','issuetype') or (k.startswith('customfield') and \
-                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme')): continue
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme') and \
+                  k != self.maps['customfields'][epic.issuetype['id']].find_key('epic link')): continue
               issue = self.update_issue_obj(issue,k,v)
             for (k,v) in subtask.items():
               issue = self.update_issue_obj(issue,k,v)

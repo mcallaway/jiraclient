@@ -92,7 +92,8 @@ class TestUnit(unittest.TestCase):
       'parent': {'key': None},
       'timetracking': {'originalEstimate': None},
       'versions': [{'id': '10080'}],
-      'customfield_10010': ['INFOSYS-100']
+      'customfield_10010': ['INFOSYS-100'],
+      'customfield_10440': ['INFOSYS-100']
     }
     diff = DictDiffer(got,desired)
     assert diff.areEqual()

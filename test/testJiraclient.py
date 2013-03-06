@@ -102,7 +102,8 @@ class TestUnit(unittest.TestCase):
             'customfield_10002': 'story points',
             'customfield_10003': 'business value',
             'customfield_10000': 'flagged',
-            'customfield_10441': 'epic name'
+            'customfield_10441': 'epic name',
+            'customfield_10440': 'epic link'
             }}
     diff = DictDiffer(self.c.maps['customfields'],desired)
     assert diff.areEqual()
