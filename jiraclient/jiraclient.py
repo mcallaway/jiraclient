@@ -333,10 +333,17 @@ class Jiraclient(object):
       default=None,
     )
     optParser.add_option(
-      "-H","--epic","--epic-theme",
+      "-H","--epic-theme",
       action="store",
       dest="epic_theme",
-      help="Set the epic/theme or Epic Link for the issue",
+      help="Set the epic/theme for the issue",
+      default=None,
+    )
+    optParser.add_option(
+      "--epic-link",
+      action="store",
+      dest="epic_link",
+      help="Set the Epic Link for the issue",
       default=None,
     )
     optParser.add_option(
@@ -698,6 +705,10 @@ class Jiraclient(object):
     uri = 'rest/api/latest/issue/%s' % issueID
     result = self.call_api('get',uri)
     print json.dumps(result)
+
+  def fetch_issue(self,issueID):
+    uri = 'rest/api/latest/issue/%s' % issueID
+    return self.call_api('get',uri)
 
   def add_comment(self,issueID,comment):
     uri = 'rest/api/latest/issue/%s/comment' % issueID
@@ -1083,16 +1094,11 @@ class Jiraclient(object):
       self.fatal("Issue type must be sub-task for --parent to be valid")
 
     # Set Epic attributes via customfield
-    if self.options.epic_theme and \
-     self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme'):
-      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic/theme')
+    if self.options.epic_theme and issue.issuetype['id'] is not None and \
+     self.maps['customfields'][issue.issuetype['id']].find_value('epic/theme') is not None:
+      attr = self.maps['customfields'][issue.issuetype['id']].find_value('epic/theme')
       setattr(issue,attr,[self.options.epic_theme])
-    if self.options.epic_theme and \
-     self.maps['customfields'][issue.issuetype['id']].find_key('epic link'):
-      self.logger.debug("set epic link to %s" % self.options.epic_theme)
-      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic link')
-      setattr(issue,attr,self.options.epic_theme)
-    if self.options.epic_name and \
+    if self.options.epic_name and issue.issuetype['id'] is not None and \
      self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
       setattr(issue,self.maps['customfields'][issue.issuetype['id']].find_key('epic name'),self.options.epic_name)
@@ -1183,6 +1189,14 @@ class Jiraclient(object):
     issue = self.update_issue_obj(issue,'parent',parent)
     self.modify_issue(child,issue)
 
+  def epic_link(self,idlist,epic):
+    # Make the named task part of the named epic.
+    # This makes use of Greenhopper's REST interface as of GH 6.x
+    payload = json.dumps({"ignoreEpics":"true","issueKeys":idlist})
+    uri = "rest/greenhopper/1.0/epics/%s/add" % epic
+    self.call_api('put',uri,payload=payload)
+    self.logger.info("Added issue to epic %s: %s/browse/%s" % (epic, self.get_serverinfo()['baseUrl'], idlist))
+
   def create_issues_from_template(self):
     import yaml
     self.logger.debug("Create issues from template")
@@ -1212,7 +1226,7 @@ class Jiraclient(object):
 
     # First create the "Epic", which might be an actual Epic or some custom
     # issue type that is a duplicate of an Epic.  Create this Epic first so we
-    # can use its Key as epic_theme in subtasks and stories
+    # can use its Key as epic_theme/epic_link in other issues.
     issuetype = 'epic'
     # The sub type is the Issue type for project milestones.
     subtype = 'story'
@@ -1228,13 +1242,12 @@ class Jiraclient(object):
 
     # Modify the epic we just created to set its own theme
     self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'):[eid]})
-    self.modify_issue(eid,{self.maps['customfields'][epic.issuetype['id']].find_key('epic link'):eid})
     # Update the epic issue object so that epic/theme is inherited for tasks we're about to create
     epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic/theme'),[eid])
-    epic = self.update_issue_obj(epic,self.maps['customfields'][epic.issuetype['id']].find_key('epic link'),eid)
 
     # create subtasks for eid, inheriting from epic
     if subtasks:
+      idlist = []
       for subtask in subtasks:
         self.logger.debug("create subtask inheriting from epic")
         issue = self.create_issue_obj(defaults=defaults,issuetype='sub-task')
@@ -1246,10 +1259,15 @@ class Jiraclient(object):
         for (k,v) in subtask.items():
           issue = self.update_issue_obj(issue,k,v)
         issue = self.update_issue_obj(issue,'parent',eid)
-        self.create_issue(issue)
+        stid = self.create_issue(issue)
+        idlist.append(stid)
+
+      if self.options.epic_link:
+        self.epic_link(idlist,self.options.epic_link)
 
     # create stories for eid, inheriting from epic
     if stories:
+      idlist = []
       for story in stories:
         subtasks = None
         if story.has_key('subtasks'):
@@ -1265,6 +1283,7 @@ class Jiraclient(object):
         for (k,v) in story.items():
           issue = self.update_issue_obj(issue,k,v)
         sid = self.create_issue(issue)
+        idlist.append(sid)
 
         if subtasks:
           # create subtasks for stories of epic, inheriting from epic
@@ -1279,7 +1298,11 @@ class Jiraclient(object):
             for (k,v) in subtask.items():
               issue = self.update_issue_obj(issue,k,v)
             issue = self.update_issue_obj(issue,'parent',sid)
-            self.create_issue(issue)
+            stid = self.create_issue(issue)
+            idlist.append(stid)
+
+      if self.options.epic_link:
+        self.epic_link(idlist,self.options.epic_link)
 
     self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 
@@ -1312,9 +1335,19 @@ class Jiraclient(object):
     if self.options.resolve is not None:
       return self.resolve_issue(self.options.issueID,self.options.resolve)
 
+    # Set epic link if specified
+    if self.options.epic_link:
+      self.epic_link([self.options.issueID],self.options.epic_link)
+
     # Modify existing issue
     if self.options.issueID is not None:
-      issue = self.create_issue_obj(None,defaults=False)
+      i = self.fetch_issue(self.options.issueID)
+      # We need to know issue type to have access to custom fields
+      try:
+        itype = i['fields']['issuetype']['name']
+      except Exception, details:
+        self.fatal("Cannot determine issue type of issue %s: %s" % (self.options.issueID, details))
+      issue = self.create_issue_obj(itype,defaults=False)
       return self.modify_issue(self.options.issueID,issue)
 
   def setup(self):
@@ -1398,6 +1431,10 @@ class Jiraclient(object):
       issueID = self.create_issue(issue)
     except Exception, details:
       self.fatal("Failed to create issue. Reason: %r" % details)
+
+    # Set epic link if specified
+    if self.options.epic_link:
+      self.epic_link([issueID],self.options.epic_link)
 
     # Add a work log, possibly updating remaining estimate
     if self.options.worklog is not None:
