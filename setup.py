@@ -19,7 +19,8 @@ setup(name='jiraclient',
       packages=['jiraclient'],
       scripts=['bin/jiraclient'],
       install_requires=[
-          "restkit"
+          "restkit",
+          "PyYAML"
       ],
      )
 
