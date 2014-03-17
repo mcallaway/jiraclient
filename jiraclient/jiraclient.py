@@ -97,7 +97,7 @@ class SearchableDict(dict):
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.2"
+  version = "2.1.3"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])
@@ -1195,7 +1195,7 @@ class Jiraclient(object):
     payload = json.dumps({"ignoreEpics":"true","issueKeys":idlist})
     uri = "rest/greenhopper/1.0/epics/%s/add" % epic
     self.call_api('put',uri,payload=payload)
-    self.logger.info("Added issue to epic %s: %s/browse/%s" % (epic, self.get_serverinfo()['baseUrl'], idlist))
+    self.logger.info("Added issues to epic %s: %s/browse/%s" % (epic, self.get_serverinfo()['baseUrl'], idlist))
 
   def create_issues_from_template(self):
     import yaml
@@ -1262,8 +1262,7 @@ class Jiraclient(object):
         stid = self.create_issue(issue)
         idlist.append(stid)
 
-      if self.options.epic_link:
-        self.epic_link(idlist,self.options.epic_link)
+      self.epic_link(idlist,eid)
 
     # create stories for eid, inheriting from epic
     if stories:
@@ -1301,8 +1300,7 @@ class Jiraclient(object):
             stid = self.create_issue(issue)
             idlist.append(stid)
 
-      if self.options.epic_link:
-        self.epic_link(idlist,self.options.epic_link)
+      self.epic_link(idlist,eid)
 
     self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 

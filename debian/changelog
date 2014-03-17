@@ -1,3 +1,9 @@
+jiraclient (2.1.3-1) lucid; urgency=low
+
+  * Fix the setting of Epic Link on issues and subtasks.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Mon, 17 Mar 2014 12:12:43 -0500
+
 jiraclient (2.1.2-1) lucid; urgency=low
 
   * Support greenhopper 6.1.x "Epic Link"
