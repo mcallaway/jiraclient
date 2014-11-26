@@ -16,6 +16,10 @@ except ImportError:
     from distutils.core import setup
 setup(name='jiraclient',
       version=verstr,
+      description='A REST client for Atlassian JIRA',
+      url='https://github.com/mcallaway/jiraclient',
+      author='Matthew Callaway',
+      license='GPL',
       packages=['jiraclient'],
       scripts=['bin/jiraclient'],
       install_requires=[

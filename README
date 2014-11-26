@@ -6,6 +6,15 @@ python
 python-yaml
 python-restkit
 
+Installation:
+
+  pip install jiraclient
+
+Sample usage:
+
+  jiraclient -S 'Create an issue with this summary'
+  jiraclient --template epic.yaml
+
 Templates:
 
 Create a set of issues with a YAML formatted template file like this:
