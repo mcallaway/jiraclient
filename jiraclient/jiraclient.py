@@ -97,7 +97,7 @@ class SearchableDict(dict):
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.3"
+  version = "2.1.4"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])
@@ -1399,7 +1399,7 @@ class Jiraclient(object):
       # Send payload with method
       try:
         response = self.call_api(self.options.method.lower(),self.options.api,payload=payload)
-        pp.pprint(response)
+        print json.dumps(response)
       except Exception, details:
         self.fatal("API error: bad method: %s" % details)
       return

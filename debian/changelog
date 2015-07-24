@@ -1,3 +1,9 @@
+jiraclient (2.1.4-1) lucid; urgency=low
+
+  * Fix output of --api to be json.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Fri Jul 24 11:03:30 CDT 2015
+
 jiraclient (2.1.3-1) lucid; urgency=low
 
   * Fix the setting of Epic Link on issues and subtasks.
