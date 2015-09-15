@@ -1,3 +1,9 @@
+jiraclient (2.1.5-1) lucid; urgency=low
+
+  * Supply a useful message if args are insufficient.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Tue Sep 15 09:17:34 CDT 2015
+
 jiraclient (2.1.4-1) lucid; urgency=low
 
   * Fix output of --api to be json.
