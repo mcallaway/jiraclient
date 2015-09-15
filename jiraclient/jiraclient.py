@@ -1423,12 +1423,13 @@ class Jiraclient(object):
       return self.act_on_existing_issue()
 
     # Create a new issue
-    defaults = not self.options.norcfile
-    issue = self.create_issue_obj(self.options.issuetype,defaults=defaults)
-    try:
-      issueID = self.create_issue(issue)
-    except Exception, details:
-      self.fatal("Failed to create issue. Reason: %r" % details)
+    if self.options.summary is not None:
+      defaults = not self.options.norcfile
+      issue = self.create_issue_obj(self.options.issuetype,defaults=defaults)
+      try:
+        issueID = self.create_issue(issue)
+      except Exception, details:
+        self.fatal("Failed to create issue. Reason: %r" % details)
 
     # Set epic link if specified
     if self.options.epic_link:
@@ -1441,6 +1442,9 @@ class Jiraclient(object):
     # Resolve the just created issue
     if self.options.resolve is not None:
       self.resolve_issue(issueID,self.options.resolve)
+
+    # If you got here, you didn't ask to do anything
+    self.logger.info("Nothing to do. Seek --help.")
 
 def main():
   A = Jiraclient()
