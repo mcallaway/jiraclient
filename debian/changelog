@@ -1,3 +1,10 @@
+jiraclient (2.1.7-1) lucid; urgency=low
+
+  * Add 'return' statements to code blocks when they are done doing their job.
+  * Missed this commit before last publish, so 2.1.6 was a mistake.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Tue Sep 29 14:20:29 CDT 2015
+
 jiraclient (2.1.6-1) lucid; urgency=low
 
   * Add 'return' statements to code blocks when they are done doing their job.
