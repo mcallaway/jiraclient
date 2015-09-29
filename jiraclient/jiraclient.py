@@ -1427,21 +1427,21 @@ class Jiraclient(object):
       defaults = not self.options.norcfile
       issue = self.create_issue_obj(self.options.issuetype,defaults=defaults)
       try:
-        issueID = self.create_issue(issue)
+        return self.create_issue(issue)
       except Exception, details:
         self.fatal("Failed to create issue. Reason: %r" % details)
 
     # Set epic link if specified
     if self.options.epic_link:
-      self.epic_link([issueID],self.options.epic_link)
+      return self.epic_link([issueID],self.options.epic_link)
 
     # Add a work log, possibly updating remaining estimate
     if self.options.worklog is not None:
-      self.log_work(issueID)
+      return self.log_work(issueID)
 
     # Resolve the just created issue
     if self.options.resolve is not None:
-      self.resolve_issue(issueID,self.options.resolve)
+      return self.resolve_issue(issueID,self.options.resolve)
 
     # If you got here, you didn't ask to do anything
     self.logger.info("Nothing to do. Seek --help.")
