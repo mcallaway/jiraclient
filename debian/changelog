@@ -1,3 +1,9 @@
+jiraclient (2.1.6-1) lucid; urgency=low
+
+  * Add 'return' statements to code blocks when they are done doing their job.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Tue Sep 29 11:16:58 CDT 2015
+
 jiraclient (2.1.5-1) lucid; urgency=low
 
   * Supply a useful message if args are insufficient.
