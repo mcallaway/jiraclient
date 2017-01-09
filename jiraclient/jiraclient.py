@@ -97,7 +97,7 @@ class SearchableDict(dict):
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.7"
+  version = "2.1.8"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])
@@ -1262,7 +1262,9 @@ class Jiraclient(object):
         stid = self.create_issue(issue)
         idlist.append(stid)
 
-      self.epic_link(idlist,eid)
+      # We use the word 'epic' a lot, but we might have made a story with subtasks.
+      if issuetype == 'epic':
+        self.epic_link(idlist,eid)
 
     # create stories for eid, inheriting from epic
     if stories:
@@ -1300,7 +1302,9 @@ class Jiraclient(object):
             stid = self.create_issue(issue)
             idlist.append(stid)
 
-      self.epic_link(idlist,eid)
+      # We use the word 'epic' a lot, but we might have made a story with subtasks.
+      if issuetype == 'epic':
+        self.epic_link(idlist,eid)
 
     self.logger.info("Created issue %s/browse/%s" % (self.get_serverinfo()['baseUrl'], eid))
 

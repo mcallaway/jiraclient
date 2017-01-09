@@ -1,3 +1,10 @@
+jiraclient (2.1.8-1) lucid; urgency=low
+
+  * Add an 'if' to check issuetype is epic to allow story + subtask creation
+    from a template
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Mon Jan  9 17:17:22 CST 2017
+
 jiraclient (2.1.7-1) lucid; urgency=low
 
   * Add 'return' statements to code blocks when they are done doing their job.
