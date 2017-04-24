@@ -88,16 +88,22 @@ class Issue(object):
 class SearchableDict(dict):
   def find_key(self,val):
       """return the key of dictionary dic given the value"""
-      items = [k for k, v in self.iteritems() if v == val]
-      if items: return items.pop()
-      else: return None
+      for k, v in self.iteritems():
+          if v == val:
+              return k
+          if isinstance(v,dict):
+              if v['name'] == val:
+                  return k
+      else:
+          return None
+
   def find_value(self,key):
       """return the value of dictionary dic given the key"""
       if self.has_key(key): return self[key]
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.8"
+  version = "2.1.9"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])
@@ -437,6 +443,13 @@ class Jiraclient(object):
       help="Delete the issue specified by --issue",
       default=False,
     )
+    optParser.add_option(
+      "--itservice",
+      action="store",
+      dest="itservice",
+      help="Set the 'IT Service' for the issue",
+      default=None,
+    )
     (self.options, self.args) = optParser.parse_args()
 
   def prepare_logger(self):
@@ -512,12 +525,8 @@ class Jiraclient(object):
       self.fatal("Unable to parse file at %r: %s" % (self.options.config,details))
 
     for (k,v) in (parser.items('issues')):
-      if not hasattr(self.options,k):
-        # You can't set in rcfile something that isn't also an option.
-        self.fatal("Unknown issue attribute: %s" % k)
-      if getattr(self.options,k) is None:
-        self.logger.debug("take value %s for %s from rc file" % (v,k))
-        setattr(self.options,k,v)
+      self.logger.debug("take value %s for %s from rc file" % (v,k))
+      setattr(self.options,k,v)
 
   def call_api(self,method,uri,payload=None,full=False):
     self.proxy.uri = "%s/%s" % (self.options.jiraurl, uri)
@@ -580,6 +589,12 @@ class Jiraclient(object):
     self.logger.debug("types: %s" % self.maps['issuetype'])
 
   def get_customfields(self,projectKey,issueType):
+    # More general support of customfields would depend on specifically
+    # supporting the REST API, because different JIRA widgets have different
+    # object constructions. Some are key/value pairs, some are lists, some are
+    # dictionaries.
+    # https://developer.atlassian.com/jiradev/jira-apis/jira-rest-apis/jira-rest-api-tutorials/jira-rest-api-example-create-issue
+    self.logger.debug("get customfields: %s %s" % (projectKey,issueType))
     if not self.maps['project']: return
     if not self.maps['issuetype']: return
     if issueType in self.maps['customfields']: return
@@ -602,11 +617,21 @@ class Jiraclient(object):
       for item in data['projects'][0]['issuetypes']:
         for field in item['fields']:
           if field.startswith('customfield'):
-            self.logger.debug("customfield: %s %s" % (field,str(item['fields'][field]['name'].lower())))
-            #self.maps['customfields'][str(field)] = str(item['fields'][field]['name'].lower())
+
             if issueType not in self.maps['customfields'].keys():
               self.maps['customfields'][str(issueType)] = SearchableDict()
-            self.maps['customfields'][str(issueType)][str(field)] = str(item['fields'][field]['name'].lower())
+
+            if item['fields'][field].has_key('allowedValues'):
+              self.maps['customfields'][str(issueType)][str(field)] = {}
+              self.maps['customfields'][str(issueType)][str(field)]['values'] = []
+              self.maps['customfields'][str(issueType)][str(field)]['name'] = str(item['fields'][field]['name'].lower())
+              for value_dict in item['fields'][field]['allowedValues']:
+                self.maps['customfields'][str(issueType)][str(field)]['values'].append( str(value_dict['value']) )
+            else:
+
+              self.maps['customfields'][str(issueType)][str(field)] = str(item['fields'][field]['name'].lower())
+
+    self.logger.debug("customfields map: %s" % self.maps['customfields'])
 
   def get_resolutions(self):
     if self.maps['resolutions']: return
@@ -882,11 +907,17 @@ class Jiraclient(object):
       setattr(issue,attribute,value)
       return issue
 
+    itype = issue.issuetype['id']
     if attribute.startswith("customfield"):
-      # Custom fields aren't class attributes, just add them
-      setattr(issue,attribute,value)
+      field = self.maps['customfields'][itype][attribute]
+      if isinstance(field,dict):
+        setattr(issue,attribute,{'value': value})
+      else:
+        setattr(issue,attribute,value)
       return issue
 
+    # FIXME:
+    # This block is older than the above 10 lines, these may not be needed
     itype = issue.issuetype['id']
     if itype in self.maps['customfields'].keys() and attribute in self.maps['customfields'][itype].values():
       if attribute == 'epic/theme':
@@ -896,11 +927,6 @@ class Jiraclient(object):
       if attribute == 'epic name':
         setattr(issue,self.maps['customfields'][itype].find_key(str(attribute)),value)
       return issue
-
-    # Fail if we specified an unknown attribute that isn't a customfield
-    customfields = list(set(itertools.chain( *[ x.values() for x in self.maps['customfields'].values() ] )))
-    if not hasattr(Issue(),attribute) and attribute not in customfields:
-      self.fatal("Unknown issue attribute: %s" % attribute)
 
     attr = getattr(Issue(),attribute)
     # Is the attr a string, list of strings, dict or list of dicts?
@@ -1102,6 +1128,12 @@ class Jiraclient(object):
      self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
       setattr(issue,self.maps['customfields'][issue.issuetype['id']].find_key('epic name'),self.options.epic_name)
+
+    # Set IT Service via customfield
+    if self.options.itservice and \
+     self.maps['customfields'][ issue.issuetype['id'] ].find_key('it service') is not None:
+      attr = self.maps['customfields'][ issue.issuetype['id'] ].find_key('it service')
+      setattr(issue,attr,{'value':self.options.itservice})
 
     return issue
 
