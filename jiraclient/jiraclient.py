@@ -103,7 +103,7 @@ class SearchableDict(dict):
       else: return None
 
 class Jiraclient(object):
-  version = "2.1.9"
+  version = "2.1.10"
   def __init__(self):
     self.issues_created = []
     self.proxy   = Resource('', filters=[])

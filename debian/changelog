@@ -1,3 +1,10 @@
+jiraclient (2.1.10-1) lucid; urgency=low
+
+  * Support setting 'epic link' on an existing issue.
+  * Silence a YAML Loader deprecation warning for python 2.7.
+
+ -- Matt Callaway <mcallawa@genome.wustl.edu>  Mon Mar 30 08:49:31 CDT 2020
+
 jiraclient (2.1.9-1) lucid; urgency=low
 
   * Support complex custom fields like select widgets.
