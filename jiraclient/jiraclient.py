@@ -1128,6 +1128,10 @@ class Jiraclient(object):
      self.maps['customfields'][issue.issuetype['id']].find_key('epic name'):
       attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic name')
       setattr(issue,self.maps['customfields'][issue.issuetype['id']].find_key('epic name'),self.options.epic_name)
+    if self.options.epic_link and issue.issuetype['id'] is not None and \
+     self.maps['customfields'][issue.issuetype['id']].find_key('epic link'):
+      attr = self.maps['customfields'][issue.issuetype['id']].find_key('epic link')
+      setattr(issue,self.maps['customfields'][issue.issuetype['id']].find_key('epic link'),self.options.epic_link)
 
     # Set IT Service via customfield
     if self.options.itservice and \
@@ -1240,9 +1244,9 @@ class Jiraclient(object):
     # goes from Epic to Story to Subtask, which are different datatypes in Jira.
     try:
       if self.options.template == "-":
-        yamldata = yaml.load(sys.stdin)
+        yamldata = yaml.load(sys.stdin,Loader=yaml.SafeLoader)
       else:
-        yamldata = yaml.load(file(self.options.template,"r"))
+        yamldata = yaml.load(file(self.options.template,"r"),Loader=yaml.SafeLoader)
     except Exception,details:
       self.fatal("Failed to parse YAML template: %s" % details)
 
