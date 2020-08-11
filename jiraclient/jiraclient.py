@@ -146,6 +146,9 @@ class Jiraclient(object):
  - Create an issue with a specified Component and Fix Version 
    and assign it to myself:
    jiraclient.py -u 'username' -p 'jirapassword' -A 'username' -P INFOSYS -Q major -F 10000  -C 10003 -T epic -S 'Investigate Platform IFS'
+
+ - Unassign an existing issue:
+   jiraclient.py -u 'username' -p 'jirapassword' -i INFO-1000 -A Unassigned
 """
     optParser = OptionParser(usage)
     optParser.add_option(
@@ -307,7 +310,7 @@ class Jiraclient(object):
       "-A","--assignee",
       action="store",
       dest="assignee",
-      help="Jira assignee",
+      help="Jira assignee (specify Unassigned to unassign the issue)",
       default=None,
     )
     optParser.add_option(
@@ -741,6 +744,17 @@ class Jiraclient(object):
     result = self.call_api('post',uri,payload=comment)
     return result
 
+  def is_assignee_unassigned(self, issue):
+    return issue.has_key('assignee') and issue['assignee'].has_key('name') and issue['assignee']['name'] == 'Unassigned'
+
+  def fix_assignee(self, issue):
+    if self.is_assignee_unassigned(issue):
+      new_issue = issue.copy()
+      new_issue['assignee']['name'] = None
+      return new_issue
+    else:
+      return issue
+
   def clean_issue(self,issue):
     # We have an Issue with a number of required default values
     # that are often empty.  Remove the empty ones so as to not
@@ -755,6 +769,7 @@ class Jiraclient(object):
       if v == {"key":None}: issue.pop(k)
       if v == {"originalEstimate":None}: issue.pop(k)
       if v == [{"id":None}]: issue.pop(k)
+    issue = self.fix_assignee(issue)
     self.logger.debug("cleaned issue: %s" % issue)
     return issue
 
